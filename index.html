@@ -1,0 +1,1010 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Phylax — Child Protection, Designed Like a Product</title>
+  <meta name="description"
+    content="Phylax is a child-safety platform: a lightweight child browser extension powered by parent-defined policies, semantic detection, and real-time risk scoring." />
+  <style>
+    :root {
+      --bg0: #070A12;
+      --bg1: #0A1022;
+      --card: rgba(255, 255, 255, .06);
+      --card2: rgba(255, 255, 255, .085);
+      --stroke: rgba(255, 255, 255, .10);
+      --stroke2: rgba(255, 255, 255, .16);
+      --txt: rgba(255, 255, 255, .92);
+      --muted: rgba(255, 255, 255, .70);
+      --muted2: rgba(255, 255, 255, .55);
+      --shadow: 0 20px 60px rgba(0, 0, 0, .55);
+      --shadow2: 0 10px 30px rgba(0, 0, 0, .35);
+      --radius: 18px;
+      --radius2: 26px;
+      --max: 1120px;
+      --accent1: #7C5CFF;
+      --accent2: #22D3EE;
+      --accent3: #34D399;
+      --warn: #FBBF24;
+      --bad: #FB7185;
+      --ok: #60A5FA;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+    }
+
+    * {
+      box-sizing: border-box
+    }
+
+    html,
+    body {
+      height: 100%
+    }
+
+    body {
+      margin: 0;
+      font-family: var(--sans);
+      color: var(--txt);
+      background:
+        radial-gradient(1200px 700px at 20% 10%, rgba(124, 92, 255, .15), transparent 60%),
+        radial-gradient(1000px 650px at 85% 15%, rgba(34, 211, 238, .12), transparent 58%),
+        radial-gradient(900px 600px at 55% 90%, rgba(52, 211, 153, .08), transparent 58%),
+        linear-gradient(180deg, var(--bg0), var(--bg1));
+      overflow-x: hidden;
+      line-height: 1.5;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none
+    }
+
+    .container {
+      max-width: var(--max);
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    /* Navigation */
+    .nav {
+      position: sticky;
+      top: 0;
+      z-index: 30;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      background: rgba(7, 10, 18, .65);
+      border-bottom: 1px solid rgba(255, 255, 255, .08);
+    }
+
+    .nav-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 72px;
+    }
+
+    .brand {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      letter-spacing: .2px;
+    }
+
+    .logo {
+      width: 40px;
+      height: 40px;
+      border-radius: 12px;
+      background: radial-gradient(circle at 30% 25%, rgba(255, 255, 255, .18), transparent 45%),
+        linear-gradient(135deg, rgba(124, 92, 255, .9), rgba(34, 211, 238, .75));
+      box-shadow: 0 0 0 1px rgba(255, 255, 255, .1) inset, 0 10px 20px rgba(124, 92, 255, .25);
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .logo:after {
+      content: "";
+      position: absolute;
+      inset: -40%;
+      background: conic-gradient(from 180deg, rgba(255, 255, 255, .0), rgba(255, 255, 255, .3), rgba(255, 255, 255, .0));
+      animation: spin 6s linear infinite;
+      opacity: .4;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg)
+      }
+    }
+
+    .brand-text h1 {
+      font-size: 16px;
+      margin: 0;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .brand-text p {
+      margin: 0;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 24px;
+      font-size: 14px;
+      color: var(--muted);
+      font-weight: 500;
+    }
+
+    .nav-links a:hover {
+      color: var(--txt)
+    }
+
+    .btn {
+      border: 1px solid rgba(255, 255, 255, .14);
+      background: rgba(255, 255, 255, .06);
+      color: var(--txt);
+      padding: 10px 18px;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all .2s ease;
+      box-shadow: var(--shadow2);
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
+      background: rgba(255, 255, 255, .1);
+      border-color: rgba(255, 255, 255, .25)
+    }
+
+    .btn-primary {
+      border-color: rgba(255, 255, 255, .2);
+      background: linear-gradient(135deg, rgba(124, 92, 255, 1), rgba(124, 92, 255, 0.8));
+      box-shadow: 0 4px 12px rgba(124, 92, 255, .3), inset 0 1px 1px rgba(255, 255, 255, .2);
+      text-shadow: 0 1px 2px rgba(0, 0, 0, .15);
+    }
+
+    .btn-primary:hover {
+      box-shadow: 0 6px 16px rgba(124, 92, 255, .4), inset 0 1px 1px rgba(255, 255, 255, .3);
+    }
+
+    /* Hero */
+    .hero {
+      padding: 100px 0 80px 0;
+      position: relative;
+      text-align: center;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, .12);
+      background: rgba(255, 255, 255, .05);
+      font-size: 13px;
+      color: var(--muted);
+      font-weight: 500;
+      margin-bottom: 24px;
+      backdrop-filter: blur(4px);
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: var(--accent2);
+      box-shadow: 0 0 0 4px rgba(34, 211, 238, .15);
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0% {
+        box-shadow: 0 0 0 0 rgba(34, 211, 238, .4);
+      }
+
+      70% {
+        box-shadow: 0 0 0 6px rgba(34, 211, 238, 0);
+      }
+
+      100% {
+        box-shadow: 0 0 0 0 rgba(34, 211, 238, 0);
+      }
+    }
+
+    h1 {
+      font-size: 56px;
+      line-height: 1.1;
+      letter-spacing: -1.5px;
+      background: linear-gradient(180deg, #fff, rgba(255, 255, 255, 0.7));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin: 0 0 24px 0;
+    }
+
+    .hero p {
+      font-size: 20px;
+      color: var(--muted);
+      max-width: 600px;
+      margin: 0 auto 32px auto;
+      line-height: 1.6;
+    }
+
+    .disclaimer {
+      margin-top: 24px;
+      color: rgba(255, 255, 255, .45);
+      font-size: 13px;
+    }
+
+    /* Grid/Feature Section */
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+      margin-bottom: 120px;
+    }
+
+    .feature-card {
+      background: var(--card);
+      border: 1px solid var(--stroke);
+      border-radius: var(--radius);
+      padding: 32px;
+      transition: all .3s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .feature-card:hover {
+      background: var(--card2);
+      border-color: var(--stroke2);
+      transform: translateY(-4px);
+      box-shadow: var(--shadow2);
+    }
+
+    .feature-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, .05);
+      border: 1px solid rgba(255, 255, 255, .1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 20px;
+      font-size: 20px;
+    }
+
+    .feature-title {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 12px;
+      color: #fff;
+    }
+
+    .feature-desc {
+      font-size: 15px;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    /* Detail Section */
+    .section-detail {
+      padding: 80px 0;
+      border-top: 1px solid var(--stroke);
+    }
+
+    .split-layout {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 60px;
+      align-items: center;
+    }
+
+    .detail-content h2 {
+      font-size: 32px;
+      margin-bottom: 16px;
+      letter-spacing: -0.5px;
+    }
+
+    .detail-content p {
+      font-size: 17px;
+      color: var(--muted);
+      line-height: 1.7;
+      margin-bottom: 30px;
+    }
+
+    .detail-visual {
+      background: linear-gradient(135deg, rgba(255, 255, 255, .03), rgba(255, 255, 255, .01));
+      border: 1px solid var(--stroke);
+      border-radius: var(--radius2);
+      height: 360px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+
+    /* Privacy Badge */
+    .privacy-badge {
+      background: rgba(52, 211, 153, 0.1);
+      border: 1px solid rgba(52, 211, 153, 0.2);
+      color: var(--accent3);
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      display: inline-block;
+      margin-bottom: 16px;
+    }
+
+    footer {
+      border-top: 1px solid var(--stroke);
+      padding: 60px 0;
+      margin-top: 80px;
+      color: var(--muted2);
+      font-size: 14px;
+      text-align: center;
+    }
+
+    @media (max-width: 900px) {
+      .features-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .split-layout {
+        grid-template-columns: 1fr;
+      }
+
+      h1 {
+        font-size: 42px;
+      }
+
+      .nav-links {
+        display: none;
+      }
+    }
+
+    /* Pricing */
+    .pricing-section {
+      padding: 100px 0;
+      position: relative;
+    }
+
+    .pricing-header {
+      text-align: center;
+      max-width: 600px;
+      margin: 0 auto 60px auto;
+    }
+
+    .pricing-header h2 {
+      font-size: 36px;
+      margin-bottom: 16px;
+      color: #fff;
+    }
+
+    .pricing-header p {
+      font-size: 16px;
+      color: var(--muted);
+    }
+
+    .pricing-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+      align-items: start;
+      margin-bottom: 60px;
+    }
+
+    .pricing-card {
+      background: var(--card);
+      border: 1px solid var(--stroke);
+      border-radius: var(--radius2);
+      padding: 32px;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      transition: all .3s ease;
+    }
+
+    .pricing-card:hover {
+      transform: translateY(-4px);
+      border-color: var(--stroke2);
+    }
+
+    /* Featured card styles */
+    .pricing-card.featured {
+      background: linear-gradient(180deg, rgba(34, 211, 238, 0.08), rgba(34, 211, 238, 0.02));
+      border-color: rgba(34, 211, 238, 0.4);
+      box-shadow: 0 0 40px rgba(34, 211, 238, 0.15);
+      z-index: 2;
+    }
+
+    .tier-badge {
+      position: absolute;
+      top: -14px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--accent2);
+      color: #000;
+      font-size: 12px;
+      font-weight: 700;
+      padding: 4px 16px;
+      border-radius: 99px;
+      box-shadow: 0 4px 12px rgba(34, 211, 238, 0.4);
+      letter-spacing: 0.5px;
+      text-wrap: nowrap;
+    }
+
+    .price-block {
+      margin: 24px 0;
+    }
+
+    .price-amount {
+      font-size: 42px;
+      font-weight: 700;
+      letter-spacing: -1px;
+      color: #fff;
+    }
+
+    .price-period {
+      font-size: 15px;
+      color: var(--muted2);
+      font-weight: 500;
+    }
+
+    .price-sub {
+      font-size: 13px;
+      color: var(--accent3);
+      margin-top: 4px;
+      display: block;
+    }
+
+    .price-context {
+      font-size: 13px;
+      color: var(--muted2);
+      margin-top: 8px;
+      font-style: italic;
+    }
+
+    .tier-title {
+      font-size: 20px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .tier-desc {
+      font-size: 14px;
+      color: var(--muted);
+      line-height: 1.4;
+      margin-bottom: 0;
+    }
+
+    .divider {
+      height: 1px;
+      background: var(--stroke);
+      margin: 24px 0;
+      width: 100%;
+    }
+
+    .feature-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      flex-grow: 1;
+    }
+
+    .feature-item {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 14px;
+      font-size: 14px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .feature-item.limit {
+      color: var(--muted2);
+    }
+
+    .check {
+      flex-shrink: 0;
+    }
+
+    .positioning-line {
+      margin-top: 24px;
+      padding-top: 20px;
+      border-top: 1px dashed var(--stroke);
+      font-size: 13px;
+      font-style: italic;
+      color: var(--muted2);
+      text-align: center;
+    }
+
+    .school-plan {
+      text-align: center;
+      padding: 40px;
+      background: var(--card);
+      border: 1px solid var(--stroke);
+      border-radius: var(--radius);
+      margin-top: 40px;
+    }
+
+    @media (max-width: 900px) {
+      .pricing-grid {
+        grid-template-columns: 1fr;
+        max-width: 500px;
+        margin: 0 auto;
+      }
+
+      .pricing-card.featured {
+        transform: scale(1.02);
+      }
+    }
+
+    /* Greek Key Animation */
+    @keyframes spin-slow {
+      from {
+        transform: rotate(0deg);
+      }
+
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    .greek-key-bg {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 800px;
+      height: 800px;
+      transform: translate(-50%, -50%);
+      opacity: 0.03;
+      pointer-events: none;
+      z-index: 0;
+      background-image: url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M20,20 L80,20 L80,80 L20,80 L20,30 L70,30 L70,70 L30,70 L30,40 L60,40 L60,60 L40,60 L40,50 L50,50' fill='none' stroke='white' stroke-width='5'/%3E%3C/svg%3E");
+      mask-image: radial-gradient(circle, black 30%, transparent 70%);
+      -webkit-mask-image: radial-gradient(circle, black 30%, transparent 70%);
+    }
+
+    /* Process/Deep Dive Section */
+    .process-section {
+      padding: 120px 0;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .process-container {
+      max-width: 900px;
+      margin: 0 auto;
+      position: relative;
+      z-index: 1;
+    }
+
+    .step-item {
+      display: grid;
+      grid-template-columns: 80px 1fr;
+      gap: 32px;
+      margin-bottom: 60px;
+      position: relative;
+    }
+
+    .step-item:last-child {
+      margin-bottom: 0;
+    }
+
+    /* Connection Line */
+    .step-item:not(:last-child)::after {
+      content: '';
+      position: absolute;
+      left: 40px;
+      top: 80px;
+      bottom: -60px;
+      width: 2px;
+      background: linear-gradient(180deg, var(--stroke2), rgba(255, 255, 255, 0.05));
+    }
+
+    .step-number {
+      width: 80px;
+      height: 80px;
+      border-radius: 20px;
+      background: var(--card);
+      border: 1px solid var(--stroke);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--accent2);
+      box-shadow: 0 0 0 4px rgba(0, 0, 0, 0.2), var(--shadow2);
+      position: relative;
+      z-index: 2;
+    }
+
+    .step-content {
+      padding-top: 10px;
+    }
+
+    .step-title {
+      font-size: 24px;
+      color: #fff;
+      font-weight: 600;
+      margin-bottom: 12px;
+    }
+
+    .step-desc {
+      font-size: 16px;
+      color: var(--muted);
+      line-height: 1.7;
+      margin-bottom: 20px;
+    }
+
+    .tech-pill {
+      display: inline-block;
+      font-family: var(--mono);
+      font-size: 12px;
+      padding: 4px 10px;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--muted2);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    /* Circular Greek Key Graphic */
+    .greek-circle-container {
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: 600px;
+      height: 600px;
+      transform: translate(30%, -20%);
+      opacity: 0.1;
+      /* Subtle */
+      animation: spin-slow 120s linear infinite;
+      pointer-events: none;
+    }
+
+    /* Complex Circular Meander SVG Path */
+    .meander-path {
+      fill: none;
+      stroke: white;
+      stroke-width: 1.5;
+      stroke-linecap: square;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="nav">
+    <div class="container nav-inner">
+      <div class="brand">
+        <div class="logo">
+          <svg viewBox="0 0 100 100"
+            style="width: 24px; height: 24px; fill: none; stroke: white; stroke-width: 8; stroke-linecap: square;">
+            <path
+              d="M20,20 L80,20 L80,80 L20,80 L20,30 L70,30 L70,70 L30,70 L30,40 L60,40 L60,60 L40,60 L40,50 L50,50" />
+          </svg>
+        </div>
+        <div class="brand-text">
+          <h1>Phylax Child Protection</h1>
+          <p>Intelligent Protection</p>
+        </div>
+      </div>
+      <div class="nav-links">
+        <a href="#how-it-works">How it Works</a>
+        <a href="#privacy">Privacy First</a>
+        <a href="#pricing">Pricing</a>
+      </div>
+      <div class="cta">
+        <button class="btn btn-primary">Request Early Access</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="container">
+
+    <!-- Hero Section -->
+    <section class="hero">
+      <div class="pill">
+        <span class="dot"></span>
+        Coming Soon · Private Beta
+      </div>
+
+      <h1>Child safety, reimagined for the AI era.</h1>
+
+      <p>
+        Phylax is a child-protection platform that pairs a lightweight browser extension for kids with a
+        parent-controlled AI dashboard. Parents set safety rules in plain language, and Phylax uses semantic analysis
+        and risk scoring to understand context, block harmful content, and surface meaningful alerts in real time. The
+        system is designed to protect children quietly and intelligently, without spying, ads, or data sales.
+      </p>
+
+      <div style="display: flex; gap: 12px; justify-content: center;">
+        <button class="btn btn-primary" style="padding: 12px 24px; font-size: 16px;">Request Access</button>
+        <button class="btn" style="padding: 12px 24px; font-size: 16px;">View Demo</button>
+      </div>
+
+      <p class="disclaimer">
+        Phylax is currently in active development and available only to early testers.
+        The platform shown below reflects our intended launch architecture and safety philosophy.
+      </p>
+    </section>
+
+    <!-- Deep Dive "How it Works" -->
+    <section id="how-it-works" class="process-section">
+      <!-- Decorative Greek Key Circle Background -->
+      <div class="greek-circle-container">
+        <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" class="meander-path">
+          <defs>
+            <pattern id="meanderPattern" x="0" y="0" width="40" height="20" patternUnits="userSpaceOnUse">
+              <path d="M0,20 L0,0 L20,0 L20,10 L10,10 L10,5 L30,5 L30,15 L10,15 L10,20" fill="none"
+                stroke="currentColor" stroke-width="2" />
+            </pattern>
+          </defs>
+          <!-- Using a simpler geometric representation for the "Greek Key" effect -->
+          <circle cx="100" cy="100" r="90" stroke-width="8" stroke="rgba(255,255,255,0.2)" stroke-dasharray="20 10" />
+          <circle cx="100" cy="100" r="70" stroke-width="4" stroke="rgba(255,255,255,0.1)" stroke-dasharray="40 5" />
+          <circle cx="100" cy="100" r="50" stroke-width="2" stroke="rgba(255,255,255,0.1)" />
+
+          <!-- Abstract Key Segments -->
+          <path d="M100,10 L100,30 L120,30 M100,190 L100,170 L80,170 M10,100 L30,100 L30,80 M190,100 L170,100 L170,120"
+            stroke="white" stroke-width="2" fill="none" opacity="0.5" />
+        </svg>
+      </div>
+
+      <div class="container process-container">
+        <div style="text-align: center; margin-bottom: 80px;">
+          <h2 style="font-size: 36px; margin-bottom: 16px;">How Phylax Protects</h2>
+          <p style="color: var(--muted); max-width: 500px; margin: 0 auto;">A multi-layered defense system running
+            almost entirely on your child's device.</p>
+        </div>
+
+        <!-- Step 1 -->
+        <div class="step-item">
+          <div class="step-number">01</div>
+          <div class="step-content">
+            <div class="step-title">Deep Content Analysis</div>
+            <div class="step-desc">
+              Phylax lives in the browser as an extension. Unlike DNS filters that only see domain names (like
+              "google.com"), Phylax reads the actual page content. It scans text, analyzes image metadata, and
+              understands the context of what is being viewed in real-time.
+            </div>
+            <div class="tech-pill">DOM Mutation Observers</div>
+            <div class="tech-pill">Computer Vision Lite</div>
+          </div>
+        </div>
+
+        <!-- Step 2 -->
+        <div class="step-item">
+          <div class="step-number">02</div>
+          <div class="step-content">
+            <div class="step-title">The Semantic Decision Engine</div>
+            <div class="step-desc">
+              This is the "Brain". A quantized Large Language Model (LLM) runs locally on the computer. It takes the
+              data from the extension and scores it against your specific family policies. It doesn't just look for "bad
+              words"—it measures <em style="color: var(--txt);">intent</em>.
+            </div>
+            <div class="step-desc">
+              <i>Example: It understands that "breast cancer symptoms" is medical (Safe), while similar keywords in
+                another context might be explicit (Blocked).</i>
+            </div>
+            <div class="tech-pill">Local LLM (ONNX/WASM)</div>
+            <div class="tech-pill">Vector Embeddings</div>
+          </div>
+        </div>
+
+        <!-- Step 3 -->
+        <div class="step-item">
+          <div class="step-number">03</div>
+          <div class="step-content">
+            <div class="step-title">Parent Dashboard & Enforcement</div>
+            <div class="step-desc">
+              You stay in the loop without needing to spy. The dashboard shows you high-level risk trends and
+              significant blocks, but respects your child's privacy by summarizing safe activity. You can adjust the
+              "Strictness Knob" or create custom rules in plain English.
+            </div>
+            <div class="tech-pill">Real-time Sync</div>
+            <div class="tech-pill">Privacy-Preserving Logs</div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- Detail Section: Privacy -->
+    <section id="privacy" class="section-detail">
+      <div class="container split-layout">
+        <div class="detail-content">
+          <div class="privacy-badge">PRIVACY BY DESIGN</div>
+          <h2>Safe browsing shouldn't cost your privacy.</h2>
+          <p>
+            Legacy safety tools track everything. Phylax is different. We process as much as possible locally on the
+            device. When cloud analysis is needed, data is anonymized.
+          </p>
+          <p>
+            You own your family's data. We never sell it, and we don't use it to train public models.
+          </p>
+          <button class="btn">Read our Safety Stance</button>
+        </div>
+        <div class="detail-visual">
+          <!-- Abstract representation of privacy/encryption -->
+          <div style="text-align: center; opacity: 0.8;">
+            <div style="font-size: 48px; margin-bottom: 20px;">🛡️</div>
+            <div style="font-family: var(--mono); font-size: 14px; color: var(--accent3);">ENCRYPTED_ADAPTER::ACTIVE
+            </div>
+            <div style="font-family: var(--mono); font-size: 14px; color: var(--muted2); margin-top: 4px;">Local
+              Analysis Preference: HIGH</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Pricing Section -->
+    <section id="pricing" class="pricing-section">
+      <div class="container">
+        <div class="pricing-header">
+          <h2>Simple, transparent pricing.</h2>
+          <p>Invest in your child's digital wellbeing for less than the cost of a streaming subscription.</p>
+        </div>
+
+        <div class="pricing-grid">
+          <!-- Tier 1: Free -->
+          <div class="pricing-card">
+            <div class="tier-title">
+              <span style="color: var(--accent3);">🟢</span> Foundation
+            </div>
+            <div class="tier-desc">
+              Essential protection for instant onboarding.
+            </div>
+            <div class="divider"></div>
+            <div class="price-block">
+              <div class="price-amount">$0</div>
+              <div class="price-period">Forever free</div>
+            </div>
+
+            <ul class="feature-list">
+              <li class="feature-item"><span class="check" style="color: var(--accent3);">✓</span> Child browser
+                extension</li>
+              <li class="feature-item"><span class="check" style="color: var(--accent3);">✓</span> Real-time content
+                blocking</li>
+              <li class="feature-item"><span class="check" style="color: var(--accent3);">✓</span> Basic semantic
+                filtering</li>
+              <li class="feature-item"><span class="check" style="color: var(--accent3);">✓</span> Parenting dashboard
+                (read-only)</li>
+              <li class="feature-item"><span class="check" style="color: var(--accent3);">✓</span> Weekly safety summary
+              </li>
+              <li class="feature-item"><span class="check" style="color: var(--accent3);">✓</span> Manual block lists
+              </li>
+              <li class="feature-item limit">Limit: 1 Child</li>
+              <li class="feature-item limit">7-day analytics history</li>
+            </ul>
+
+            <div class="positioning-line">
+              “Essential protection, no cost.”
+            </div>
+          </div>
+
+          <!-- Tier 2: Plus -->
+          <div class="pricing-card featured">
+            <div class="tier-badge">Most Parents</div>
+            <div class="tier-title">
+              <span style="color: var(--accent2);">🔵</span> Plus
+            </div>
+            <div class="tier-desc">
+              The standard for modern digital parenting.
+            </div>
+            <div class="divider"></div>
+            <div class="price-block">
+              <div class="price-amount">$9.99<span class="price-period">/mo</span></div>
+              <div class="price-sub">or $99/year (2 months free)</div>
+              <div class="price-context">Comparable to Netflix, cheaper than therapy.</div>
+            </div>
+
+            <ul class="feature-list">
+              <li class="feature-item"><span class="check" style="color: var(--accent2);">✓</span> <strong>Everything in
+                  Free, plus:</strong></li>
+              <li class="feature-item"><span class="check" style="color: var(--accent2);">✓</span> Up to 4 children</li>
+              <li class="feature-item"><span class="check" style="color: var(--accent2);">✓</span> AI-powered semantic
+                risk scoring</li>
+              <li class="feature-item"><span class="check" style="color: var(--accent2);">✓</span> Message + video
+                context analysis</li>
+              <li class="feature-item"><span class="check" style="color: var(--accent2);">✓</span> Custom parent rules
+                (natural language)</li>
+              <li class="feature-item"><span class="check" style="color: var(--accent2);">✓</span> 30-day activity
+                history</li>
+              <li class="feature-item"><span class="check" style="color: var(--accent2);">✓</span> Smart alerts
+                (non-spammy)</li>
+              <li class="feature-item"><span class="check" style="color: var(--accent2);">✓</span> Adjustable strictness
+                by age</li>
+            </ul>
+
+            <div class="positioning-line">
+              “Protection that adapts to your child.”
+            </div>
+            <div style="margin-top: 20px;">
+              <button class="btn btn-primary"
+                style="width: 100%; background: linear-gradient(135deg, rgba(34,92,238,1), rgba(34,211,238,0.8)); box-shadow: 0 4px 12px rgba(34,211,238,.3);">Start
+                Free Trial</button>
+            </div>
+          </div>
+
+          <!-- Tier 3: Guardian -->
+          <div class="pricing-card">
+            <div class="tier-title">
+              <span style="color: var(--accent1);">🟣</span> Guardian
+            </div>
+            <div class="tier-desc">
+              For power users and high-trust households.
+            </div>
+            <div class="divider"></div>
+            <div class="price-block">
+              <div class="price-amount">$19.99<span class="price-period">/mo</span></div>
+              <div class="price-sub">$199/year</div>
+            </div>
+
+            <ul class="feature-list">
+              <li class="feature-item"><span class="check" style="color: var(--accent1);">✓</span> <strong>Everything in
+                  Plus, plus:</strong></li>
+              <li class="feature-item"><span class="check" style="color: var(--accent1);">✓</span> Unlimited children
+              </li>
+              <li class="feature-item"><span class="check" style="color: var(--accent1);">✓</span> Long-term behavioral
+                trend analysis</li>
+              <li class="feature-item"><span class="check" style="color: var(--accent1);">✓</span> Early grooming /
+                manipulation detection</li>
+              <li class="feature-item"><span class="check" style="color: var(--accent1);">✓</span> AI-generated safety
+                insights</li>
+              <li class="feature-item"><span class="check" style="color: var(--accent1);">✓</span> Family-level policy
+                templates</li>
+              <li class="feature-item"><span class="check" style="color: var(--accent1);">✓</span> Priority model
+                updates</li>
+            </ul>
+
+            <div class="positioning-line">
+              “For families who want foresight, not just filters.”
+            </div>
+          </div>
+        </div>
+
+        <!-- Optional School Plan -->
+        <div style="text-align: center; color: var(--muted); font-size: 14px; opacity: 0.7;">
+          <p>Looking for Family or School plans? <a href="#" style="text-decoration: underline;">Contact Sales</a> for
+            organization pricing.</p>
+        </div>
+
+      </div>
+    </section>
+
+    <footer>
+      <div class="brand" style="justify-content: center; margin-bottom: 20px; opacity: 0.7;">
+        <div class="logo" style="width: 24px; height: 24px; border-radius: 8px;"></div>
+        <span style="font-weight: 600; color: #fff;">Phylax Child Protection</span>
+      </div>
+      <p>&copy; 2026 Phylax Inc. All rights reserved.</p>
+      <div style="margin-top: 20px;">
+        <a href="#" style="margin: 0 10px;">Twitter</a>
+        <a href="#" style="margin: 0 10px;">GitHub</a>
+        <a href="#" style="margin: 0 10px;">Contact</a>
+      </div>
+    </footer>
+
+  </div>
+
+</body>
+
+</html>
