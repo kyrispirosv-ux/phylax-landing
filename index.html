@@ -145,6 +145,66 @@
       color: var(--txt)
     }
 
+    /* Interactive Demo Styles */
+    .demo-toggle {
+      width: 40px;
+      height: 24px;
+      background: var(--stroke2);
+      border-radius: 99px;
+      position: relative;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+
+    .demo-toggle.active {
+      background: var(--accent2);
+    }
+
+    .demo-toggle-thumb {
+      width: 20px;
+      height: 20px;
+      background: white;
+      border-radius: 50%;
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .demo-toggle.active .demo-toggle-thumb {
+      transform: translateX(16px);
+    }
+
+    .llm-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(5, 5, 5, 0.9);
+      backdrop-filter: blur(4px);
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s;
+    }
+
+    .llm-overlay.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .llm-loader {
+      width: 40px;
+      height: 40px;
+      border: 3px solid rgba(255, 255, 255, 0.1);
+      border-top-color: var(--accent1);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-bottom: 16px;
+    }
+
     .btn {
       border: 1px solid rgba(255, 255, 255, .14);
       background: rgba(255, 255, 255, .06);
@@ -954,10 +1014,15 @@
         system is designed to protect children quietly and intelligently, without spying, ads, or data sales.
       </p>
 
-      <div style="display: flex; gap: 12px; justify-content: center;">
-        <button class="btn btn-primary" style="padding: 12px 24px; font-size: 16px;" onclick="openModal()">Request
+      <div style="display: flex; gap: 16px; justify-content: center; align-items: center; flex-direction: column;">
+        <button class="btn btn-primary" style="padding: 14px 28px; font-size: 16px;" onclick="openModal()">Request Early
           Access</button>
-        <button class="btn" style="padding: 12px 24px; font-size: 16px;" onclick="openDemo()">View Demo</button>
+
+        <button class="btn"
+          style="padding: 16px 32px; font-size: 18px; font-weight: 600; background: rgba(255, 255, 255, 0.1); border-color: rgba(255, 255, 255, 0.3); display: flex; align-items: center; gap: 12px;"
+          onclick="openDemo()">
+          <span>▶</span> Try Interactive Demo
+        </button>
       </div>
 
       <p class="disclaimer">
@@ -1289,11 +1354,93 @@
     // Demo functions
     function openDemo() {
       document.getElementById('demoOverlay').classList.add('active');
+      switchTab('dashboard'); // Set initial tab to dashboard
     }
     function closeDemo() {
       document.getElementById('demoOverlay').classList.remove('active');
     }
+
+    // Tab Switching
+    function switchTab(tabId) {
+      // 1. Update Sidebar Links
+      const links = document.querySelectorAll('.demo-link');
+      links.forEach(link => link.classList.remove('active'));
+      const activeLink = document.getElementById('link-' + tabId);
+      if (activeLink) activeLink.classList.add('active');
+
+      // 2. Update Content
+      const tabs = document.querySelectorAll('.tab-content');
+      tabs.forEach(tab => tab.classList.remove('active'));
+      document.getElementById('tab-' + tabId).classList.add('active');
+    }
+
+    // Interactive Toggles
+    function toggleSwitch(el) {
+      el.classList.toggle('active');
+    }
+
+    // Simulated LLM Integration
+    function openAddRule() {
+      document.getElementById('rulePrompt').classList.add('active');
+      document.getElementById('ruleInput').focus();
+    }
+
+    function cancelRule() {
+      document.getElementById('rulePrompt').classList.remove('active');
+      document.getElementById('ruleInput').value = '';
+    }
+
+    function submitRule() {
+      const input = document.getElementById('ruleInput').value;
+      if (!input) return;
+
+      // Show processing state
+      document.getElementById('rulePromptContents').style.display = 'none';
+      document.getElementById('ruleProcessing').style.display = 'flex';
+
+      // Simulate AI latency
+      setTimeout(() => {
+        // Add the new rule to the list
+        const container = document.getElementById('customRulesList');
+        const newRule = document.createElement('div');
+        newRule.style.cssText = 'background: rgba(255,255,255,0.05); padding: 12px; border-radius: 8px; border: 1px solid var(--stroke); margin-bottom: 12px; animation: slideDown 0.3s ease;';
+        newRule.innerHTML = `
+            <div style="font-family: var(--mono); font-size: 13px; color: var(--accent3);">"${input}"</div>
+            <div style="margin-top: 8px; font-size: 12px; color: var(--muted2);">Status: <span style="color: var(--accent3);">Active</span> · Enforced via Semantic Model</div>
+          `;
+        container.insertBefore(newRule, container.firstChild);
+
+        // Reset UI
+        document.getElementById('rulePrompt').classList.remove('active');
+        document.getElementById('rulePromptContents').style.display = 'block';
+        document.getElementById('ruleProcessing').style.display = 'none';
+        document.getElementById('ruleInput').value = '';
+      }, 2000);
+    }
   </script>
+
+  <!-- Add Rule LLM Overlay (Hidden by default) -->
+  <div class="llm-overlay" id="rulePrompt">
+    <div id="rulePromptContents"
+      style="width: 100%; max-width: 500px; padding: 32px; background: var(--card); border: 1px solid var(--stroke); border-radius: 16px;">
+      <h3 style="margin-top: 0; color: #fff;">New AI Safety Rule</h3>
+      <p style="font-size: 14px; color: var(--muted);">Describe the rule in plain English. Phylax will understand the
+        intent.</p>
+      <textarea id="ruleInput" class="form-input" rows="3"
+        placeholder="e.g., Block any video games that look violent, even if they are cartoons."
+        style="resize: none; margin-bottom: 16px;"></textarea>
+      <div style="display: flex; gap: 12px; justify-content: flex-end;">
+        <button class="btn" onclick="cancelRule()">Cancel</button>
+        <button class="btn btn-primary" onclick="submitRule()">Create Rule</button>
+      </div>
+    </div>
+
+    <div id="ruleProcessing" style="display: none; flex-direction: column; align-items: center; text-align: center;">
+      <div class="llm-loader"></div>
+      <div style="font-weight: 500; font-size: 16px; color: #fff;">Analyzing Intent...</div>
+      <div style="font-size: 13px; color: var(--muted2); margin-top: 8px;">Compiling policy to local vector store</div>
+    </div>
+  </div>
 
   <!-- Demo Interface Overlay -->
   <div class="demo-overlay" id="demoOverlay">
@@ -1317,16 +1464,16 @@
     <div class="demo-layout">
       <!-- Sidebar -->
       <div class="demo-sidebar">
-        <div class="demo-link active">
+        <div id="link-dashboard" class="demo-link active" onclick="switchTab('dashboard')">
           <span>📊</span> Dashboard
         </div>
-        <div class="demo-link">
+        <div id="link-activity" class="demo-link" onclick="switchTab('activity')">
           <span>🛡️</span> Activity Log
         </div>
-        <div class="demo-link">
+        <div id="link-policy" class="demo-link" onclick="switchTab('policy')">
           <span>⚙️</span> Policy Rules
         </div>
-        <div class="demo-link">
+        <div id="link-family" class="demo-link" onclick="switchTab('family')">
           <span>👤</span> Family Settings
         </div>
 
@@ -1344,144 +1491,337 @@
         </div>
       </div>
 
-      <!-- Main Content -->
+      <!-- Main Content Container -->
       <div class="demo-main">
 
-        <!-- Left Column -->
-        <div style="flex: 2; display: flex; flex-direction: column; gap: 24px;">
-          <div style="display: flex; gap: 24px;">
-            <!-- Safety Score -->
-            <div class="stat-card">
-              <h3 style="margin: 0 0 4px 0; font-size: 16px; color: #fff;">Safety Score</h3>
-              <p style="margin: 0 0 16px 0; font-size: 13px; color: var(--muted2);">Real-time semantic risk assessment
-              </p>
+        <!-- Create a wrapper for tab contents -->
+        <style>
+          .tab-content {
+            display: none;
+            width: 100%;
+            height: 100%;
+          }
 
-              <div class="risk-meter">
-                <div class="risk-value">94</div>
+          .tab-content.active {
+            display: flex;
+            gap: 32px;
+            animation: fadeIn 0.3s ease;
+          }
+
+          @keyframes fadeIn {
+            from {
+              opacity: 0;
+              transform: translateY(10px);
+            }
+
+            to {
+              opacity: 1;
+              transform: translateY(0);
+            }
+          }
+        </style>
+
+        <!-- TAB 1: DASHBOARD (Original Content) -->
+        <div id="tab-dashboard" class="tab-content active">
+          <!-- Left Column -->
+          <div style="flex: 2; display: flex; flex-direction: column; gap: 24px;">
+            <div style="display: flex; gap: 24px;">
+              <!-- Safety Score -->
+              <div class="stat-card">
+                <h3 style="margin: 0 0 4px 0; font-size: 16px; color: #fff;">Safety Score</h3>
+                <p style="margin: 0 0 16px 0; font-size: 13px; color: var(--muted2);">Real-time semantic risk assessment
+                </p>
+
+                <div class="risk-meter">
+                  <div class="risk-value">94</div>
+                </div>
+                <div style="text-align: center; font-size: 14px; font-weight: 500; color: var(--accent3);">Optimal
+                  Safety</div>
               </div>
-              <div style="text-align: center; font-size: 14px; font-weight: 500; color: var(--accent3);">Optimal Safety
+
+              <!-- Screen Time -->
+              <div class="stat-card">
+                <div style="display: flex; justify-content: space-between;">
+                  <h3 style="margin: 0 0 4px 0; font-size: 16px; color: #fff;">Screen Time</h3>
+                  <span class="tech-pill">Today</span>
+                </div>
+
+                <div style="margin-top: 24px;">
+                  <div style="font-size: 42px; font-weight: 700; color: #fff; line-height: 1;">1h 45m</div>
+                  <div style="font-size: 14px; color: var(--muted2); margin-top: 8px;">Remaining: 2h 15m</div>
+                </div>
+
+                <div
+                  style="height: 8px; background: rgba(255,255,255,0.08); border-radius: 4px; margin-top: auto; overflow: hidden;">
+                  <div style="width: 45%; height: 100%; background: var(--accent2);"></div>
+                </div>
               </div>
             </div>
 
-            <!-- Screen Time -->
-            <div class="stat-card">
-              <div style="display: flex; justify-content: space-between;">
-                <h3 style="margin: 0 0 4px 0; font-size: 16px; color: #fff;">Screen Time</h3>
-                <span class="tech-pill">Today</span>
+            <!-- Interventions -->
+            <div class="stat-card" style="flex: 1;">
+              <h3 style="margin: 0 0 20px 0; font-size: 16px; color: #fff;">Recent Interventions</h3>
+
+              <div class="event-item">
+                <div
+                  style="width: 32px; height: 32px; background: rgba(251, 113, 133, 0.2); border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: var(--bad);">
+                  🚫
+                </div>
+                <div style="flex: 1;">
+                  <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                    <span style="font-size: 15px; font-weight: 500; color: #fff;">Blocked: Adult Content</span>
+                    <span style="font-size: 12px; color: var(--muted2);">2 mins ago</span>
+                  </div>
+                  <div style="font-size: 13px; color: var(--muted);">Context analysis detected high-probability gambling
+                    interface pattern.</div>
+                </div>
               </div>
 
-              <div style="margin-top: 24px;">
-                <div style="font-size: 42px; font-weight: 700; color: #fff; line-height: 1;">1h 45m</div>
-                <div style="font-size: 14px; color: var(--muted2); margin-top: 8px;">Remaining: 2h 15m</div>
+              <div class="event-item">
+                <div
+                  style="width: 32px; height: 32px; background: rgba(251, 191, 36, 0.2); border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: var(--warn);">
+                  ⚠️
+                </div>
+                <div style="flex: 1;">
+                  <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                    <span style="font-size: 15px; font-weight: 500; color: #fff;">Warning: Excessive Social Media</span>
+                    <span style="font-size: 12px; color: var(--muted2);">15 mins ago</span>
+                  </div>
+                  <div style="font-size: 13px; color: var(--muted);">Approaching daily limit for social category. Speed
+                    bump applied.</div>
+                </div>
               </div>
 
-              <div
-                style="height: 8px; background: rgba(255,255,255,0.08); border-radius: 4px; margin-top: auto; overflow: hidden;">
-                <div style="width: 45%; height: 100%; background: var(--accent2);"></div>
+              <div class="event-item">
+                <div
+                  style="width: 32px; height: 32px; background: rgba(96, 165, 250, 0.2); border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: var(--ok);">
+                  🛡️
+                </div>
+                <div style="flex: 1;">
+                  <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                    <span style="font-size: 15px; font-weight: 500; color: #fff;">Safe Search Enforced</span>
+                    <span style="font-size: 12px; color: var(--muted2);">1h ago</span>
+                  </div>
+                  <div style="font-size: 13px; color: var(--muted);">Query regarding "weapons" redirected to educational
+                    context.</div>
+                </div>
               </div>
             </div>
           </div>
 
-          <!-- Interventions -->
-          <div class="stat-card" style="flex: 1;">
-            <h3 style="margin: 0 0 20px 0; font-size: 16px; color: #fff;">Recent Interventions</h3>
-
-            <div class="event-item">
+          <!-- Right Column -->
+          <div style="flex: 1; display: flex; flex-direction: column; gap: 24px;">
+            <!-- Live Analysis Log -->
+            <div class="stat-card">
+              <h3 style="margin: 0 0 16px 0; font-size: 16px; color: #fff;">Live Context Stream</h3>
               <div
-                style="width: 32px; height: 32px; background: rgba(251, 113, 133, 0.2); border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: var(--bad);">
-                🚫
-              </div>
-              <div style="flex: 1;">
-                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
-                  <span style="font-size: 15px; font-weight: 500; color: #fff;">Blocked: Adult Content</span>
-                  <span style="font-size: 12px; color: var(--muted2);">2 mins ago</span>
+                style="background: rgba(0,0,0,0.4); border-radius: 12px; padding: 16px; border: 1px solid var(--stroke2); height: 200px; overflow: hidden; position: relative;">
+                <div class="console-line" style="color: var(--muted2);">> initializing_vision_model... OK</div>
+                <div class="console-line" style="color: var(--muted2);">> connecting_local_agent... OK</div>
+                <div class="console-line" style="color: var(--muted2);">----------------------------------------</div>
+                <div class="console-line" style="color: #fff;">> GET /homework-help</div>
+                <div class="console-line" style="color: var(--accent3);"> Analysis: EDUCATIONAL (0.99)</div>
+                <div class="console-line" style="color: var(--muted2);"> Action: Allow</div>
+                <br>
+                <div class="console-line" style="color: #fff;">> GET /roblox-chat</div>
+                <div class="console-line" style="color: var(--warn);"> Analysis: POTENTIAL_RISK (0.65)</div>
+                <div class="console-line" style="color: var(--muted2);"> flag: sentiment_aggressive</div>
+                <div class="console-line" style="color: var(--muted2);"> Action: Monitor + Log</div>
+
+                <div
+                  style="position: absolute; bottom: 0; left: 0; width: 100%; height: 60px; background: linear-gradient(to bottom, transparent, rgba(0,0,0,0.4));">
                 </div>
-                <div style="font-size: 13px; color: var(--muted);">Context analysis detected high-probability gambling
-                  interface pattern.</div>
               </div>
             </div>
 
-            <div class="event-item">
-              <div
-                style="width: 32px; height: 32px; background: rgba(251, 191, 36, 0.2); border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: var(--warn);">
-                ⚠️
-              </div>
-              <div style="flex: 1;">
-                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
-                  <span style="font-size: 15px; font-weight: 500; color: #fff;">Warning: Excessive Social Media</span>
-                  <span style="font-size: 12px; color: var(--muted2);">15 mins ago</span>
+            <!-- Quick Policies -->
+            <div class="stat-card">
+              <h3 style="margin: 0 0 16px 0; font-size: 16px; color: #fff;">Active Policies</h3>
+              <div style="display: flex; flex-direction: column; gap: 12px;">
+                <div
+                  style="display: flex; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.03); padding: 12px; border-radius: 10px;">
+                  <div style="font-size: 14px;">Gambling & Risk</div>
+                  <span style="color: var(--bad); font-size: 12px; font-weight: 600;">STRICT BLOCK</span>
                 </div>
-                <div style="font-size: 13px; color: var(--muted);">Approaching daily limit for social category. Speed
-                  bump applied.</div>
+                <div
+                  style="display: flex; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.03); padding: 12px; border-radius: 10px;">
+                  <div style="font-size: 14px;">Social Media</div>
+                  <span style="color: var(--warn); font-size: 12px; font-weight: 600;">1 HR LIMIT</span>
+                </div>
+                <div
+                  style="display: flex; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.03); padding: 12px; border-radius: 10px;">
+                  <div style="font-size: 14px;">Bedtime</div>
+                  <span style="color: var(--accent2); font-size: 12px; font-weight: 600;">9:00 PM</span>
+                </div>
+              </div>
+              <button class="btn" style="width: 100%; margin-top: 16px; font-size: 13px;">Manage Rules</button>
+            </div>
+          </div>
+        </div> <!-- End Tab Dashboard -->
+
+        <!-- TAB 2: ACTIVITY LOG -->
+        <div id="tab-activity" class="tab-content" style="flex-direction: column;">
+          <h2 style="margin-top: 0;">Activity Log</h2>
+          <div class="stat-card" style="flex: 1; padding: 0; overflow: hidden;">
+            <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 14px;">
+              <thead style="background: rgba(255,255,255,0.02); border-bottom: 1px solid var(--stroke);">
+                <tr>
+                  <th style="padding: 16px 24px; color: var(--muted);">Timestamp</th>
+                  <th style="padding: 16px 24px; color: var(--muted);">Context / URL</th>
+                  <th style="padding: 16px 24px; color: var(--muted);">Risk Level</th>
+                  <th style="padding: 16px 24px; color: var(--muted);">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr style="border-bottom: 1px solid var(--stroke2);">
+                  <td style="padding: 16px 24px; color: var(--muted2);">2 mins ago</td>
+                  <td style="padding: 16px 24px; color: #fff;">poker-online-free.net</td>
+                  <td style="padding: 16px 24px;"><span style="color: var(--bad); font-weight: 600;">HIGH (0.92)</span>
+                  </td>
+                  <td style="padding: 16px 24px;"><span class="tech-pill"
+                      style="color: var(--bad); border-color: var(--bad);">BLOCKED</span></td>
+                </tr>
+                <tr style="border-bottom: 1px solid var(--stroke2);">
+                  <td style="padding: 16px 24px; color: var(--muted2);">15 mins ago</td>
+                  <td style="padding: 16px 24px; color: #fff;">instagram.com/reels</td>
+                  <td style="padding: 16px 24px;"><span style="color: var(--warn); font-weight: 600;">MED (0.45)</span>
+                  </td>
+                  <td style="padding: 16px 24px;"><span class="tech-pill"
+                      style="color: var(--warn); border-color: var(--warn);">LIMIT WARNING</span></td>
+                </tr>
+                <tr style="border-bottom: 1px solid var(--stroke2);">
+                  <td style="padding: 16px 24px; color: var(--muted2);">42 mins ago</td>
+                  <td style="padding: 16px 24px; color: #fff;">History of Rome - Wikipedia</td>
+                  <td style="padding: 16px 24px;"><span style="color: var(--accent3); font-weight: 600;">LOW
+                      (0.01)</span></td>
+                  <td style="padding: 16px 24px;"><span class="tech-pill">ALLOWED</span></td>
+                </tr>
+                <tr style="border-bottom: 1px solid var(--stroke2);">
+                  <td style="padding: 16px 24px; color: var(--muted2);">1 hr ago</td>
+                  <td style="padding: 16px 24px; color: #fff;">khanacademy.org</td>
+                  <td style="padding: 16px 24px;"><span style="color: var(--accent3); font-weight: 600;">SAFE
+                      (0.00)</span></td>
+                  <td style="padding: 16px 24px;"><span class="tech-pill">ALLOWED</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- TAB 3: POLICY RULES -->
+        <div id="tab-policy" class="tab-content" style="flex-direction: column;">
+          <h2 style="margin-top: 0;">Policy Configuration</h2>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+
+            <div class="stat-card">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                <h3 style="margin: 0; font-size: 16px;">Content Categories</h3>
+                <span class="tech-pill">Standard Mode</span>
+              </div>
+
+              <div
+                style="display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--stroke2);">
+                <div>
+                  <div style="font-weight: 500;">Adult & Pronography</div>
+                  <div style="font-size: 12px; color: var(--muted2);">Explicit vision & text detection</div>
+                </div>
+                <div class="demo-toggle active" onclick="toggleSwitch(this)">
+                  <div class="demo-toggle-thumb"></div>
+                </div>
+              </div>
+
+              <div
+                style="display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--stroke2);">
+                <div>
+                  <div style="font-weight: 500;">Gambling / High Risk</div>
+                  <div style="font-size: 12px; color: var(--muted2);">Poker, betting, crypto scams</div>
+                </div>
+                <div class="demo-toggle active" onclick="toggleSwitch(this)">
+                  <div class="demo-toggle-thumb"></div>
+                </div>
+              </div>
+
+              <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 0;">
+                <div>
+                  <div style="font-weight: 500;">Weapons / Violence</div>
+                  <div style="font-size: 12px; color: var(--muted2);">Graphic imagery & shopping</div>
+                </div>
+                <div class="demo-toggle" onclick="toggleSwitch(this)">
+                  <div class="demo-toggle-thumb"></div>
+                </div>
               </div>
             </div>
 
-            <div class="event-item">
-              <div
-                style="width: 32px; height: 32px; background: rgba(96, 165, 250, 0.2); border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: var(--ok);">
-                🛡️
+            <!-- Card 2 -->
+            <div class="stat-card" style="position: relative; overflow: hidden;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                <h3 style="margin: 0; font-size: 16px;">Custom Natural Language Rules</h3>
+                <button class="btn" style="padding: 4px 10px; font-size: 12px;" onclick="openAddRule()">+ Add
+                  Rule</button>
               </div>
-              <div style="flex: 1;">
-                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
-                  <span style="font-size: 15px; font-weight: 500; color: #fff;">Safe Search Enforced</span>
-                  <span style="font-size: 12px; color: var(--muted2);">1h ago</span>
+              <p style="color: var(--muted); font-size: 14px;">Phylax interprets these rules intelligently using the
+                local LLM.</p>
+
+              <div id="customRulesList">
+                <div
+                  style="background: rgba(255,255,255,0.05); padding: 12px; border-radius: 8px; border: 1px solid var(--stroke); margin-bottom: 12px;">
+                  <div style="font-family: var(--mono); font-size: 13px; color: var(--accent3);">"Block any chat app
+                    that allows anonymous messaging."</div>
+                  <div style="margin-top: 8px; font-size: 12px; color: var(--muted2);">Status: <span
+                      style="color: var(--accent3);">Active</span> · Enforced via DOM Analysis</div>
                 </div>
-                <div style="font-size: 13px; color: var(--muted);">Query regarding "weapons" redirected to educational
-                  context.</div>
+
+                <div
+                  style="background: rgba(255,255,255,0.05); padding: 12px; border-radius: 8px; border: 1px solid var(--stroke); margin-bottom: 12px;">
+                  <div style="font-family: var(--mono); font-size: 13px; color: var(--accent3);">"Alert me if homework
+                    help turns into cheating/plagiarism."</div>
+                  <div style="margin-top: 8px; font-size: 12px; color: var(--muted2);">Status: <span
+                      style="color: var(--accent3);">Active</span> · Semantic Intent Score > 0.8</div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- TAB 4: FAMILY SETTINGS -->
+        <div id="tab-family" class="tab-content" style="flex-direction: column;">
+          <h2 style="margin-top: 0;">Family Settings</h2>
+          <div class="stat-card" style="max-width: 600px;">
+            <div style="display: flex; gap: 20px; align-items: flex-start;">
+              <div
+                style="width: 80px; height: 80px; background: linear-gradient(135deg, #ddd, #999); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 32px; font-weight: 700; color: #333;">
+                A</div>
+              <div style="flex: 1;">
+                <h3 style="margin: 0 0 4px 0;">Alex (Child)</h3>
+                <p style="margin: 0 0 16px 0; color: var(--muted);">MacBook Pro 14" · Last active now</p>
+
+                <div class="form-group">
+                  <label class="form-label">Age Group</label>
+                  <select class="form-input" style="color: #fff;">
+                    <option>Pre-Teen (10-12)</option>
+                    <option>Teen (13-15)</option>
+                    <option>Young Adult (16+)</option>
+                  </select>
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label">Daily Screen Time Limit</label>
+                  <select class="form-input" style="color: #fff;">
+                    <option>2 Hours</option>
+                    <option>3 Hours</option>
+                    <option selected>4 Hours</option>
+                    <option>Unlimited</option>
+                  </select>
+                </div>
+
+                <div style="padding-top: 16px; border-top: 1px solid var(--stroke2);">
+                  <button class="btn btn-primary">Save Changes</button>
+                </div>
               </div>
             </div>
           </div>
         </div>
-
-        <!-- Right Column -->
-        <div style="flex: 1; display: flex; flex-direction: column; gap: 24px;">
-          <!-- Live Analysis Log -->
-          <div class="stat-card">
-            <h3 style="margin: 0 0 16px 0; font-size: 16px; color: #fff;">Live Context Stream</h3>
-            <div
-              style="background: rgba(0,0,0,0.4); border-radius: 12px; padding: 16px; border: 1px solid var(--stroke2); height: 200px; overflow: hidden; position: relative;">
-              <div class="console-line" style="color: var(--muted2);">> initializing_vision_model... OK</div>
-              <div class="console-line" style="color: var(--muted2);">> connecting_local_agent... OK</div>
-              <div class="console-line" style="color: var(--muted2);">----------------------------------------</div>
-              <div class="console-line" style="color: #fff;">> GET /homework-help</div>
-              <div class="console-line" style="color: var(--accent3);"> Analysis: EDUCATIONAL (0.99)</div>
-              <div class="console-line" style="color: var(--muted2);"> Action: Allow</div>
-              <br>
-              <div class="console-line" style="color: #fff;">> GET /roblox-chat</div>
-              <div class="console-line" style="color: var(--warn);"> Analysis: POTENTIAL_RISK (0.65)</div>
-              <div class="console-line" style="color: var(--muted2);"> flag: sentiment_aggressive</div>
-              <div class="console-line" style="color: var(--muted2);"> Action: Monitor + Log</div>
-
-              <div
-                style="position: absolute; bottom: 0; left: 0; width: 100%; height: 60px; background: linear-gradient(to bottom, transparent, rgba(0,0,0,0.4));">
-              </div>
-            </div>
-          </div>
-
-          <!-- Quick Policies -->
-          <div class="stat-card">
-            <h3 style="margin: 0 0 16px 0; font-size: 16px; color: #fff;">Active Policies</h3>
-            <div style="display: flex; flex-direction: column; gap: 12px;">
-              <div
-                style="display: flex; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.03); padding: 12px; border-radius: 10px;">
-                <div style="font-size: 14px;">Gambling & Risk</div>
-                <span style="color: var(--bad); font-size: 12px; font-weight: 600;">STRICT BLOCK</span>
-              </div>
-              <div
-                style="display: flex; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.03); padding: 12px; border-radius: 10px;">
-                <div style="font-size: 14px;">Social Media</div>
-                <span style="color: var(--warn); font-size: 12px; font-weight: 600;">1 HR LIMIT</span>
-              </div>
-              <div
-                style="display: flex; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.03); padding: 12px; border-radius: 10px;">
-                <div style="font-size: 14px;">Bedtime</div>
-                <span style="color: var(--accent2); font-size: 12px; font-weight: 600;">9:00 PM</span>
-              </div>
-            </div>
-            <button class="btn" style="width: 100%; margin-top: 16px; font-size: 13px;">Manage Rules</button>
-          </div>
-        </div>
-
       </div>
     </div>
   </div>
