@@ -227,6 +227,7 @@
       line-height: 1.1;
       letter-spacing: -1.5px;
       background: linear-gradient(180deg, #fff, rgba(255, 255, 255, 0.7));
+      background-clip: text;
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       margin: 0 0 24px 0;
@@ -772,6 +773,138 @@
       border-color: var(--accent2);
       background: rgba(255, 255, 255, 0.08);
     }
+
+    /* Demo Dashboard Overlay */
+    .demo-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: #050505;
+      z-index: 200;
+      display: flex;
+      flex-direction: column;
+      transform: translateY(100%);
+      transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .demo-overlay.active {
+      transform: translateY(0);
+    }
+
+    .demo-nav {
+      height: 72px;
+      border-bottom: 1px solid var(--stroke);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 32px;
+      background: var(--bg1);
+    }
+
+    .demo-layout {
+      display: flex;
+      flex: 1;
+      height: calc(100% - 72px);
+    }
+
+    .demo-sidebar {
+      width: 260px;
+      border-right: 1px solid var(--stroke);
+      background: rgba(10, 16, 34, 0.5);
+      display: flex;
+      flex-direction: column;
+      padding: 24px;
+      gap: 8px;
+    }
+
+    .demo-main {
+      flex: 1;
+      background: var(--bg0);
+      padding: 40px;
+      overflow-y: auto;
+      display: flex;
+      gap: 32px;
+    }
+
+    .demo-link {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      border-radius: 12px;
+      color: var(--muted);
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .demo-link.active {
+      background: rgba(124, 92, 255, 0.15);
+      color: #fff;
+    }
+
+    .demo-link:hover:not(.active) {
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--txt);
+    }
+
+    .stat-card {
+      background: var(--card);
+      border: 1px solid var(--stroke);
+      border-radius: 20px;
+      padding: 24px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .risk-meter {
+      width: 140px;
+      height: 140px;
+      border-radius: 50%;
+      background: conic-gradient(var(--accent3) 0% 85%, rgba(255, 255, 255, 0.1) 85% 100%);
+      margin: 16px auto 24px auto;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+
+    .risk-meter::after {
+      content: "";
+      position: absolute;
+      inset: 12px;
+      background: var(--bg0);
+      border-radius: 50%;
+    }
+
+    .risk-value {
+      position: relative;
+      z-index: 2;
+      font-size: 32px;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .event-item {
+      display: flex;
+      gap: 16px;
+      padding: 16px 0;
+      border-bottom: 1px solid var(--stroke);
+    }
+
+    .event-item:last-child {
+      border-bottom: none;
+    }
+
+    .console-line {
+      font-family: var(--mono);
+      font-size: 13px;
+      margin-bottom: 6px;
+    }
   </style>
 </head>
 
@@ -824,7 +957,7 @@
       <div style="display: flex; gap: 12px; justify-content: center;">
         <button class="btn btn-primary" style="padding: 12px 24px; font-size: 16px;" onclick="openModal()">Request
           Access</button>
-        <button class="btn" style="padding: 12px 24px; font-size: 16px;">View Demo</button>
+        <button class="btn" style="padding: 12px 24px; font-size: 16px;" onclick="openDemo()">View Demo</button>
       </div>
 
       <p class="disclaimer">
@@ -1152,7 +1285,206 @@
         closeModal();
       }
     });
+
+    // Demo functions
+    function openDemo() {
+      document.getElementById('demoOverlay').classList.add('active');
+    }
+    function closeDemo() {
+      document.getElementById('demoOverlay').classList.remove('active');
+    }
   </script>
+
+  <!-- Demo Interface Overlay -->
+  <div class="demo-overlay" id="demoOverlay">
+    <div class="demo-nav">
+      <div class="brand">
+        <div class="logo" style="width: 32px; height: 32px;">
+          <svg viewBox="0 0 100 100"
+            style="width: 100%; height: 100%; fill: none; stroke: white; stroke-width: 8; stroke-linecap: square;">
+            <path
+              d="M20,20 L80,20 L80,80 L20,80 L20,30 L70,30 L70,70 L30,70 L30,40 L60,40 L60,60 L40,60 L40,50 L50,50" />
+          </svg>
+        </div>
+        <div class="brand-text">
+          <h1 style="font-size: 18px;">Phylax Control Center</h1>
+          <p style="font-size: 12px;">Connected: MacBook Pro (Alex)</p>
+        </div>
+      </div>
+      <button class="btn" onclick="closeDemo()">Exit Demo</button>
+    </div>
+
+    <div class="demo-layout">
+      <!-- Sidebar -->
+      <div class="demo-sidebar">
+        <div class="demo-link active">
+          <span>📊</span> Dashboard
+        </div>
+        <div class="demo-link">
+          <span>🛡️</span> Activity Log
+        </div>
+        <div class="demo-link">
+          <span>⚙️</span> Policy Rules
+        </div>
+        <div class="demo-link">
+          <span>👤</span> Family Settings
+        </div>
+
+        <div
+          style="margin-top: auto; padding: 16px; background: rgba(124, 92, 255, 0.08); border: 1px solid rgba(124, 92, 255, 0.1); border-radius: 12px;">
+          <div style="font-size: 12px; color: var(--accent1); font-weight: 600; margin-bottom: 4px;">SYSTEM STATUS</div>
+          <div style="font-size: 13px; color: var(--muted2); display: flex; align-items: center; gap: 6px;">
+            <div style="width: 6px; height: 6px; background: var(--accent3); border-radius: 50%;"></div>
+            Model Active
+          </div>
+          <div style="font-size: 13px; color: var(--muted2); display: flex; align-items: center; gap: 6px;">
+            <div style="width: 6px; height: 6px; background: var(--accent3); border-radius: 50%;"></div>
+            Cloud Sync: OK
+          </div>
+        </div>
+      </div>
+
+      <!-- Main Content -->
+      <div class="demo-main">
+
+        <!-- Left Column -->
+        <div style="flex: 2; display: flex; flex-direction: column; gap: 24px;">
+          <div style="display: flex; gap: 24px;">
+            <!-- Safety Score -->
+            <div class="stat-card">
+              <h3 style="margin: 0 0 4px 0; font-size: 16px; color: #fff;">Safety Score</h3>
+              <p style="margin: 0 0 16px 0; font-size: 13px; color: var(--muted2);">Real-time semantic risk assessment
+              </p>
+
+              <div class="risk-meter">
+                <div class="risk-value">94</div>
+              </div>
+              <div style="text-align: center; font-size: 14px; font-weight: 500; color: var(--accent3);">Optimal Safety
+              </div>
+            </div>
+
+            <!-- Screen Time -->
+            <div class="stat-card">
+              <div style="display: flex; justify-content: space-between;">
+                <h3 style="margin: 0 0 4px 0; font-size: 16px; color: #fff;">Screen Time</h3>
+                <span class="tech-pill">Today</span>
+              </div>
+
+              <div style="margin-top: 24px;">
+                <div style="font-size: 42px; font-weight: 700; color: #fff; line-height: 1;">1h 45m</div>
+                <div style="font-size: 14px; color: var(--muted2); margin-top: 8px;">Remaining: 2h 15m</div>
+              </div>
+
+              <div
+                style="height: 8px; background: rgba(255,255,255,0.08); border-radius: 4px; margin-top: auto; overflow: hidden;">
+                <div style="width: 45%; height: 100%; background: var(--accent2);"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Interventions -->
+          <div class="stat-card" style="flex: 1;">
+            <h3 style="margin: 0 0 20px 0; font-size: 16px; color: #fff;">Recent Interventions</h3>
+
+            <div class="event-item">
+              <div
+                style="width: 32px; height: 32px; background: rgba(251, 113, 133, 0.2); border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: var(--bad);">
+                🚫
+              </div>
+              <div style="flex: 1;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                  <span style="font-size: 15px; font-weight: 500; color: #fff;">Blocked: Adult Content</span>
+                  <span style="font-size: 12px; color: var(--muted2);">2 mins ago</span>
+                </div>
+                <div style="font-size: 13px; color: var(--muted);">Context analysis detected high-probability gambling
+                  interface pattern.</div>
+              </div>
+            </div>
+
+            <div class="event-item">
+              <div
+                style="width: 32px; height: 32px; background: rgba(251, 191, 36, 0.2); border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: var(--warn);">
+                ⚠️
+              </div>
+              <div style="flex: 1;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                  <span style="font-size: 15px; font-weight: 500; color: #fff;">Warning: Excessive Social Media</span>
+                  <span style="font-size: 12px; color: var(--muted2);">15 mins ago</span>
+                </div>
+                <div style="font-size: 13px; color: var(--muted);">Approaching daily limit for social category. Speed
+                  bump applied.</div>
+              </div>
+            </div>
+
+            <div class="event-item">
+              <div
+                style="width: 32px; height: 32px; background: rgba(96, 165, 250, 0.2); border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: var(--ok);">
+                🛡️
+              </div>
+              <div style="flex: 1;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                  <span style="font-size: 15px; font-weight: 500; color: #fff;">Safe Search Enforced</span>
+                  <span style="font-size: 12px; color: var(--muted2);">1h ago</span>
+                </div>
+                <div style="font-size: 13px; color: var(--muted);">Query regarding "weapons" redirected to educational
+                  context.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right Column -->
+        <div style="flex: 1; display: flex; flex-direction: column; gap: 24px;">
+          <!-- Live Analysis Log -->
+          <div class="stat-card">
+            <h3 style="margin: 0 0 16px 0; font-size: 16px; color: #fff;">Live Context Stream</h3>
+            <div
+              style="background: rgba(0,0,0,0.4); border-radius: 12px; padding: 16px; border: 1px solid var(--stroke2); height: 200px; overflow: hidden; position: relative;">
+              <div class="console-line" style="color: var(--muted2);">> initializing_vision_model... OK</div>
+              <div class="console-line" style="color: var(--muted2);">> connecting_local_agent... OK</div>
+              <div class="console-line" style="color: var(--muted2);">----------------------------------------</div>
+              <div class="console-line" style="color: #fff;">> GET /homework-help</div>
+              <div class="console-line" style="color: var(--accent3);"> Analysis: EDUCATIONAL (0.99)</div>
+              <div class="console-line" style="color: var(--muted2);"> Action: Allow</div>
+              <br>
+              <div class="console-line" style="color: #fff;">> GET /roblox-chat</div>
+              <div class="console-line" style="color: var(--warn);"> Analysis: POTENTIAL_RISK (0.65)</div>
+              <div class="console-line" style="color: var(--muted2);"> flag: sentiment_aggressive</div>
+              <div class="console-line" style="color: var(--muted2);"> Action: Monitor + Log</div>
+
+              <div
+                style="position: absolute; bottom: 0; left: 0; width: 100%; height: 60px; background: linear-gradient(to bottom, transparent, rgba(0,0,0,0.4));">
+              </div>
+            </div>
+          </div>
+
+          <!-- Quick Policies -->
+          <div class="stat-card">
+            <h3 style="margin: 0 0 16px 0; font-size: 16px; color: #fff;">Active Policies</h3>
+            <div style="display: flex; flex-direction: column; gap: 12px;">
+              <div
+                style="display: flex; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.03); padding: 12px; border-radius: 10px;">
+                <div style="font-size: 14px;">Gambling & Risk</div>
+                <span style="color: var(--bad); font-size: 12px; font-weight: 600;">STRICT BLOCK</span>
+              </div>
+              <div
+                style="display: flex; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.03); padding: 12px; border-radius: 10px;">
+                <div style="font-size: 14px;">Social Media</div>
+                <span style="color: var(--warn); font-size: 12px; font-weight: 600;">1 HR LIMIT</span>
+              </div>
+              <div
+                style="display: flex; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.03); padding: 12px; border-radius: 10px;">
+                <div style="font-size: 14px;">Bedtime</div>
+                <span style="color: var(--accent2); font-size: 12px; font-weight: 600;">9:00 PM</span>
+              </div>
+            </div>
+            <button class="btn" style="width: 100%; margin-top: 16px; font-size: 13px;">Manage Rules</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
 
 </body>
 
