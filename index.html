@@ -205,6 +205,120 @@
       margin-bottom: 16px;
     }
 
+    /* Chat Interface Styles */
+    .llm-chat-window {
+      width: 100%;
+      max-width: 480px;
+      height: 600px;
+      background: #0f1525;
+      border: 1px solid var(--stroke2);
+      border-radius: 20px;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+      overflow: hidden;
+      transform: scale(0.95);
+      transition: all 0.3s;
+    }
+
+    .llm-overlay.active .llm-chat-window {
+      transform: scale(1);
+    }
+
+    .llm-header {
+      padding: 16px 20px;
+      background: var(--bg1);
+      border-bottom: 1px solid var(--stroke);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .llm-avatar {
+      width: 36px;
+      height: 36px;
+      background: linear-gradient(135deg, var(--accent1), var(--accent2));
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      box-shadow: 0 4px 12px rgba(124, 92, 255, 0.3);
+    }
+
+    .chat-messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .message {
+      max-width: 85%;
+      padding: 12px 16px;
+      border-radius: 16px;
+      font-size: 14px;
+      line-height: 1.5;
+      animation: fadeIn 0.3s ease;
+    }
+
+    .message.bot {
+      align-self: flex-start;
+      background: rgba(255, 255, 255, 0.08);
+      border-top-left-radius: 4px;
+      color: var(--txt);
+    }
+
+    .message.user {
+      align-self: flex-end;
+      background: var(--accent1);
+      border-bottom-right-radius: 4px;
+      color: #fff;
+    }
+
+    .chat-input-area {
+      padding: 16px;
+      background: var(--bg1);
+      border-top: 1px solid var(--stroke);
+      display: flex;
+      gap: 12px;
+    }
+
+    .status-dot {
+      display: inline-block;
+      width: 6px;
+      height: 6px;
+      background: var(--accent3);
+      border-radius: 50%;
+      margin-left: 6px;
+    }
+
+    .typing-indicator span {
+      display: inline-block;
+      width: 6px;
+      height: 6px;
+      background: var(--muted);
+      border-radius: 50%;
+      margin: 0 2px;
+      animation: bounce 0.6s infinite alternate;
+    }
+
+    .typing-indicator span:nth-child(2) {
+      animation-delay: 0.2s;
+    }
+
+    .typing-indicator span:nth-child(3) {
+      animation-delay: 0.4s;
+    }
+
+    @keyframes bounce {
+      to {
+        transform: translateY(-4px);
+      }
+    }
+
     .btn {
       border: 1px solid rgba(255, 255, 255, .14);
       background: rgba(255, 255, 255, .06);
@@ -1019,7 +1133,7 @@
           Access</button>
 
         <button class="btn"
-          style="padding: 16px 32px; font-size: 18px; font-weight: 600; background: rgba(255, 255, 255, 0.1); border-color: rgba(255, 255, 255, 0.3); display: flex; align-items: center; gap: 12px;"
+          style="padding: 16px 32px; font-size: 18px; font-weight: 600; background: linear-gradient(135deg, #22D3EE, #34D399); color: #000; border: none; box-shadow: 0 8px 24px rgba(34, 211, 238, 0.25); display: flex; align-items: center; gap: 12px;"
           onclick="openDemo()">
           <span>▶</span> Try Interactive Demo
         </button>
@@ -1379,66 +1493,103 @@
       el.classList.toggle('active');
     }
 
-    // Simulated LLM Integration
+    // Simulated LLM Chat Integration
     function openAddRule() {
       document.getElementById('rulePrompt').classList.add('active');
       document.getElementById('ruleInput').focus();
+      // Reset chat if needed or keep history
     }
 
     function cancelRule() {
       document.getElementById('rulePrompt').classList.remove('active');
-      document.getElementById('ruleInput').value = '';
+    }
+
+    function handleEnter(e) {
+      if (e.key === 'Enter') submitRule();
     }
 
     function submitRule() {
-      const input = document.getElementById('ruleInput').value;
-      if (!input) return;
+      const input = document.getElementById('ruleInput');
+      const text = input.value.trim();
+      if (!text) return;
 
-      // Show processing state
-      document.getElementById('rulePromptContents').style.display = 'none';
-      document.getElementById('ruleProcessing').style.display = 'flex';
+      const chat = document.getElementById('chatHistory');
 
-      // Simulate AI latency
+      // 1. User Message
+      chat.innerHTML += `<div class="message user">${text}</div>`;
+      input.value = '';
+      chat.scrollTop = chat.scrollHeight;
+
+      // 2. Typing Indicator
+      const typingId = 'typing-' + Date.now();
+      chat.innerHTML += `
+         <div class="message bot typing-indicator" id="${typingId}">
+           <span></span><span></span><span></span>
+         </div>
+       `;
+      chat.scrollTop = chat.scrollHeight;
+
+      // 3. Simulated Response
       setTimeout(() => {
-        // Add the new rule to the list
+        document.getElementById(typingId).remove();
+
+        let response = "I've updated your policy to reflect that.";
+        if (text.toLowerCase().includes("block")) response = "Understood. I've created a blocking rule for that context based on semantic matching.";
+        else if (text.toLowerCase().includes("alert")) response = "Noted. I will send you a real-time alert when this context is detected.";
+        else response = "I've processed that rule and updated the local vector store. The policy is now active.";
+
+        chat.innerHTML += `<div class="message bot">${response}</div>`;
+        chat.scrollTop = chat.scrollHeight;
+
+        // Add to background list
         const container = document.getElementById('customRulesList');
         const newRule = document.createElement('div');
-        newRule.style.cssText = 'background: rgba(255,255,255,0.05); padding: 12px; border-radius: 8px; border: 1px solid var(--stroke); margin-bottom: 12px; animation: slideDown 0.3s ease;';
+        newRule.style.cssText = 'background: rgba(255,255,255,0.05); padding: 12px; border-radius: 8px; border: 1px solid var(--stroke); margin-bottom: 12px; animation: slideDown 0.3s ease; border-left: 3px solid var(--accent2);';
         newRule.innerHTML = `
-            <div style="font-family: var(--mono); font-size: 13px; color: var(--accent3);">"${input}"</div>
-            <div style="margin-top: 8px; font-size: 12px; color: var(--muted2);">Status: <span style="color: var(--accent3);">Active</span> · Enforced via Semantic Model</div>
+            <div style="font-family: var(--mono); font-size: 13px; color: var(--accent2);">"${text}"</div>
+            <div style="margin-top: 8px; font-size: 12px; color: var(--muted2);">Status: <span style="color: var(--accent3);">Active</span> · Added via Chat</div>
           `;
         container.insertBefore(newRule, container.firstChild);
 
-        // Reset UI
-        document.getElementById('rulePrompt').classList.remove('active');
-        document.getElementById('rulePromptContents').style.display = 'block';
-        document.getElementById('ruleProcessing').style.display = 'none';
-        document.getElementById('ruleInput').value = '';
-      }, 2000);
+      }, 1500);
     }
   </script>
 
-  <!-- Add Rule LLM Overlay (Hidden by default) -->
+  <!-- Chat LLM Overlay -->
   <div class="llm-overlay" id="rulePrompt">
-    <div id="rulePromptContents"
-      style="width: 100%; max-width: 500px; padding: 32px; background: var(--card); border: 1px solid var(--stroke); border-radius: 16px;">
-      <h3 style="margin-top: 0; color: #fff;">New AI Safety Rule</h3>
-      <p style="font-size: 14px; color: var(--muted);">Describe the rule in plain English. Phylax will understand the
-        intent.</p>
-      <textarea id="ruleInput" class="form-input" rows="3"
-        placeholder="e.g., Block any video games that look violent, even if they are cartoons."
-        style="resize: none; margin-bottom: 16px;"></textarea>
-      <div style="display: flex; gap: 12px; justify-content: flex-end;">
-        <button class="btn" onclick="cancelRule()">Cancel</button>
-        <button class="btn btn-primary" onclick="submitRule()">Create Rule</button>
+    <div class="llm-chat-window">
+      <!-- Header -->
+      <div class="llm-header">
+        <div class="llm-avatar">🤖</div>
+        <div style="flex: 1;">
+          <h3 style="margin: 0; font-size: 15px; color: #fff;">Phylax AI Agent</h3>
+          <div style="font-size: 12px; color: var(--accent3); display: flex; align-items: center;">
+            Online <span class="status-dot"></span>
+          </div>
+        </div>
+        <button class="close-modal" style="position: static; font-size: 20px;" onclick="cancelRule()">×</button>
       </div>
-    </div>
 
-    <div id="ruleProcessing" style="display: none; flex-direction: column; align-items: center; text-align: center;">
-      <div class="llm-loader"></div>
-      <div style="font-weight: 500; font-size: 16px; color: #fff;">Analyzing Intent...</div>
-      <div style="font-size: 13px; color: var(--muted2); margin-top: 8px;">Compiling policy to local vector store</div>
+      <!-- Chat History -->
+      <div class="chat-messages" id="chatHistory">
+        <div class="message bot">
+          Hello! I manage your family's safety policy. Determine a new rule in plain English, and I will translate it
+          into enforcement logic.
+        </div>
+        <div class="message user">
+          Block gambling sites please.
+        </div>
+        <div class="message bot">
+          I have enabled strict blocking for the "Gambling / High Risk" category. Anything else?
+        </div>
+      </div>
+
+      <!-- Input -->
+      <div class="chat-input-area">
+        <input type="text" id="ruleInput" class="form-input" style="margin: 0;" placeholder="Type a rule..."
+          onkeypress="handleEnter(event)">
+        <button class="btn btn-primary" style="padding: 0 20px;" onclick="submitRule()">→</button>
+      </div>
     </div>
   </div>
 
@@ -1756,8 +1907,8 @@
             <div class="stat-card" style="position: relative; overflow: hidden;">
               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
                 <h3 style="margin: 0; font-size: 16px;">Custom Natural Language Rules</h3>
-                <button class="btn" style="padding: 4px 10px; font-size: 12px;" onclick="openAddRule()">+ Add
-                  Rule</button>
+                <button class="btn" style="padding: 4px 10px; font-size: 12px;" onclick="openAddRule()">+ Chat with
+                  Agent</button>
               </div>
               <p style="color: var(--muted); font-size: 14px;">Phylax interprets these rules intelligently using the
                 local LLM.</p>
