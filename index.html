@@ -1494,16 +1494,6 @@
     }
 
     // Simulated LLM Chat Integration
-    function openAddRule() {
-      document.getElementById('rulePrompt').classList.add('active');
-      document.getElementById('ruleInput').focus();
-      // Reset chat if needed or keep history
-    }
-
-    function cancelRule() {
-      document.getElementById('rulePrompt').classList.remove('active');
-    }
-
     function handleEnter(e) {
       if (e.key === 'Enter') submitRule();
     }
@@ -1541,57 +1531,12 @@
         chat.innerHTML += `<div class="message bot">${response}</div>`;
         chat.scrollTop = chat.scrollHeight;
 
-        // Add to background list
-        const container = document.getElementById('customRulesList');
-        const newRule = document.createElement('div');
-        newRule.style.cssText = 'background: rgba(255,255,255,0.05); padding: 12px; border-radius: 8px; border: 1px solid var(--stroke); margin-bottom: 12px; animation: slideDown 0.3s ease; border-left: 3px solid var(--accent2);';
-        newRule.innerHTML = `
-            <div style="font-family: var(--mono); font-size: 13px; color: var(--accent2);">"${text}"</div>
-            <div style="margin-top: 8px; font-size: 12px; color: var(--muted2);">Status: <span style="color: var(--accent3);">Active</span> · Added via Chat</div>
-          `;
-        container.insertBefore(newRule, container.firstChild);
-
+        // Add to background list (IF we had a visible list, but for now we interact via chat)
+        // We can optionally briefly show the rule "added" toast or just confirm in chat.
+        // For this embedded version, the chat confirmation is sufficient.
       }, 1500);
     }
   </script>
-
-  <!-- Chat LLM Overlay -->
-  <div class="llm-overlay" id="rulePrompt">
-    <div class="llm-chat-window">
-      <!-- Header -->
-      <div class="llm-header">
-        <div class="llm-avatar">🤖</div>
-        <div style="flex: 1;">
-          <h3 style="margin: 0; font-size: 15px; color: #fff;">Phylax AI Agent</h3>
-          <div style="font-size: 12px; color: var(--accent3); display: flex; align-items: center;">
-            Online <span class="status-dot"></span>
-          </div>
-        </div>
-        <button class="close-modal" style="position: static; font-size: 20px;" onclick="cancelRule()">×</button>
-      </div>
-
-      <!-- Chat History -->
-      <div class="chat-messages" id="chatHistory">
-        <div class="message bot">
-          Hello! I manage your family's safety policy. Determine a new rule in plain English, and I will translate it
-          into enforcement logic.
-        </div>
-        <div class="message user">
-          Block gambling sites please.
-        </div>
-        <div class="message bot">
-          I have enabled strict blocking for the "Gambling / High Risk" category. Anything else?
-        </div>
-      </div>
-
-      <!-- Input -->
-      <div class="chat-input-area">
-        <input type="text" id="ruleInput" class="form-input" style="margin: 0;" placeholder="Type a rule..."
-          onkeypress="handleEnter(event)">
-        <button class="btn btn-primary" style="padding: 0 20px;" onclick="submitRule()">→</button>
-      </div>
-    </div>
-  </div>
 
   <!-- Demo Interface Overlay -->
   <div class="demo-overlay" id="demoOverlay">
@@ -1903,31 +1848,35 @@
               </div>
             </div>
 
-            <!-- Card 2 -->
-            <div class="stat-card" style="position: relative; overflow: hidden;">
-              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-                <h3 style="margin: 0; font-size: 16px;">Custom Natural Language Rules</h3>
-                <button class="btn" style="padding: 4px 10px; font-size: 12px;" onclick="openAddRule()">+ Chat with
-                  Agent</button>
-              </div>
-              <p style="color: var(--muted); font-size: 14px;">Phylax interprets these rules intelligently using the
-                local LLM.</p>
-
-              <div id="customRulesList">
-                <div
-                  style="background: rgba(255,255,255,0.05); padding: 12px; border-radius: 8px; border: 1px solid var(--stroke); margin-bottom: 12px;">
-                  <div style="font-family: var(--mono); font-size: 13px; color: var(--accent3);">"Block any chat app
-                    that allows anonymous messaging."</div>
-                  <div style="margin-top: 8px; font-size: 12px; color: var(--muted2);">Status: <span
-                      style="color: var(--accent3);">Active</span> · Enforced via DOM Analysis</div>
+            <!-- Card 2: Embedded Chat -->
+            <div class="stat-card"
+              style="padding: 0; overflow: hidden; height: 500px; border-color: var(--accent1); box-shadow: 0 0 20px rgba(124, 92, 255, 0.1);">
+              <div class="llm-chat-window"
+                style="height: 100%; border: none; border-radius: 0; box-shadow: none; transform: none; max-width: none;">
+                <!-- Header -->
+                <div class="llm-header">
+                  <div class="llm-avatar">🤖</div>
+                  <div style="flex: 1;">
+                    <h3 style="margin: 0; font-size: 15px; color: #fff;">Phylax AI Agent</h3>
+                    <div style="font-size: 12px; color: var(--accent3); display: flex; align-items: center;">
+                      Online <span class="status-dot"></span>
+                    </div>
+                  </div>
                 </div>
 
-                <div
-                  style="background: rgba(255,255,255,0.05); padding: 12px; border-radius: 8px; border: 1px solid var(--stroke); margin-bottom: 12px;">
-                  <div style="font-family: var(--mono); font-size: 13px; color: var(--accent3);">"Alert me if homework
-                    help turns into cheating/plagiarism."</div>
-                  <div style="margin-top: 8px; font-size: 12px; color: var(--muted2);">Status: <span
-                      style="color: var(--accent3);">Active</span> · Semantic Intent Score > 0.8</div>
+                <!-- Chat History -->
+                <div class="chat-messages" id="chatHistory">
+                  <div class="message bot">
+                    Hi, I'm Phylax. I manage your family's safety policy. Determine a new rule in plain English, and I
+                    will translate it into enforcement logic.
+                  </div>
+                </div>
+
+                <!-- Input -->
+                <div class="chat-input-area">
+                  <input type="text" id="ruleInput" class="form-input" style="margin: 0;" placeholder="Type a rule..."
+                    onkeypress="handleEnter(event)">
+                  <button class="btn btn-primary" style="padding: 0 20px;" onclick="submitRule()">→</button>
                 </div>
               </div>
             </div>
