@@ -1566,8 +1566,8 @@
         <div id="link-activity" class="demo-link" onclick="switchTab('activity')">
           <span>🛡️</span> Activity Log
         </div>
-        <div id="link-policy" class="demo-link" onclick="switchTab('policy')">
-          <span>⚙️</span> Policy Rules
+        <div id="link-policy" class="demo-link" onclick="switchTab('policy')" style="color: var(--accent2);">
+          <span style="filter: drop-shadow(0 0 8px rgba(34, 211, 238, 0.6));">✨</span> AI Agent Config
         </div>
         <div id="link-family" class="demo-link" onclick="switchTab('family')">
           <span>👤</span> Family Settings
@@ -1750,7 +1750,9 @@
                   <span style="color: var(--accent2); font-size: 12px; font-weight: 600;">9:00 PM</span>
                 </div>
               </div>
-              <button class="btn" style="width: 100%; margin-top: 16px; font-size: 13px;">Manage Rules</button>
+              <button class="btn btn-primary"
+                style="width: 100%; margin-top: 16px; font-size: 13px; background: linear-gradient(135deg, var(--accent1), var(--accent2));"
+                onclick="switchTab('policy')">✨ Ask AI to Create Rule</button>
             </div>
           </div>
         </div> <!-- End Tab Dashboard -->
@@ -1806,7 +1808,11 @@
 
         <!-- TAB 3: POLICY RULES -->
         <div id="tab-policy" class="tab-content" style="flex-direction: column;">
-          <h2 style="margin-top: 0;">Policy Configuration</h2>
+          <h2 style="margin-top: 0; display: flex; align-items: center; gap: 12px;">
+            AI Safety Agent
+            <span class="tech-pill"
+              style="font-size: 12px; border-color: var(--accent2); color: var(--accent2);">Active</span>
+          </h2>
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
 
             <div class="stat-card">
