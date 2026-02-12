@@ -71,21 +71,56 @@
 
     // Category mappings
     const CATEGORIES = {
-      'social media': ['facebook.com', 'instagram.com', 'tiktok.com', 'snapchat.com', 'twitter.com', 'x.com', 'reddit.com'],
-      'gambling': ['poker.com', 'bet365.com', 'draftkings.com', 'fanduel.com', 'casino.com'],
-      'gaming': ['roblox.com', 'minecraft.net', 'fortnite.com', 'steampowered.com'],
-      'video': ['youtube.com', 'twitch.tv', 'dailymotion.com'],
-      'streaming': ['netflix.com', 'hulu.com', 'disneyplus.com']
+      'social media': {
+        domains: ['facebook.com', 'instagram.com', 'tiktok.com', 'snapchat.com', 'twitter.com', 'x.com', 'reddit.com'],
+        keywords: []
+      },
+      'gambling': {
+        domains: ['gambling.com', 'poker.com', 'bet365.com', 'draftkings.com', 'fanduel.com', 'casino.com', 'bovada.lv', 'betway.com', 'williamhill.com', '888casino.com'],
+        keywords: ['gambling', 'casino', 'poker', 'betting', 'slots']
+      },
+      'adult': {
+        domains: ['pornhub.com', 'xvideos.com', 'xnxx.com'],
+        keywords: ['porn', 'xxx', 'adult']
+      },
+      'gaming': {
+        domains: ['roblox.com', 'minecraft.net', 'fortnite.com', 'steampowered.com'],
+        keywords: []
+      },
+      'video': {
+        domains: ['youtube.com', 'twitch.tv', 'dailymotion.com'],
+        keywords: []
+      },
+      'streaming': {
+        domains: ['netflix.com', 'hulu.com', 'disneyplus.com'],
+        keywords: []
+      }
     };
 
-    // Check categories
-    for (const [category, domains] of Object.entries(CATEGORIES)) {
+    // Check categories — match both known domains AND keyword in URL/hostname
+    for (const [category, { domains, keywords }] of Object.entries(CATEGORIES)) {
       if (text.includes(category)) {
+        // Check known domains
         for (const domain of domains) {
-          if (hostname.includes(domain.replace('.com', '').replace('.tv', '').replace('.net', '').replace('.org', ''))) {
+          if (hostname.includes(domain.replace('.com', '').replace('.tv', '').replace('.net', '').replace('.org', '').replace('.lv', ''))) {
             return true;
           }
         }
+        // Check keywords in URL/hostname (catches gambling.com for "no gambling sites")
+        for (const kw of keywords) {
+          if (hostname.includes(kw) || url.includes(kw)) return true;
+        }
+      }
+    }
+
+    // Keyword-based blocking: match dangerous keywords from the rule against the URL
+    const BLOCK_KEYWORDS = [
+      'gambling', 'casino', 'poker', 'betting', 'slots', 'porn', 'xxx',
+      'adult', 'drugs', 'weapons', 'gore', 'violence'
+    ];
+    for (const keyword of BLOCK_KEYWORDS) {
+      if (text.includes(keyword) && (hostname.includes(keyword) || url.includes(keyword))) {
+        return true;
       }
     }
 

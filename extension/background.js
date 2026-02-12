@@ -85,22 +85,58 @@ function extractBlockPatterns(ruleText) {
   const text = ruleText.toLowerCase();
   const patterns = [];
 
-  // Known category mappings
+  // Known category mappings — domains AND keyword patterns
   const CATEGORIES = {
-    'social media': ['facebook.com', 'instagram.com', 'tiktok.com', 'snapchat.com', 'twitter.com', 'x.com', 'reddit.com'],
-    'gambling': ['poker.com', 'bet365.com', 'draftkings.com', 'fanduel.com', 'casino.com'],
-    'adult': ['pornhub.com', 'xvideos.com', 'xnxx.com'],
-    'gaming': ['roblox.com', 'minecraft.net', 'fortnite.com', 'steam.com'],
-    'video': ['youtube.com', 'twitch.tv', 'dailymotion.com'],
-    'streaming': ['netflix.com', 'hulu.com', 'disneyplus.com']
+    'social media': {
+      domains: ['facebook.com', 'instagram.com', 'tiktok.com', 'snapchat.com', 'twitter.com', 'x.com', 'reddit.com'],
+      keywords: []
+    },
+    'gambling': {
+      domains: ['gambling.com', 'poker.com', 'bet365.com', 'draftkings.com', 'fanduel.com', 'casino.com', 'bovada.lv', 'betway.com', 'williamhill.com', '888casino.com'],
+      keywords: ['gambling', 'casino', 'poker', 'betting', 'slots']
+    },
+    'adult': {
+      domains: ['pornhub.com', 'xvideos.com', 'xnxx.com'],
+      keywords: ['porn', 'xxx', 'adult']
+    },
+    'gaming': {
+      domains: ['roblox.com', 'minecraft.net', 'fortnite.com', 'steam.com'],
+      keywords: []
+    },
+    'video': {
+      domains: ['youtube.com', 'twitch.tv', 'dailymotion.com'],
+      keywords: []
+    },
+    'streaming': {
+      domains: ['netflix.com', 'hulu.com', 'disneyplus.com'],
+      keywords: []
+    }
   };
 
   // Check for category matches
-  for (const [category, domains] of Object.entries(CATEGORIES)) {
+  for (const [category, { domains, keywords }] of Object.entries(CATEGORIES)) {
     if (text.includes(category)) {
       for (const domain of domains) {
         patterns.push(`*${domain}*`);
       }
+      // Also block any URL containing the category keywords
+      for (const kw of keywords) {
+        const p = `*${kw}*`;
+        if (!patterns.includes(p)) patterns.push(p);
+      }
+    }
+  }
+
+  // Keyword-based blocking: extract meaningful words from the rule
+  // and match them against URLs (catches sites like gambling.com for "no gambling sites")
+  const BLOCK_KEYWORDS = [
+    'gambling', 'casino', 'poker', 'betting', 'slots', 'porn', 'xxx',
+    'adult', 'drugs', 'weapons', 'gore', 'violence'
+  ];
+  for (const keyword of BLOCK_KEYWORDS) {
+    if (text.includes(keyword)) {
+      const p = `*${keyword}*`;
+      if (!patterns.includes(p)) patterns.push(p);
     }
   }
 
