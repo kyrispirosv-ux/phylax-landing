@@ -36,14 +36,36 @@
     if (!decision) return;
     if (decision.action === 'ALLOW') return;
 
+    // Already showing overlay for this exact URL — don't recreate (prevents flash)
+    if (currentOverlay && blockedUrl === window.location.href) return;
+
     // Full-page block is reserved for explicit parent domain blocks only
     const isParentDomainBlock = decision.hard_trigger === 'parent_rule';
 
     if (isParentDomainBlock) {
       showFullBlock();
     } else {
+      // Content overlay only on actual content pages, not search/browse
+      if (!isContentPage()) return;
       showOverlayBlock();
     }
+  }
+
+  // ── Content page detection ────────────────────────────────────
+  // Overlay blocks only fire on pages where the user is consuming content
+  // (e.g. watching a video). Search results, homepages, and channel pages
+  // are browse/discovery — blocking those would block the whole site.
+
+  function isContentPage() {
+    const path = window.location.pathname;
+    const host = window.location.hostname;
+
+    if (host.includes('youtube.com') || host.includes('youtu.be')) {
+      return path.startsWith('/watch') || path.startsWith('/shorts');
+    }
+
+    // Other sites: allow content blocks anywhere
+    return true;
   }
 
   // ── Full-page block (replaces the page entirely) ────────────
