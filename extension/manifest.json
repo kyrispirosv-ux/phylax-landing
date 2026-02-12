@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Phylax SafeGuard",
-  "version": "2.5.0",
-  "description": "Intent-aware two-lane child safety engine with contextual reasoning, reason graph, and specificity-based conflict resolution.",
+  "version": "2.6.0",
+  "description": "Rules-only enforcement mode. Disables generic harm scorer to prevent false positives on normal content.",
 
   "permissions": [
     "storage",

@@ -268,53 +268,26 @@ async function processEvent(rawEvent, tabId) {
     return decision;
   }
 
-  // 4. Semantic parse (Content Harm Lane input)
-  const parsed = semanticParse(event);
+  // 4. Rules-only enforcement mode.
+  // The generic harm scorer uses broad keyword matching that produces too many
+  // false positives on normal content (e.g., sports pages flagged as "gambling"
+  // because search results mention odds/spreads). Only parent-defined rules
+  // should trigger blocking — if no rules matched above, ALLOW the page.
+  const decision = {
+    action: ACTIONS.ALLOW,
+    scores: { harm: 0, compulsion: 0 },
+    top_reasons: ['no_matching_rules'],
+    message_child: '',
+    message_parent: 'No parent rules matched. Page allowed.',
+    cooldown_seconds: 0,
+    hard_trigger: null,
+    timestamp: Date.now(),
+  };
 
-  // 5. Content Harm Lane: HarmRisk scoring
-  const harmResult = computeHarmRisk(parsed, eventBuffer, profileTier);
-
-  // 6. Attention Harm Lane: CompulsionRisk scoring
-  const compulsionResult = computeCompulsionRisk(parsed, eventBuffer, sessionState);
-
-  // 7. Check escalation triggers (for parent alerts)
-  let escalation = null;
-  if (harmResult.detailed_reasons?.length > 0) {
-    const topCategory = harmResult.detailed_reasons[0].category;
-    escalation = checkEscalationTriggers(topCategory, eventBuffer);
-  }
-
-  // 8. Policy engine: map scores → action
-  const decision = makeDecision({
-    harmResult,
-    compulsionResult,
-    semanticParse: parsed,
-    profileTier,
-    parentOverrides: {},
-    escalation,
-  });
-
-  // 8b. Mark harm scorer decisions as content-level analysis.
-  // The enforcer uses this to choose overlay (content) vs full-page (domain) blocking.
-  // Full-page block is reserved for explicit parent BLOCK_DOMAIN rules only.
-  if (decision.action !== ACTIONS.ALLOW && !decision.hard_trigger) {
-    decision.hard_trigger = 'content_harm';
-  }
-
-  // 9. Log the decision
-  const logRecord = logger.log(event, decision);
-  logRecord.model.latency_ms = Math.round(performance.now() - startTime);
-
-  // 10. Track in event buffer (for repetition detection)
   event._decision = decision;
   eventBuffer.push(event);
 
-  // 11. Update intervention count
-  if (decision.action !== ACTIONS.ALLOW) {
-    sessionState.interventions_today++;
-  }
-
-  console.log(`[Phylax] ${event.event_type} on ${event.source.domain}: harm=${decision.scores.harm} compulsion=${decision.scores.compulsion} → ${decision.action} (${Math.round(logRecord.model.latency_ms)}ms)`);
+  console.log(`[Phylax] ${event.event_type} on ${event.source?.domain || rawEvent.domain}: no rules matched → ALLOW (${Math.round(performance.now() - startTime)}ms)`);
 
   return decision;
 }

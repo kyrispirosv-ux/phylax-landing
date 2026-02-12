@@ -1613,6 +1613,7 @@
     function openDemo() {
       document.getElementById('demoOverlay').classList.add('active');
       switchTab('dashboard'); // Set initial tab to dashboard
+      loadRules(); // Ensure rules from previous session are loaded
     }
     function closeDemo() {
       document.getElementById('demoOverlay').classList.remove('active');
