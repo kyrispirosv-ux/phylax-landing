@@ -294,6 +294,22 @@ export function compileRule(ruleText) {
     compiled = buildInferredRule(id, text, mentionedSites, labels, categories);
   }
 
+  // Category rules return arrays (domain block + content classifier)
+  if (Array.isArray(compiled)) {
+    return compiled.map(rule => {
+      const validation = validateRule(rule);
+      debug(rule.id, 'validation', validation);
+      if (!validation.valid) {
+        rule._compiled = false;
+        rule._errors = validation.errors;
+      } else {
+        rule._compiled = true;
+      }
+      rule.parsed_intent = intent.type;
+      return rule;
+    });
+  }
+
   // Step 6: Validate
   const validation = validateRule(compiled);
   debug(id, 'validation', validation);
@@ -340,13 +356,18 @@ export function compileRule(ruleText) {
 
 export function compileRules(rules) {
   _ruleCounter = 0;
-  return rules
-    .filter(r => r.active)
-    .map(r => {
-      const compiled = compileRule(r.text);
-      compiled._originalRule = r;
-      return compiled;
-    });
+  const compiled = [];
+  for (const r of rules) {
+    if (!r.active) continue;
+    const result = compileRule(r.text);
+    // compileRule may return an array (e.g., category rules emit domain + content rules)
+    const items = Array.isArray(result) ? result : [result];
+    for (const item of items) {
+      item._originalRule = r;
+      compiled.push(item);
+    }
+  }
+  return compiled;
 }
 
 // ═════════════════════════════════════════════════════════════════
@@ -655,49 +676,61 @@ function buildConditionalRule(id, sourceText, intent, sites, labels) {
 }
 
 function buildCategoryBlockRule(id, sourceText, category, mentionedSites) {
-  const domainBlocklist = [];
-
-  // Resolve category to domains
+  const rules = [];
   const resolvedCat = resolveCategoryName(category);
+  const label = TOPICS[resolvedCat]?.label || resolvedCat;
+
+  // Rule 1: Block known domains for this category (network-level, fast)
   if (CATEGORY_DOMAINS[resolvedCat]) {
-    domainBlocklist.push(...CATEGORY_DOMAINS[resolvedCat]);
+    const domainBlocklist = [...CATEGORY_DOMAINS[resolvedCat]];
+    rules.push({
+      id: id + '_domains',
+      priority: 70,
+      source_text: sourceText,
+      scope: {
+        domain_blocklist: [...new Set(domainBlocklist)],
+      },
+      condition: { category_match: [resolvedCat] },
+      action: {
+        type: RULE_ACTIONS.BLOCK_DOMAIN,
+        fallback: 'BLOCK_DOMAIN',
+      },
+      explain: {
+        child: `This site is blocked because it contains ${label} content.`,
+        parent: `Domain blocked by category rule: ${label}.`,
+      },
+    });
   }
 
-  // If no known domains for this category, try topic keywords as a content-level rule instead
-  if (domainBlocklist.length === 0) {
+  // Rule 2: Global content classifier — catches category content on ANY site
+  // (e.g., gambling videos on YouTube, adult content on Reddit)
+  if (TOPICS[resolvedCat]) {
+    rules.push({
+      id: id + '_content',
+      priority: 65,
+      source_text: sourceText,
+      scope: { global: true },
+      condition: {
+        classifier: { labels_any: [resolvedCat], threshold: 0.6 },
+      },
+      action: {
+        type: RULE_ACTIONS.BLOCK_CONTENT,
+        fallback: 'WARN_IF_UNCERTAIN',
+      },
+      explain: {
+        child: `This content was blocked because it relates to ${label.toLowerCase()}.`,
+        parent: `Content classified as ${label} (global rule).`,
+      },
+    });
+  }
+
+  // Fallback if neither produced rules
+  if (rules.length === 0) {
     const labels = [resolvedCat];
     return buildConditionalRule(id, sourceText, { type: 'category_fallback' }, mentionedSites, labels);
   }
 
-  // Don't add non-category-domain sites to blocklist
-  const domainAllowlist = [];
-  for (const site of mentionedSites) {
-    const isCategoryDomain = domainBlocklist.some(d => site.domains?.includes(d));
-    if (!isCategoryDomain) {
-      domainAllowlist.push(...(site.domains || []));
-    }
-  }
-
-  const label = TOPICS[resolvedCat]?.label || resolvedCat;
-
-  return {
-    id,
-    priority: 70,
-    source_text: sourceText,
-    scope: {
-      domain_blocklist: [...new Set(domainBlocklist)],
-      ...(domainAllowlist.length > 0 ? { domain_allowlist: [...new Set(domainAllowlist)] } : {}),
-    },
-    condition: { category_match: [resolvedCat] },
-    action: {
-      type: RULE_ACTIONS.BLOCK_DOMAIN,
-      fallback: 'BLOCK_DOMAIN',
-    },
-    explain: {
-      child: `This site is blocked because it contains ${label} content.`,
-      parent: `Domain blocked by category rule: ${label}.`,
-    },
-  };
+  return rules;
 }
 
 function buildDomainBlockRule(id, sourceText, sites, categories) {

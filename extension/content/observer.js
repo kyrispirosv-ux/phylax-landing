@@ -105,17 +105,66 @@
     }));
   }
 
+  // ── YouTube metadata extraction ─────────────────────────────
+  // Extracts structured content object: video title, channel, description, tags
+
+  function extractYouTubeMetadata() {
+    const meta = {};
+
+    // Video title — try structured element first, then document title
+    const titleEl = document.querySelector('h1.ytd-watch-metadata yt-formatted-string, h1.ytd-video-primary-info-renderer yt-formatted-string');
+    meta.videoTitle = titleEl?.textContent?.trim() || document.title?.replace(/ - YouTube$/, '').trim() || '';
+
+    // Channel name
+    const channelEl = document.querySelector('#channel-name a, ytd-channel-name a, #owner #text a');
+    meta.channel = channelEl?.textContent?.trim() || '';
+
+    // Description
+    const descEl = document.querySelector('#description-inner, ytd-text-inline-expander #content, [id="description"] yt-formatted-string');
+    meta.description = descEl?.textContent?.trim()?.slice(0, 2000) || '';
+
+    // Tags from meta
+    const tagMeta = document.querySelector('meta[name="keywords"]');
+    meta.tags = tagMeta?.content || '';
+
+    // Category from meta
+    const catMeta = document.querySelector('meta[property="og:video:tag"], meta[itemprop="genre"]');
+    meta.category = catMeta?.content || '';
+
+    return meta;
+  }
+
+  function buildYouTubeText(meta) {
+    // Combine metadata into a rich text representation for the classifier
+    const parts = [meta.videoTitle];
+    if (meta.channel) parts.push('channel: ' + meta.channel);
+    if (meta.description) parts.push(meta.description);
+    if (meta.tags) parts.push(meta.tags);
+    if (meta.category) parts.push(meta.category);
+    return parts.join(' ');
+  }
+
   // ── PAGE_LOAD event ─────────────────────────────────────────
 
   function onPageLoad() {
     const title = document.title || '';
     const metaDesc = document.querySelector('meta[name="description"]')?.content || '';
+    const contentTypeHint = detectContentTypeHint();
+
+    // YouTube: extract structured video metadata
+    let text = title + ' ' + metaDesc;
+    let ytMeta = null;
+    if (isYouTube && window.location.pathname === '/watch') {
+      ytMeta = extractYouTubeMetadata();
+      text = buildYouTubeText(ytMeta);
+    }
 
     sendEvent('PAGE_LOAD', {
       title,
-      text: title + ' ' + metaDesc,
+      text,
       lang: document.documentElement.lang || 'unknown',
-      content_type_hint: detectContentTypeHint(),
+      content_type_hint: contentTypeHint,
+      ...(ytMeta ? { youtube: ytMeta } : {}),
     });
   }
 
@@ -135,11 +184,21 @@
     if (text.length < 10) return; // Skip near-empty pages
 
     lastSnapshotTime = now;
+
+    // YouTube: use structured metadata instead of raw DOM text
+    let snapshotText = text;
+    let ytMeta = null;
+    if (isYouTube && window.location.pathname === '/watch') {
+      ytMeta = extractYouTubeMetadata();
+      snapshotText = buildYouTubeText(ytMeta);
+    }
+
     sendEvent('DOM_TEXT_SNAPSHOT', {
-      text: text.slice(0, MAX_TEXT_LENGTH),
+      text: snapshotText.slice(0, MAX_TEXT_LENGTH),
       title: document.title || '',
       lang: document.documentElement.lang || 'unknown',
       content_type_hint: detectContentTypeHint(),
+      ...(ytMeta ? { youtube: ytMeta } : {}),
     });
   }
 
@@ -398,6 +457,25 @@
           characterData: false,
         });
       });
+    }
+
+    // YouTube SPA navigation: re-evaluate when navigating between videos
+    if (isYouTube) {
+      let lastYTPath = window.location.href;
+      const ytNavObserver = new MutationObserver(() => {
+        if (window.location.href !== lastYTPath) {
+          lastYTPath = window.location.href;
+          // Reset block state on navigation
+          lastBlockDecisionTime = 0;
+          lastBlockDecisionPath = null;
+          // Wait for YouTube to render new video metadata
+          setTimeout(onPageLoad, 1500);
+        }
+      });
+      const ytContainer = document.querySelector('title') || document.head;
+      if (ytContainer) {
+        ytNavObserver.observe(ytContainer, { childList: true, subtree: true, characterData: true });
+      }
     }
 
     console.log('[Phylax Observer] Active on:', window.location.hostname);

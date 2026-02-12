@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Phylax SafeGuard",
-  "version": "2.7.0",
-  "description": "Rules-only enforcement. Category toggles and custom chat rules drive all blocking decisions.",
+  "version": "2.8.0",
+  "description": "Content-level classification. Category rules block known domains + classify content globally. YouTube metadata extraction.",
 
   "permissions": [
     "storage",
