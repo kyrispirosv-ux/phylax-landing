@@ -57,44 +57,26 @@
 
   function showBlock(decision) {
     removeOverlay();
-    const ruleText = decision.message_child || 'This content has been blocked.';
-    const harmScore = decision.scores?.harm || 0;
-    const reasons = decision.top_reasons || [];
-    const debugInfo = decision.rule_debug || {};
 
     document.documentElement.innerHTML = `
       <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
-        <title>Blocked by Phylax</title>
-        <style>${baseStyles()}
-          .score-bar { height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; margin-top: 16px; overflow: hidden; }
-          .score-fill { height: 100%; background: linear-gradient(90deg, #34D399, #FBBF24, #FB7185); border-radius: 3px; transition: width 0.5s; }
-          .reason-tag { display: inline-block; padding: 4px 10px; border-radius: 6px; font-size: 11px; background: rgba(251,113,133,0.15); color: #FB7185; border: 1px solid rgba(251,113,133,0.2); margin: 3px; }
-          .debug-panel { margin-top: 24px; text-align: left; max-width: 480px; }
-          .debug-panel summary { font-size: 12px; color: rgba(255,255,255,0.3); cursor: pointer; }
-          .debug-panel pre { font-size: 10px; color: rgba(255,255,255,0.3); margin-top: 8px; padding: 8px; background: rgba(0,0,0,0.3); border-radius: 8px; overflow: auto; max-height: 200px; white-space: pre-wrap; word-wrap: break-word; }
-        </style>
+        <title>Phylax SafeGuard</title>
+        <style>${baseStyles()}</style>
       </head>
       <body>
         <div class="container">
-          <div class="shield">&#x1f6e1;</div>
-          <h1>Site Blocked</h1>
-          <p>${escapeHtml(ruleText)}</p>
-          <div class="score-bar"><div class="score-fill" style="width: ${harmScore}%"></div></div>
-          <div style="font-size: 12px; color: rgba(255,255,255,0.4); margin-top: 8px;">Risk Score: ${harmScore}/100</div>
-          ${reasons.length > 0 ? `
-            <div style="margin-top: 16px;">
-              ${reasons.map(r => `<span class="reason-tag">${escapeHtml(r)}</span>`).join('')}
-            </div>
-          ` : ''}
-          ${debugInfo.compiled_rule ? `
-            <details class="debug-panel">
-              <summary>Policy Debug Info</summary>
-              <pre>${JSON.stringify(debugInfo.compiled_rule, null, 2).replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>
-              <div style="font-size: 10px; color: rgba(255,255,255,0.3); margin-top: 4px;">Evaluation: ${(debugInfo.evaluation || 'unknown').replace(/</g, '&lt;')}</div>
-            </details>
-          ` : ''}
+          <div class="shield">
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            </svg>
+          </div>
+          <h1>Phylax is here to help</h1>
+          <p>This page has been blocked by your family's safety settings. If you think this is a mistake, talk to your parent or guardian.</p>
+          <div class="actions">
+            <button class="btn-primary" onclick="history.back()">Go Back</button>
+          </div>
         </div>
       </body>
     `;
@@ -106,34 +88,18 @@
   function showContentBlock(decision) {
     removeOverlay();
     const overlay = createOverlay('content-block');
-    const ruleText = decision.message_child || 'This content has been blocked.';
-    const harmScore = decision.scores?.harm || 0;
-    const reasons = decision.top_reasons || [];
-    const debugInfo = decision.rule_debug || {};
 
     overlay.innerHTML = `
-      <div class="phylax-card" style="border-color: rgba(251,113,133,0.3);">
-        <div class="phylax-icon" style="background: linear-gradient(135deg, #FB7185, #F43F5E);">&#x1f6e1;</div>
-        <h2 class="phylax-title">Content Blocked</h2>
-        <p class="phylax-text">${escapeHtml(ruleText)}</p>
-        <div style="height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; margin-top: 16px; overflow: hidden;">
-          <div style="height: 100%; width: ${harmScore}%; background: linear-gradient(90deg, #34D399, #FBBF24, #FB7185); border-radius: 3px;"></div>
+      <div class="phylax-card" style="border-color: rgba(124,92,255,0.3);">
+        <div class="phylax-icon" style="background: linear-gradient(135deg, #7C5CFF, #22D3EE);">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          </svg>
         </div>
-        <div style="font-size: 12px; color: rgba(255,255,255,0.4); margin-top: 8px;">Confidence: ${harmScore}/100</div>
-        ${reasons.length > 0 ? `
-          <div style="margin-top: 12px;">
-            ${reasons.map(r => `<span style="display:inline-block;padding:4px 10px;border-radius:6px;font-size:11px;background:rgba(251,113,133,0.15);color:#FB7185;border:1px solid rgba(251,113,133,0.2);margin:3px;">${escapeHtml(r)}</span>`).join('')}
-          </div>
-        ` : ''}
-        ${debugInfo.compiled_rule ? `
-          <details style="margin-top: 16px; text-align: left;">
-            <summary style="font-size: 12px; color: rgba(255,255,255,0.3); cursor: pointer;">Policy Debug</summary>
-            <pre style="font-size: 10px; color: rgba(255,255,255,0.3); margin-top: 8px; padding: 8px; background: rgba(0,0,0,0.3); border-radius: 8px; overflow: auto; max-height: 200px; white-space: pre-wrap;">${escapeHtml(JSON.stringify(debugInfo.compiled_rule, null, 2))}</pre>
-            <div style="font-size: 10px; color: rgba(255,255,255,0.3); margin-top: 4px;">Evaluation: ${escapeHtml(debugInfo.evaluation || 'unknown')}</div>
-          </details>
-        ` : ''}
+        <h2 class="phylax-title">Phylax is here to help</h2>
+        <p class="phylax-text">This content has been blocked by your family's safety settings. If you think this is a mistake, talk to your parent or guardian.</p>
         <div class="phylax-actions">
-          <button class="phylax-btn phylax-btn-secondary" id="phylaxGoBack">Go Back</button>
+          <button class="phylax-btn phylax-btn-primary" id="phylaxGoBack">Go Back</button>
         </div>
       </div>
     `;
@@ -151,21 +117,17 @@
   function showWarn(decision) {
     removeOverlay();
     const overlay = createOverlay('warn');
-    const debugInfo = decision.rule_debug || {};
     overlay.innerHTML = `
-      <div class="phylax-card">
-        <div class="phylax-icon" style="background: linear-gradient(135deg, #FBBF24, #F59E0B);">&#x26A0;&#xFE0F;</div>
-        <h2 class="phylax-title">Content Warning</h2>
-        <p class="phylax-text">${escapeHtml(decision.message_child || 'This content might not be appropriate.')}</p>
-        <div class="phylax-score">Risk: ${decision.scores?.harm || 0}/100</div>
-        ${debugInfo.compiled_rule ? `
-          <details style="margin-top: 12px; text-align: left;">
-            <summary style="font-size: 12px; color: rgba(255,255,255,0.3); cursor: pointer;">Policy Debug</summary>
-            <pre style="font-size: 10px; color: rgba(255,255,255,0.3); margin-top: 8px; padding: 8px; background: rgba(0,0,0,0.3); border-radius: 8px; overflow: auto; max-height: 150px; white-space: pre-wrap;">${escapeHtml(JSON.stringify(debugInfo.compiled_rule, null, 2))}</pre>
-          </details>
-        ` : ''}
+      <div class="phylax-card" style="border-color: rgba(251,191,36,0.3);">
+        <div class="phylax-icon" style="background: linear-gradient(135deg, #FBBF24, #F59E0B);">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          </svg>
+        </div>
+        <h2 class="phylax-title">Phylax wants you to be careful</h2>
+        <p class="phylax-text">${escapeHtml(decision.message_child || 'This content might not be right for you. Think before you continue.')}</p>
         <div class="phylax-actions">
-          <button class="phylax-btn phylax-btn-secondary" id="phylaxGoBack">Go Back</button>
+          <button class="phylax-btn phylax-btn-primary" id="phylaxGoBack">Go Back</button>
           <button class="phylax-btn phylax-btn-muted" id="phylaxContinue">Continue Anyway</button>
         </div>
       </div>
@@ -238,12 +200,15 @@
     let countdown = 10; // 10 second forced pause
 
     overlay.innerHTML = `
-      <div class="phylax-card">
-        <div class="phylax-icon" style="background: linear-gradient(135deg, #7C5CFF, #22D3EE);">&#x23F3;</div>
-        <h2 class="phylax-title">Take a Moment</h2>
-        <p class="phylax-text">${escapeHtml(decision.message_child || 'What\'s your goal right now?')}</p>
+      <div class="phylax-card" style="border-color: rgba(124,92,255,0.3);">
+        <div class="phylax-icon" style="background: linear-gradient(135deg, #7C5CFF, #22D3EE);">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          </svg>
+        </div>
+        <h2 class="phylax-title">Phylax says take a moment</h2>
+        <p class="phylax-text">${escapeHtml(decision.message_child || 'Think about what you want to do before continuing.')}</p>
         <div class="phylax-countdown" id="phylaxCountdown" style="font-size: 48px; font-weight: 700; color: #22D3EE; margin: 16px 0;">${countdown}</div>
-        <p class="phylax-text" style="font-size: 13px;">Think about what you want to achieve before continuing.</p>
         <button class="phylax-btn phylax-btn-primary" id="phylaxFrictionContinue" disabled style="opacity: 0.3;">
           Wait ${countdown}s...
         </button>
@@ -284,11 +249,15 @@
 
     const overlay = createOverlay('cooldown');
     overlay.innerHTML = `
-      <div class="phylax-card">
-        <div class="phylax-icon" style="background: linear-gradient(135deg, #FB7185, #F43F5E);">&#x1F6D1;</div>
-        <h2 class="phylax-title">Time for a Break</h2>
-        <p class="phylax-text">${escapeHtml(decision.message_child || 'Screen time limit reached.')}</p>
-        <div id="phylaxCooldownTimer" style="font-size: 48px; font-weight: 700; color: #FB7185; margin: 16px 0; font-variant-numeric: tabular-nums;">
+      <div class="phylax-card" style="border-color: rgba(124,92,255,0.3);">
+        <div class="phylax-icon" style="background: linear-gradient(135deg, #7C5CFF, #22D3EE);">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          </svg>
+        </div>
+        <h2 class="phylax-title">Phylax says take a break</h2>
+        <p class="phylax-text">${escapeHtml(decision.message_child || 'Time to step away from the screen for a bit.')}</p>
+        <div id="phylaxCooldownTimer" style="font-size: 48px; font-weight: 700; color: #22D3EE; margin: 16px 0; font-variant-numeric: tabular-nums;">
           ${formatTime(remaining)}
         </div>
         <p class="phylax-text" style="font-size: 13px; color: rgba(255,255,255,0.4);">
@@ -320,9 +289,13 @@
 
     overlay.innerHTML = `
       <div class="phylax-card" style="border-color: rgba(52, 211, 153, 0.3);">
-        <div class="phylax-icon" style="background: linear-gradient(135deg, #34D399, #10B981);">&#x1F49A;</div>
-        <h2 class="phylax-title">You're Not Alone</h2>
-        <p class="phylax-text">${escapeHtml(decision.message_child || 'Help is available if you need it.')}</p>
+        <div class="phylax-icon" style="background: linear-gradient(135deg, #34D399, #10B981);">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+          </svg>
+        </div>
+        <h2 class="phylax-title">Phylax is here for you</h2>
+        <p class="phylax-text">${escapeHtml(decision.message_child || 'You are not alone. Help is available if you need it.')}</p>
         ${resources.length > 0 ? `
           <div style="margin: 16px 0; text-align: left;">
             ${resources.map(r => `
@@ -334,7 +307,7 @@
           </div>
         ` : ''}
         <div class="phylax-actions">
-          <button class="phylax-btn phylax-btn-secondary" id="phylaxRedirectBack">Go Back</button>
+          <button class="phylax-btn phylax-btn-primary" id="phylaxRedirectBack">Go Back</button>
           <button class="phylax-btn phylax-btn-muted" id="phylaxRedirectContinue">I Understand</button>
         </div>
       </div>
@@ -454,16 +427,25 @@
         display: flex; align-items: center; justify-content: center;
         min-height: 100vh; text-align: center; padding: 24px;
       }
-      .container { max-width: 480px; }
+      .container { max-width: 420px; }
       .shield {
         width: 80px; height: 80px;
         background: linear-gradient(135deg, #7C5CFF, #22D3EE);
         border-radius: 20px; display: flex; align-items: center; justify-content: center;
-        margin: 0 auto 24px; font-size: 36px;
-        box-shadow: 0 10px 40px rgba(124, 92, 255, 0.3);
+        margin: 0 auto 28px;
+        box-shadow: 0 12px 40px rgba(124, 92, 255, 0.35);
       }
-      h1 { font-size: 28px; margin-bottom: 12px; }
-      p { color: rgba(255,255,255,0.6); font-size: 16px; line-height: 1.6; margin-bottom: 16px; }
+      h1 { font-size: 26px; font-weight: 700; margin-bottom: 14px; letter-spacing: -0.3px; }
+      p { color: rgba(255,255,255,0.55); font-size: 15px; line-height: 1.7; margin-bottom: 16px; }
+      .actions { margin-top: 28px; }
+      .btn-primary {
+        padding: 12px 32px; border-radius: 12px; font-size: 15px; font-weight: 600;
+        cursor: pointer; border: none;
+        background: linear-gradient(135deg, #7C5CFF, rgba(124,92,255,0.8));
+        color: white; box-shadow: 0 4px 16px rgba(124,92,255,0.3);
+        transition: all 0.2s; font-family: inherit;
+      }
+      .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(124,92,255,0.4); }
     `;
   }
 
