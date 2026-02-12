@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Phylax SafeGuard",
-  "version": "1.0.0",
-  "description": "Child protection browser extension — blocks content based on parent-defined rules from the Phylax dashboard.",
+  "version": "2.0.0",
+  "description": "Two-lane child protection engine — content harm scoring + attention compulsion scoring with policy-based enforcement.",
 
   "permissions": [
     "storage",
@@ -25,7 +25,8 @@
   },
 
   "background": {
-    "service_worker": "background.js"
+    "service_worker": "background.js",
+    "type": "module"
   },
 
   "content_scripts": [
@@ -40,7 +41,7 @@
     },
     {
       "matches": ["<all_urls>"],
-      "js": ["blocker.js"],
+      "js": ["content/observer.js", "content/enforcer.js"],
       "run_at": "document_start"
     }
   ],
