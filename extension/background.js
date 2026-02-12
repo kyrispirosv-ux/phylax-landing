@@ -200,6 +200,37 @@ async function processEvent(rawEvent, tabId) {
     return decision;
   }
 
+  // 3b. Parent-approved domain bypass: if ANY compiled rule has this domain
+  // in its domain_allowlist, the parent explicitly created a content-scoped
+  // rule for this domain — meaning they ALLOW the domain itself.
+  // The rule compiler already checked content conditions above and didn't block,
+  // so we skip the generic harm scorer to avoid false-positive overrides.
+  const domainLower = (rawEvent.domain || '').toLowerCase();
+  const isParentApprovedDomain = compiled.some(rule =>
+    (rule.action?.type === RULE_ACTIONS.BLOCK_CONTENT ||
+     rule.action?.type === RULE_ACTIONS.WARN_CONTENT) &&
+    rule.scope?.domain_allowlist?.some(d =>
+      domainLower.includes(d) || domainLower.endsWith(d)
+    )
+  );
+
+  if (isParentApprovedDomain) {
+    console.log(`[Phylax] Domain ${rawEvent.domain} is parent-approved (content-scoped rule exists). Skipping harm scorer.`);
+    const decision = {
+      action: ACTIONS.ALLOW,
+      scores: { harm: 0, compulsion: 0 },
+      top_reasons: ['parent_approved_domain'],
+      message_child: '',
+      message_parent: `Domain allowed by parent content-scoped rule.`,
+      cooldown_seconds: 0,
+      hard_trigger: null,
+      timestamp: Date.now(),
+    };
+    event._decision = decision;
+    eventBuffer.push(event);
+    return decision;
+  }
+
   // 4. Semantic parse (Content Harm Lane input)
   const parsed = semanticParse(event);
 
