@@ -427,8 +427,8 @@ export const AGE_TIER_DEFAULTS = {
       'pro_eating_disorder', 'illegal_activity', 'profanity',
     ],
     max_daily_minutes: 120,
-    bedtime: '21:00',
-    wake_time: '07:00',
+    bedtime: null,
+    wake_time: null,
   },
 
   tween_13: {
@@ -449,8 +449,8 @@ export const AGE_TIER_DEFAULTS = {
       'pro_eating_disorder', 'doxxing_pii', 'illegal_activity',
     ],
     max_daily_minutes: 180,
-    bedtime: '22:00',
-    wake_time: '07:00',
+    bedtime: null,
+    wake_time: null,
   },
 
   teen_16: {
@@ -471,7 +471,7 @@ export const AGE_TIER_DEFAULTS = {
       'scams_fraud', 'doxxing_pii', 'pro_eating_disorder',
     ],
     max_daily_minutes: 240,
-    bedtime: '23:00',
-    wake_time: '06:00',
+    bedtime: null,
+    wake_time: null,
   },
 };
