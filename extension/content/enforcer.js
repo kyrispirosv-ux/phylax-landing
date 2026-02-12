@@ -141,6 +141,11 @@
     safeAppendOverlay(overlay);
     currentOverlay = overlay;
 
+    // Pause all media (video/audio) so content stops playing behind the overlay
+    document.querySelectorAll('video, audio').forEach(el => {
+      try { el.pause(); } catch {}
+    });
+
     overlay.querySelector('#phylaxGoBack').addEventListener('click', () => {
       history.back();
     });
