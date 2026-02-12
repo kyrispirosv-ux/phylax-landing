@@ -59,11 +59,15 @@ export function makeDecision({
     });
   }
 
-  // 2. Category-based overrides from parent
+  // 2. Category-based overrides from tier defaults
+  // Only apply if the detection confidence is high enough to avoid false positives.
+  // Low-confidence keyword matches (e.g., "poker" in a video title) should NOT
+  // trigger an immediate block — they fall through to score-based thresholds instead.
   const topCategory = getTopCategory(harmResult);
   if (topCategory) {
+    const topCategoryRisk = harmResult.category_risks?.[topCategory] || 0;
     const categoryOverride = getCategoryOverride(topCategory, config);
-    if (categoryOverride === 'blocked') {
+    if (categoryOverride === 'blocked' && topCategoryRisk >= 0.5) {
       return buildDecision({
         action: ACTIONS.BLOCK,
         harm_score: harmResult.score,

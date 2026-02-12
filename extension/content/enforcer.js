@@ -24,20 +24,22 @@
     }
   });
 
-  // ── Enforce: every action becomes one clean block ───────────
+  // ── Enforce: route decisions to the right block type ─────────
+  // Full-page block (DOM replacement): ONLY for explicit parent BLOCK_DOMAIN rules.
+  // Overlay block (floats over page): content-scoped parent rules + harm scorer.
+  // This ensures the generic harm scorer never independently triggers domain-level blocks.
 
   function enforce(decision) {
     if (!decision) return;
     if (decision.action === 'ALLOW') return;
 
-    // Content-level block (overlay on top of page)
-    const isContentBlock = decision.hard_trigger === 'content_rule' ||
-      decision.top_reasons?.some(r => r.startsWith('content_rule:') || r.startsWith('content_warn:'));
+    // Full-page block is reserved for explicit parent domain blocks only
+    const isParentDomainBlock = decision.hard_trigger === 'parent_rule';
 
-    if (isContentBlock) {
-      showOverlayBlock();
-    } else {
+    if (isParentDomainBlock) {
       showFullBlock();
+    } else {
+      showOverlayBlock();
     }
   }
 

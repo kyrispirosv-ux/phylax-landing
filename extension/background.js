@@ -257,6 +257,13 @@ async function processEvent(rawEvent, tabId) {
     escalation,
   });
 
+  // 8b. Mark harm scorer decisions as content-level analysis.
+  // The enforcer uses this to choose overlay (content) vs full-page (domain) blocking.
+  // Full-page block is reserved for explicit parent BLOCK_DOMAIN rules only.
+  if (decision.action !== ACTIONS.ALLOW && !decision.hard_trigger) {
+    decision.hard_trigger = 'content_harm';
+  }
+
   // 9. Log the decision
   const logRecord = logger.log(event, decision);
   logRecord.model.latency_ms = Math.round(performance.now() - startTime);
