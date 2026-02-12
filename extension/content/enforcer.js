@@ -14,8 +14,14 @@
   let blockedUrl = null;        // URL that triggered the current overlay
   let mediaKillInterval = null; // interval that keeps killing media
   let navCleanupFns = [];       // listeners to tear down on dismiss
+  const dismissedUrls = {};     // url → timestamp — recently dismissed, don't re-block
 
   // ── Listen for decisions ────────────────────────────────────
+  // Only listen on ONE channel to avoid duplicates.
+  // The observer already forwards background PHYLAX_ENFORCE_DECISION messages
+  // as phylax-decision window events, so we only need the window listener.
+  // We also keep the chrome.runtime listener for direct background → enforcer
+  // messages, but dedup via the enforce() guards.
 
   window.addEventListener('phylax-decision', (e) => {
     enforce(e.detail);
@@ -36,8 +42,14 @@
     if (!decision) return;
     if (decision.action === 'ALLOW') return;
 
+    const url = window.location.href;
+
     // Already showing overlay for this exact URL — don't recreate (prevents flash)
-    if (currentOverlay && blockedUrl === window.location.href) return;
+    if (currentOverlay && blockedUrl === url) return;
+
+    // Recently dismissed this URL — don't re-block for 30s (prevents flash after Go Back)
+    const dismissedAt = dismissedUrls[url];
+    if (dismissedAt && Date.now() - dismissedAt < 30000) return;
 
     // Full-page block is reserved for explicit parent domain blocks only
     const isParentDomainBlock = decision.hard_trigger === 'parent_rule';
@@ -257,6 +269,11 @@
   }
 
   function dismissOverlay() {
+    // Remember this URL so we don't re-block it immediately (prevents flash loop)
+    if (blockedUrl) {
+      dismissedUrls[blockedUrl] = Date.now();
+    }
+
     // Stop killing media
     if (mediaKillInterval) {
       clearInterval(mediaKillInterval);
