@@ -1493,6 +1493,108 @@
   </div>
 
   <script>
+    // ── Phylax Extension Communication Layer ──────────────────────
+    // This bridges the web app to the Phylax SafeGuard Chrome extension.
+    // Communication uses window.postMessage -> bridge.js content script -> background.js
+
+    const PhylaxExtension = {
+      connected: false,
+      version: null,
+
+      // Send a message to the extension via postMessage (bridge.js picks it up)
+      send(message) {
+        window.postMessage(message, '*');
+        console.log('[Phylax Web] Sent to extension:', message.type);
+      },
+
+      // Sync all current rules to the extension
+      syncRules() {
+        const rules = JSON.parse(localStorage.getItem('phylaxRules') || '[]');
+        this.send({ type: 'PHYLAX_SYNC_RULES', rules: rules });
+      },
+
+      // Notify extension that a new rule was added
+      addRule(ruleText) {
+        this.send({ type: 'PHYLAX_ADD_RULE', rule: ruleText });
+      },
+
+      // Notify extension that a rule was toggled
+      toggleRule(index) {
+        this.send({ type: 'PHYLAX_TOGGLE_RULE', index: index });
+      },
+
+      // Notify extension that all rules were cleared
+      clearRules() {
+        this.send({ type: 'PHYLAX_CLEAR_RULES' });
+      },
+
+      // Check if extension is installed
+      ping() {
+        this.send({ type: 'PHYLAX_PING' });
+      },
+
+      // Update the UI status indicator
+      updateStatus(connected, version) {
+        this.connected = connected;
+        this.version = version;
+        const dot = document.getElementById('extensionStatusDot');
+        const text = document.getElementById('extensionStatusText');
+        if (dot && text) {
+          if (connected) {
+            dot.style.background = 'var(--accent3)';
+            dot.style.boxShadow = '0 0 8px rgba(52, 211, 153, 0.4)';
+            text.textContent = 'Extension Connected (v' + version + ')';
+            text.style.color = 'var(--accent3)';
+          } else {
+            dot.style.background = 'var(--bad)';
+            dot.style.boxShadow = '0 0 8px rgba(251, 113, 133, 0.4)';
+            text.textContent = 'Extension Not Detected';
+            text.style.color = 'var(--bad)';
+          }
+        }
+      }
+    };
+
+    // Listen for extension responses
+    window.addEventListener('message', (event) => {
+      if (event.source !== window) return;
+      if (!event.data || !event.data.type) return;
+
+      // Extension ready signal from bridge.js
+      if (event.data.type === 'PHYLAX_EXTENSION_READY') {
+        console.log('[Phylax Web] Extension detected! Version:', event.data.version);
+        PhylaxExtension.updateStatus(true, event.data.version);
+        // Do an initial full sync
+        PhylaxExtension.syncRules();
+      }
+
+      // Response to our ping
+      if (event.data.type === 'PHYLAX_PING_RESPONSE' && event.data.success) {
+        PhylaxExtension.updateStatus(true, event.data.version);
+      }
+
+      // Log sync responses
+      if (event.data.type === 'PHYLAX_SYNC_RULES_RESPONSE') {
+        console.log('[Phylax Web] Rules synced to extension:', event.data);
+      }
+    });
+
+    // Check for extension on page load
+    setTimeout(() => {
+      if (!PhylaxExtension.connected) {
+        // Also check via DOM attribute (set by bridge.js)
+        if (document.documentElement.hasAttribute('data-phylax-extension')) {
+          PhylaxExtension.updateStatus(true, '?');
+          PhylaxExtension.syncRules();
+        } else {
+          PhylaxExtension.updateStatus(false);
+          console.log('[Phylax Web] Extension not detected. Install the Phylax SafeGuard extension from the /extension folder.');
+        }
+      }
+    }, 1500);
+
+    // ── Original App Code ─────────────────────────────────────────
+
     function openModal() {
       document.getElementById('accessModal').classList.add('open');
     }
@@ -1562,6 +1664,9 @@
       rules.push({ text: ruleText, active: true });
       localStorage.setItem('phylaxRules', JSON.stringify(rules));
       loadRules();
+
+      // Notify the extension about the new rule
+      PhylaxExtension.syncRules();
     }
 
     function toggleCustomRule(index) {
@@ -1570,6 +1675,9 @@
         rules[index].active = !rules[index].active;
         localStorage.setItem('phylaxRules', JSON.stringify(rules));
         loadRules(); // Re-render
+
+        // Notify the extension about the toggle
+        PhylaxExtension.syncRules();
       }
     }
 
@@ -1577,6 +1685,9 @@
       if (confirm('Clear all custom rules?')) {
         localStorage.removeItem('phylaxRules');
         loadRules();
+
+        // Notify the extension to clear all rules
+        PhylaxExtension.clearRules();
       }
     }
 
@@ -1833,6 +1944,10 @@ User: ${userText}`
           <div style="font-size: 13px; color: var(--muted2); display: flex; align-items: center; gap: 6px;">
             <div style="width: 6px; height: 6px; background: var(--accent3); border-radius: 50%;"></div>
             Cloud Sync: OK
+          </div>
+          <div style="font-size: 13px; display: flex; align-items: center; gap: 6px; margin-top: 2px;">
+            <div id="extensionStatusDot" style="width: 6px; height: 6px; background: var(--bad); border-radius: 50%; box-shadow: 0 0 8px rgba(251, 113, 133, 0.4);"></div>
+            <span id="extensionStatusText" style="color: var(--bad);">Extension Not Detected</span>
           </div>
         </div>
       </div>

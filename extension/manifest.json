@@ -1,0 +1,61 @@
+{
+  "manifest_version": 3,
+  "name": "Phylax SafeGuard",
+  "version": "1.0.0",
+  "description": "Child protection browser extension — blocks content based on parent-defined rules from the Phylax dashboard.",
+
+  "permissions": [
+    "storage",
+    "declarativeNetRequest",
+    "declarativeNetRequestFeedback",
+    "tabs",
+    "webNavigation"
+  ],
+
+  "host_permissions": [
+    "<all_urls>"
+  ],
+
+  "externally_connectable": {
+    "matches": [
+      "https://phylax-landing.vercel.app/*",
+      "http://localhost:*/*",
+      "http://127.0.0.1:*/*"
+    ]
+  },
+
+  "background": {
+    "service_worker": "background.js"
+  },
+
+  "content_scripts": [
+    {
+      "matches": [
+        "https://phylax-landing.vercel.app/*",
+        "http://localhost:*/*",
+        "http://127.0.0.1:*/*"
+      ],
+      "js": ["bridge.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["<all_urls>"],
+      "js": ["blocker.js"],
+      "run_at": "document_start"
+    }
+  ],
+
+  "declarative_net_request": {
+    "rule_resources": []
+  },
+
+  "icons": {
+    "48": "icon48.png",
+    "128": "icon128.png"
+  },
+
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": "icon48.png"
+  }
+}
