@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Phylax SafeGuard",
-  "version": "2.6.1",
-  "description": "Rules-only enforcement mode. Disables generic harm scorer to prevent false positives on normal content.",
+  "version": "3.0.0",
+  "description": "12-step deterministic pipeline with weighted lexicon scoring, kids-only actions (ALLOW/BLOCK/LIMIT), behavior intelligence, and policy-versioned caching.",
 
   "permissions": [
     "storage",
