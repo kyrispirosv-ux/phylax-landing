@@ -7,7 +7,6 @@
   "permissions": [
     "storage",
     "declarativeNetRequest",
-    "declarativeNetRequestFeedback",
     "tabs",
     "webNavigation"
   ],
@@ -46,9 +45,7 @@
     }
   ],
 
-  "declarative_net_request": {
-    "rule_resources": []
-  },
+  "declarative_net_request": {},
 
   "icons": {
     "48": "icon48.png",

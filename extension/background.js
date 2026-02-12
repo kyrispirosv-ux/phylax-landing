@@ -155,8 +155,13 @@ async function processEvent(rawEvent, tabId) {
 
   // 4. Ensure we have a policy
   if (!currentPolicy) {
-    const rules = await getRules();
-    await rebuildPolicy(rules);
+    try {
+      const rules = await getRules();
+      await rebuildPolicy(rules);
+    } catch (e) {
+      console.error('[Phylax] Failed to build policy:', e);
+      currentPolicy = compileToPolicyObject([], profileTier);
+    }
   }
 
   // 5. Run the 12-step pipeline
@@ -488,7 +493,7 @@ chrome.webNavigation.onCommitted.addListener(async (details) => {
 chrome.webNavigation.onCompleted.addListener(async (details) => {
   if (details.frameId !== 0) return;
   const url = details.url;
-  if (url.startsWith('chrome://') || url.startsWith('chrome-extension://')) return;
+  if (url.startsWith('chrome://') || url.startsWith('chrome-extension://') || url.startsWith('about:')) return;
 
   let domain;
   try {
@@ -519,29 +524,40 @@ chrome.webNavigation.onCompleted.addListener(async (details) => {
 // ═════════════════════════════════════════════════════════════════
 
 chrome.runtime.onInstalled.addListener(async () => {
-  console.log('[Phylax] Engine installed — Pipeline v3 (Kids-Only)');
-  profileTier = await getProfileTier();
-  await logger.restore();
-  const rules = await getRules();
-  if (rules.length > 0) {
-    await rebuildPolicy(rules);
-    console.log('[Phylax] Restored', rules.length, 'rules, policy version:', currentPolicy?.policy_version);
-  } else {
-    // Build default policy even with no rules (for behavior rules)
-    await rebuildPolicy([]);
+  try {
+    console.log('[Phylax] Engine installed — Pipeline v3 (Kids-Only)');
+    profileTier = await getProfileTier();
+    await logger.restore();
+    const rules = await getRules();
+    if (rules.length > 0) {
+      await rebuildPolicy(rules);
+      console.log('[Phylax] Restored', rules.length, 'rules, policy version:', currentPolicy?.policy_version);
+    } else {
+      // Build default policy even with no rules (for behavior rules)
+      await rebuildPolicy([]);
+    }
+  } catch (e) {
+    console.error('[Phylax] onInstalled error:', e);
+    currentPolicy = compileToPolicyObject([], profileTier);
   }
 });
 
 // Restore state on service worker wake
 (async () => {
-  profileTier = await getProfileTier();
-  await logger.restore();
-  const rules = await getRules();
-  await rebuildPolicy(rules);
-  console.log('[Phylax] Service worker ready. Profile:', profileTier,
-    '| Policy:', currentPolicy?.policy_version || 'none',
-    '| Topic rules:', currentPolicy?.topic_rules?.length || 0,
-    '| Domain blocks:', currentPolicy?.domain_rules?.block_domains?.length || 0);
+  try {
+    profileTier = await getProfileTier();
+    await logger.restore();
+    const rules = await getRules();
+    await rebuildPolicy(rules);
+    console.log('[Phylax] Service worker ready. Profile:', profileTier,
+      '| Policy:', currentPolicy?.policy_version || 'none',
+      '| Topic rules:', currentPolicy?.topic_rules?.length || 0,
+      '| Domain blocks:', currentPolicy?.domain_rules?.block_domains?.length || 0);
+  } catch (e) {
+    console.error('[Phylax] Service worker init error:', e);
+    // Build a minimal default policy so the extension still functions
+    currentPolicy = compileToPolicyObject([], profileTier);
+  }
 })();
 
 // Persist logs periodically
