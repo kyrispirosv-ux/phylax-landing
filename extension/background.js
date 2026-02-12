@@ -345,6 +345,37 @@ function isPhylaxOrigin(origin) {
 
 // ── Tab navigation tracking ─────────────────────────────────────
 
+// Early blocking: onCommitted fires as soon as navigation commits (before page renders)
+chrome.webNavigation.onCommitted.addListener(async (details) => {
+  if (details.frameId !== 0) return;
+  const url = details.url;
+  if (url.startsWith('chrome://') || url.startsWith('chrome-extension://') || url.startsWith('about:')) return;
+
+  try {
+    const domain = new URL(url).hostname;
+    if (['phylax-landing.vercel.app', 'localhost', '127.0.0.1'].includes(domain)) return;
+
+    // Fast-path: check parent rules only (no full pipeline, for speed)
+    const rules = await getRules();
+    const { checkParentRules: checkRules } = await import('./engine/policy-engine.js');
+    const event = { source: { url, domain } };
+    const ruleMatch = checkRules(event, rules);
+    if (ruleMatch) {
+      chrome.tabs.sendMessage(details.tabId, {
+        type: 'PHYLAX_ENFORCE_DECISION',
+        decision: {
+          action: 'BLOCK',
+          scores: { harm: 100, compulsion: 0 },
+          top_reasons: [`parent_rule:${ruleMatch.rule}`],
+          message_child: ruleMatch.message_child,
+          hard_trigger: 'parent_rule',
+        },
+      }).catch(() => {});
+    }
+  } catch { /* ignore */ }
+});
+
+// Full analysis: onCompleted fires after page loads (for content analysis)
 chrome.webNavigation.onCompleted.addListener(async (details) => {
   if (details.frameId !== 0) return; // Only main frame
 

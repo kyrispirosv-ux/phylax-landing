@@ -279,7 +279,16 @@
   // ── Initialize ──────────────────────────────────────────────
 
   function init() {
-    // Page load event
+    // IMMEDIATE check at document_start — block before page renders
+    // Send a lightweight PAGE_LOAD event right away (no DOM access needed)
+    sendEvent('PAGE_LOAD', {
+      title: '',
+      text: '',
+      lang: 'unknown',
+      content_type_hint: detectContentTypeHint(),
+    });
+
+    // Full page load event after DOM is ready (for richer content analysis)
     if (document.readyState === 'loading') {
       document.addEventListener('DOMContentLoaded', onPageLoad);
     } else {
