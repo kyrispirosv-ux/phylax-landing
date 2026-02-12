@@ -138,88 +138,15 @@ export function makeDecision({
 }
 
 // ── Parent-defined rules check ──────────────────────────────────
-// Checks rules set via the Phylax dashboard (natural language rules)
+// DEPRECATED: This is now a thin wrapper. Real logic is in rule-compiler.js.
+// Kept for backward compatibility with code that still calls checkParentRules directly.
 
 export function checkParentRules(event, rules) {
-  if (!rules || rules.length === 0) return null;
-
-  const url = event.source?.url?.toLowerCase() || '';
-  const domain = event.source?.domain?.toLowerCase() || '';
-
-  for (const rule of rules) {
-    if (!rule.active) continue;
-    if (matchesRule(rule.text, url, domain)) {
-      return {
-        matched: true,
-        rule: rule.text,
-        action: ACTIONS.BLOCK,
-        message_child: `This site is blocked by your family's safety rules.`,
-        message_parent: `Rule enforced: "${rule.text}"`,
-      };
-    }
-  }
-
+  // This function is no longer the primary enforcement path.
+  // The new compiled-rules system in background.js handles this via evaluateRules().
+  // This is only called as a legacy fallback if compiled rules are not available.
+  console.warn('[Phylax] checkParentRules called directly — this is deprecated. Use evaluateRules() from rule-compiler.js instead.');
   return null;
-}
-
-function matchesRule(ruleText, url, domain) {
-  const text = ruleText.toLowerCase();
-
-  // Site name mappings (same as previous blocker)
-  const SITE_MAP = {
-    'youtube': ['youtube.com'], 'tiktok': ['tiktok.com'],
-    'instagram': ['instagram.com'], 'facebook': ['facebook.com'],
-    'twitter': ['twitter.com', 'x.com'], 'reddit': ['reddit.com'],
-    'snapchat': ['snapchat.com'], 'roblox': ['roblox.com'],
-    'twitch': ['twitch.tv'], 'discord': ['discord.com'],
-    'pinterest': ['pinterest.com'], 'netflix': ['netflix.com'],
-    'hulu': ['hulu.com'], 'spotify': ['spotify.com'],
-    'fortnite': ['fortnite.com'], 'minecraft': ['minecraft.net'],
-    'steam': ['steampowered.com'], 'poker': ['poker.com'],
-    'bet365': ['bet365.com'], 'whatsapp': ['whatsapp.com'],
-    'telegram': ['telegram.org'],
-  };
-
-  const CATEGORIES = {
-    'social media': ['facebook.com', 'instagram.com', 'tiktok.com', 'snapchat.com', 'twitter.com', 'x.com', 'reddit.com'],
-    'gambling': ['gambling.com', 'poker.com', 'bet365.com', 'draftkings.com', 'fanduel.com', 'casino.com', 'bovada.lv', 'betway.com'],
-    'adult': ['pornhub.com', 'xvideos.com', 'xnxx.com'],
-    'gaming': ['roblox.com', 'minecraft.net', 'fortnite.com', 'steampowered.com'],
-    'video': ['youtube.com', 'twitch.tv', 'dailymotion.com'],
-    'streaming': ['netflix.com', 'hulu.com', 'disneyplus.com'],
-  };
-
-  // Category check
-  for (const [cat, domains] of Object.entries(CATEGORIES)) {
-    if (text.includes(cat)) {
-      if (domains.some(d => domain.includes(d.split('.')[0]))) return true;
-    }
-  }
-
-  // Keyword check
-  const BLOCK_KEYWORDS = [
-    'gambling', 'casino', 'poker', 'betting', 'slots', 'porn', 'xxx',
-    'adult', 'drugs', 'weapons', 'gore', 'violence',
-  ];
-  for (const kw of BLOCK_KEYWORDS) {
-    if (text.includes(kw) && (domain.includes(kw) || url.includes(kw))) return true;
-  }
-
-  // Site name check
-  for (const [name, domains] of Object.entries(SITE_MAP)) {
-    if (text.includes(name)) {
-      if (domains.some(d => domain.includes(d.split('.')[0]))) return true;
-    }
-  }
-
-  // Raw domain check
-  const domainRegex = /([a-z0-9-]+\.[a-z]{2,})/g;
-  let match;
-  while ((match = domainRegex.exec(text)) !== null) {
-    if (domain.includes(match[1]) || url.includes(match[1])) return true;
-  }
-
-  return false;
 }
 
 // ── Action resolution ───────────────────────────────────────────

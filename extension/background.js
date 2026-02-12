@@ -7,6 +7,7 @@ import { computeHarmRisk, checkEscalationTriggers } from './engine/harm-scorer.j
 import { computeCompulsionRisk, createSessionState, updateSessionState } from './engine/compulsion-scorer.js';
 import { makeDecision, checkParentRules, ACTIONS } from './engine/policy-engine.js';
 import { DecisionLogger } from './engine/logger.js';
+import { compileRules, evaluateRules, extractDNRPatterns, RULE_ACTIONS, getDebugLog, clearDebugLog } from './engine/rule-compiler.js';
 
 // ── State ───────────────────────────────────────────────────────
 
@@ -43,26 +44,42 @@ async function setRules(rules) {
   }
 }
 
+// ── Compiled rules cache ─────────────────────────────────────────
+let compiledRulesCache = [];
+
+function getCompiledRules() {
+  return compiledRulesCache;
+}
+
+async function recompileRules(rules) {
+  compiledRulesCache = compileRules(rules);
+  console.log('[Phylax] Rules compiled:', compiledRulesCache.length, 'rules →',
+    compiledRulesCache.map(r => `${r.id}:${r.action.type}`).join(', '));
+  return compiledRulesCache;
+}
+
 // ── Declarative Net Request (URL-level blocking) ────────────────
+// ONLY creates network-level blocks for BLOCK_DOMAIN rules (never content-scoped rules)
 
 async function updateDeclarativeNetRequestRules(rules) {
   const existing = await chrome.declarativeNetRequest.getDynamicRules();
   const removeIds = existing.map(r => r.id);
 
+  // Compile rules and extract ONLY domain-level block patterns
+  const compiled = await recompileRules(rules);
+  const dnrPatterns = extractDNRPatterns(compiled);
+
   const addRules = [];
   let ruleId = 1;
 
-  for (const rule of rules) {
-    if (!rule.active) continue;
-    const patterns = extractBlockPatterns(rule.text);
-    for (const pattern of patterns) {
-      addRules.push({
-        id: ruleId++,
-        priority: 1,
-        action: { type: 'redirect', redirect: { extensionPath: '/blocked.html' } },
-        condition: { urlFilter: pattern, resourceTypes: ['main_frame'] },
-      });
-    }
+  for (const { pattern, ruleId: srcRuleId, ruleText } of dnrPatterns) {
+    addRules.push({
+      id: ruleId++,
+      priority: 1,
+      action: { type: 'redirect', redirect: { extensionPath: '/blocked.html' } },
+      condition: { urlFilter: pattern, resourceTypes: ['main_frame'] },
+    });
+    console.log(`[Phylax] DNR pattern: "${pattern}" from rule "${ruleText}" (${srcRuleId})`);
   }
 
   try {
@@ -70,70 +87,10 @@ async function updateDeclarativeNetRequestRules(rules) {
       removeRuleIds: removeIds,
       addRules: addRules,
     });
-    console.log('[Phylax] DNR rules updated:', addRules.length);
+    console.log('[Phylax] DNR rules updated:', addRules.length, '(only BLOCK_DOMAIN rules)');
   } catch (e) {
     console.error('[Phylax] DNR error:', e);
   }
-}
-
-function extractBlockPatterns(ruleText) {
-  const text = ruleText.toLowerCase();
-  const patterns = [];
-
-  const CATEGORIES = {
-    'social media': { domains: ['facebook.com', 'instagram.com', 'tiktok.com', 'snapchat.com', 'twitter.com', 'x.com', 'reddit.com'], keywords: [] },
-    'gambling': { domains: ['gambling.com', 'poker.com', 'bet365.com', 'draftkings.com', 'fanduel.com', 'casino.com', 'bovada.lv', 'betway.com', 'williamhill.com', '888casino.com'], keywords: ['gambling', 'casino', 'poker', 'betting', 'slots'] },
-    'adult': { domains: ['pornhub.com', 'xvideos.com', 'xnxx.com'], keywords: ['porn', 'xxx', 'adult'] },
-    'gaming': { domains: ['roblox.com', 'minecraft.net', 'fortnite.com', 'steam.com'], keywords: [] },
-    'video': { domains: ['youtube.com', 'twitch.tv', 'dailymotion.com'], keywords: [] },
-    'streaming': { domains: ['netflix.com', 'hulu.com', 'disneyplus.com'], keywords: [] },
-  };
-
-  for (const [category, { domains, keywords }] of Object.entries(CATEGORIES)) {
-    if (text.includes(category)) {
-      for (const d of domains) patterns.push(`*${d}*`);
-      for (const kw of keywords) {
-        const p = `*${kw}*`;
-        if (!patterns.includes(p)) patterns.push(p);
-      }
-    }
-  }
-
-  const BLOCK_KEYWORDS = ['gambling', 'casino', 'poker', 'betting', 'slots', 'porn', 'xxx', 'adult', 'drugs', 'weapons', 'gore', 'violence'];
-  for (const kw of BLOCK_KEYWORDS) {
-    if (text.includes(kw)) {
-      const p = `*${kw}*`;
-      if (!patterns.includes(p)) patterns.push(p);
-    }
-  }
-
-  const SITE_MAP = {
-    'youtube': 'youtube.com', 'tiktok': 'tiktok.com', 'instagram': 'instagram.com',
-    'facebook': 'facebook.com', 'twitter': 'twitter.com', 'reddit': 'reddit.com',
-    'snapchat': 'snapchat.com', 'roblox': 'roblox.com', 'twitch': 'twitch.tv',
-    'discord': 'discord.com', 'pinterest': 'pinterest.com', 'tumblr': 'tumblr.com',
-    'whatsapp': 'web.whatsapp.com', 'telegram': 'web.telegram.org',
-    'netflix': 'netflix.com', 'hulu': 'hulu.com', 'spotify': 'spotify.com',
-    'fortnite': 'fortnite.com', 'minecraft': 'minecraft.net',
-    'steam': 'store.steampowered.com', 'poker': 'poker.com', 'bet365': 'bet365.com',
-  };
-
-  for (const [name, domain] of Object.entries(SITE_MAP)) {
-    if (text.includes(name)) {
-      const p = `*${domain}*`;
-      if (!patterns.includes(p)) patterns.push(p);
-    }
-  }
-
-  const domainRegex = /([a-z0-9-]+\.[a-z]{2,}(?:\.[a-z]{2,})?)/g;
-  let match;
-  while ((match = domainRegex.exec(text)) !== null) {
-    if (['e.g', 'i.e', 'etc.com'].includes(match[1])) continue;
-    const p = `*${match[1]}*`;
-    if (!patterns.includes(p)) patterns.push(p);
-  }
-
-  return patterns;
 }
 
 // ── Core Event Processing Pipeline ──────────────────────────────
@@ -154,18 +111,28 @@ async function processEvent(rawEvent, tabId) {
   // 2. Update session state
   sessionState = updateSessionState(sessionState, event);
 
-  // 3. Check parent-defined rules first (fast path)
-  const rules = await getRules();
-  const ruleMatch = checkParentRules(event, rules);
-  if (ruleMatch) {
+  // 3. Check compiled parent-defined rules (smart path)
+  const compiled = getCompiledRules();
+  const pageContent = rawEvent.payload?.text || rawEvent.payload?.title || '';
+  const ruleResult = evaluateRules(compiled, rawEvent.url, rawEvent.domain, pageContent);
+
+  console.log(`[Phylax] Rule evaluation for ${rawEvent.domain}: action=${ruleResult.action}, reason=${ruleResult.reason}`);
+
+  if (ruleResult.action === RULE_ACTIONS.BLOCK_DOMAIN) {
+    const matchedRule = ruleResult.matchedRules[0]?.rule;
     const decision = {
-      action: ruleMatch.action,
+      action: 'BLOCK',
       scores: { harm: 100, compulsion: 0 },
-      top_reasons: [`parent_rule:${ruleMatch.rule}`],
-      message_child: ruleMatch.message_child,
-      message_parent: ruleMatch.message_parent,
+      top_reasons: [`parent_rule:${matchedRule?.source_text || 'unknown'}`],
+      message_child: matchedRule?.explain?.child || 'This site is blocked by your family\'s safety rules.',
+      message_parent: matchedRule?.explain?.parent || 'Domain blocked by parent rule.',
       cooldown_seconds: 0,
       hard_trigger: 'parent_rule',
+      rule_debug: {
+        compiled_rule: matchedRule,
+        evaluation: ruleResult.reason,
+        all_results: ruleResult.debug?.map(r => ({ id: r.rule.id, matched: r.matched, action: r.action, reason: r.reason })),
+      },
       timestamp: Date.now(),
     };
 
@@ -173,7 +140,57 @@ async function processEvent(rawEvent, tabId) {
     logRecord.model.latency_ms = Math.round(performance.now() - startTime);
     event._decision = decision;
     eventBuffer.push(event);
+    return decision;
+  }
 
+  if (ruleResult.action === RULE_ACTIONS.BLOCK_CONTENT) {
+    const matchedRule = ruleResult.matchedRules[0]?.rule;
+    const decision = {
+      action: 'BLOCK',
+      scores: { harm: 80, compulsion: 0 },
+      top_reasons: [`content_rule:${matchedRule?.source_text || 'unknown'}`],
+      message_child: matchedRule?.explain?.child || 'This content has been blocked by your family\'s safety rules.',
+      message_parent: matchedRule?.explain?.parent || 'Content blocked by parent rule.',
+      cooldown_seconds: 0,
+      hard_trigger: 'content_rule',
+      rule_debug: {
+        compiled_rule: matchedRule,
+        evaluation: ruleResult.reason,
+        confidence: ruleResult.confidence,
+        all_results: ruleResult.debug?.map(r => ({ id: r.rule.id, matched: r.matched, action: r.action, reason: r.reason })),
+      },
+      timestamp: Date.now(),
+    };
+
+    const logRecord = logger.log(event, decision);
+    logRecord.model.latency_ms = Math.round(performance.now() - startTime);
+    event._decision = decision;
+    eventBuffer.push(event);
+    return decision;
+  }
+
+  if (ruleResult.action === RULE_ACTIONS.WARN_CONTENT) {
+    const matchedRule = ruleResult.matchedRules[0]?.rule;
+    const decision = {
+      action: 'WARN',
+      scores: { harm: 50, compulsion: 0 },
+      top_reasons: [`content_warn:${matchedRule?.source_text || 'unknown'}`],
+      message_child: matchedRule?.explain?.child || 'This content may not be appropriate.',
+      message_parent: matchedRule?.explain?.parent || 'Content warning from parent rule.',
+      cooldown_seconds: 0,
+      rule_debug: {
+        compiled_rule: matchedRule,
+        evaluation: ruleResult.reason,
+        confidence: ruleResult.confidence,
+        all_results: ruleResult.debug?.map(r => ({ id: r.rule.id, matched: r.matched, action: r.action, reason: r.reason })),
+      },
+      timestamp: Date.now(),
+    };
+
+    const logRecord = logger.log(event, decision);
+    logRecord.model.latency_ms = Math.round(performance.now() - startTime);
+    event._decision = decision;
+    eventBuffer.push(event);
     return decision;
   }
 
@@ -234,21 +251,49 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true; // async
   }
 
-  // Dashboard bridge messages (from bridge.js)
-  if (message.type && message.type.startsWith('PHYLAX_')) {
-    handleDashboardMessage(message, sendResponse);
-    return true;
-  }
-
   // Legacy: rules request
   if (message.type === 'GET_PHYLAX_RULES') {
     getRules().then(rules => sendResponse({ rules }));
     return true;
   }
 
+  // Get compiled rules (for debug panel)
+  if (message.type === 'GET_PHYLAX_COMPILED_RULES') {
+    sendResponse({ compiledRules: getCompiledRules() });
+    return true;
+  }
+
+  // Get rule compiler debug log
+  if (message.type === 'GET_PHYLAX_DEBUG_LOG') {
+    sendResponse({ debugLog: getDebugLog() });
+    return true;
+  }
+
+  // Clear debug log
+  if (message.type === 'CLEAR_PHYLAX_DEBUG_LOG') {
+    clearDebugLog();
+    sendResponse({ success: true });
+    return true;
+  }
+
+  // Test rule compilation (for debug panel)
+  if (message.type === 'PHYLAX_TEST_COMPILE_RULE') {
+    import('./engine/rule-compiler.js').then(({ compileRule }) => {
+      const compiled = compileRule(message.ruleText);
+      sendResponse({ compiled });
+    });
+    return true;
+  }
+
   // Popup requesting engine status
   if (message.type === 'GET_PHYLAX_STATUS') {
     handleStatusRequest(sendResponse);
+    return true;
+  }
+
+  // Dashboard bridge messages (from bridge.js) — catch-all for PHYLAX_ prefixed messages
+  if (message.type && message.type.startsWith('PHYLAX_')) {
+    handleDashboardMessage(message, sendResponse);
     return true;
   }
 });
@@ -319,14 +364,24 @@ async function handleDashboardMessage(message, sendResponse) {
 
 async function handleStatusRequest(sendResponse) {
   const rules = await getRules();
+  const compiled = getCompiledRules();
   const summary = logger.getTodaySummary();
   const stats = logger.getStats();
 
   sendResponse({
-    engine: 'two-lane-v1',
+    engine: 'two-lane-v2',
     profile: profileTier,
     rules_count: rules.length,
     active_rules: rules.filter(r => r.active).length,
+    compiled_rules: compiled.map(r => ({
+      id: r.id,
+      source_text: r.source_text,
+      action: r.action.type,
+      scope: r.scope,
+      priority: r.priority,
+      _compiled: r._compiled,
+      _errors: r._errors,
+    })),
     session: {
       start: sessionState.session_start,
       active_minutes: sessionState.today_active_minutes,
@@ -346,6 +401,7 @@ function isPhylaxOrigin(origin) {
 // ── Tab navigation tracking ─────────────────────────────────────
 
 // Early blocking: onCommitted fires as soon as navigation commits (before page renders)
+// ONLY blocks for BLOCK_DOMAIN rules (not content-scoped rules)
 chrome.webNavigation.onCommitted.addListener(async (details) => {
   if (details.frameId !== 0) return;
   const url = details.url;
@@ -355,23 +411,28 @@ chrome.webNavigation.onCommitted.addListener(async (details) => {
     const domain = new URL(url).hostname;
     if (['phylax-landing.vercel.app', 'localhost', '127.0.0.1'].includes(domain)) return;
 
-    // Fast-path: check parent rules only (no full pipeline, for speed)
-    const rules = await getRules();
-    const { checkParentRules: checkRules } = await import('./engine/policy-engine.js');
-    const event = { source: { url, domain } };
-    const ruleMatch = checkRules(event, rules);
-    if (ruleMatch) {
+    // Fast-path: only check compiled rules for BLOCK_DOMAIN actions
+    // Content-scoped rules need page content, so they wait for onCompleted
+    const compiled = getCompiledRules();
+    const result = evaluateRules(compiled, url, domain, '');
+
+    if (result.action === RULE_ACTIONS.BLOCK_DOMAIN) {
+      const matchedRule = result.matchedRules[0]?.rule;
+      console.log(`[Phylax] Early block: ${domain} matched BLOCK_DOMAIN rule: "${matchedRule?.source_text}"`);
       chrome.tabs.sendMessage(details.tabId, {
         type: 'PHYLAX_ENFORCE_DECISION',
         decision: {
           action: 'BLOCK',
           scores: { harm: 100, compulsion: 0 },
-          top_reasons: [`parent_rule:${ruleMatch.rule}`],
-          message_child: ruleMatch.message_child,
+          top_reasons: [`parent_rule:${matchedRule?.source_text || 'unknown'}`],
+          message_child: matchedRule?.explain?.child || 'This site is blocked by your family\'s safety rules.',
           hard_trigger: 'parent_rule',
+          rule_debug: { compiled_rule: matchedRule, evaluation: result.reason },
         },
       }).catch(() => {});
     }
+    // NOTE: BLOCK_CONTENT and WARN_CONTENT are NOT enforced here —
+    // they need page content analysis which happens in onCompleted
   } catch { /* ignore */ }
 });
 

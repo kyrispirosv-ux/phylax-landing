@@ -31,8 +31,18 @@
   function enforce(decision) {
     if (!decision) return;
 
+    // Check if this is a content-level block (not domain-level)
+    const isContentRule = decision.hard_trigger === 'content_rule' ||
+      decision.top_reasons?.some(r => r.startsWith('content_rule:') || r.startsWith('content_warn:'));
+
     switch (decision.action) {
-      case 'BLOCK':        showBlock(decision); break;
+      case 'BLOCK':
+        if (isContentRule) {
+          showContentBlock(decision);
+        } else {
+          showBlock(decision);
+        }
+        break;
       case 'WARN':         showWarn(decision); break;
       case 'NUDGE':        showNudge(decision); break;
       case 'FRICTION':     showFriction(decision); break;
@@ -50,6 +60,7 @@
     const ruleText = decision.message_child || 'This content has been blocked.';
     const harmScore = decision.scores?.harm || 0;
     const reasons = decision.top_reasons || [];
+    const debugInfo = decision.rule_debug || {};
 
     document.documentElement.innerHTML = `
       <head>
@@ -60,12 +71,15 @@
           .score-bar { height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; margin-top: 16px; overflow: hidden; }
           .score-fill { height: 100%; background: linear-gradient(90deg, #34D399, #FBBF24, #FB7185); border-radius: 3px; transition: width 0.5s; }
           .reason-tag { display: inline-block; padding: 4px 10px; border-radius: 6px; font-size: 11px; background: rgba(251,113,133,0.15); color: #FB7185; border: 1px solid rgba(251,113,133,0.2); margin: 3px; }
+          .debug-panel { margin-top: 24px; text-align: left; max-width: 480px; }
+          .debug-panel summary { font-size: 12px; color: rgba(255,255,255,0.3); cursor: pointer; }
+          .debug-panel pre { font-size: 10px; color: rgba(255,255,255,0.3); margin-top: 8px; padding: 8px; background: rgba(0,0,0,0.3); border-radius: 8px; overflow: auto; max-height: 200px; white-space: pre-wrap; word-wrap: break-word; }
         </style>
       </head>
       <body>
         <div class="container">
           <div class="shield">&#x1f6e1;</div>
-          <h1>Content Blocked</h1>
+          <h1>Site Blocked</h1>
           <p>${escapeHtml(ruleText)}</p>
           <div class="score-bar"><div class="score-fill" style="width: ${harmScore}%"></div></div>
           <div style="font-size: 12px; color: rgba(255,255,255,0.4); margin-top: 8px;">Risk Score: ${harmScore}/100</div>
@@ -74,10 +88,62 @@
               ${reasons.map(r => `<span class="reason-tag">${escapeHtml(r)}</span>`).join('')}
             </div>
           ` : ''}
+          ${debugInfo.compiled_rule ? `
+            <details class="debug-panel">
+              <summary>Policy Debug Info</summary>
+              <pre>${JSON.stringify(debugInfo.compiled_rule, null, 2).replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>
+              <div style="font-size: 10px; color: rgba(255,255,255,0.3); margin-top: 4px;">Evaluation: ${(debugInfo.evaluation || 'unknown').replace(/</g, '&lt;')}</div>
+            </details>
+          ` : ''}
         </div>
       </body>
     `;
     window.stop();
+  }
+
+  // ── CONTENT BLOCK overlay (does NOT replace the whole page) ─
+
+  function showContentBlock(decision) {
+    removeOverlay();
+    const overlay = createOverlay('content-block');
+    const ruleText = decision.message_child || 'This content has been blocked.';
+    const harmScore = decision.scores?.harm || 0;
+    const reasons = decision.top_reasons || [];
+    const debugInfo = decision.rule_debug || {};
+
+    overlay.innerHTML = `
+      <div class="phylax-card" style="border-color: rgba(251,113,133,0.3);">
+        <div class="phylax-icon" style="background: linear-gradient(135deg, #FB7185, #F43F5E);">&#x1f6e1;</div>
+        <h2 class="phylax-title">Content Blocked</h2>
+        <p class="phylax-text">${escapeHtml(ruleText)}</p>
+        <div style="height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; margin-top: 16px; overflow: hidden;">
+          <div style="height: 100%; width: ${harmScore}%; background: linear-gradient(90deg, #34D399, #FBBF24, #FB7185); border-radius: 3px;"></div>
+        </div>
+        <div style="font-size: 12px; color: rgba(255,255,255,0.4); margin-top: 8px;">Confidence: ${harmScore}/100</div>
+        ${reasons.length > 0 ? `
+          <div style="margin-top: 12px;">
+            ${reasons.map(r => `<span style="display:inline-block;padding:4px 10px;border-radius:6px;font-size:11px;background:rgba(251,113,133,0.15);color:#FB7185;border:1px solid rgba(251,113,133,0.2);margin:3px;">${escapeHtml(r)}</span>`).join('')}
+          </div>
+        ` : ''}
+        ${debugInfo.compiled_rule ? `
+          <details style="margin-top: 16px; text-align: left;">
+            <summary style="font-size: 12px; color: rgba(255,255,255,0.3); cursor: pointer;">Policy Debug</summary>
+            <pre style="font-size: 10px; color: rgba(255,255,255,0.3); margin-top: 8px; padding: 8px; background: rgba(0,0,0,0.3); border-radius: 8px; overflow: auto; max-height: 200px; white-space: pre-wrap;">${escapeHtml(JSON.stringify(debugInfo.compiled_rule, null, 2))}</pre>
+            <div style="font-size: 10px; color: rgba(255,255,255,0.3); margin-top: 4px;">Evaluation: ${escapeHtml(debugInfo.evaluation || 'unknown')}</div>
+          </details>
+        ` : ''}
+        <div class="phylax-actions">
+          <button class="phylax-btn phylax-btn-secondary" id="phylaxGoBack">Go Back</button>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(overlay);
+    currentOverlay = overlay;
+
+    overlay.querySelector('#phylaxGoBack').addEventListener('click', () => {
+      history.back();
+    });
   }
 
   // ── WARN overlay ────────────────────────────────────────────
@@ -85,12 +151,19 @@
   function showWarn(decision) {
     removeOverlay();
     const overlay = createOverlay('warn');
+    const debugInfo = decision.rule_debug || {};
     overlay.innerHTML = `
       <div class="phylax-card">
         <div class="phylax-icon" style="background: linear-gradient(135deg, #FBBF24, #F59E0B);">&#x26A0;&#xFE0F;</div>
         <h2 class="phylax-title">Content Warning</h2>
         <p class="phylax-text">${escapeHtml(decision.message_child || 'This content might not be appropriate.')}</p>
         <div class="phylax-score">Risk: ${decision.scores?.harm || 0}/100</div>
+        ${debugInfo.compiled_rule ? `
+          <details style="margin-top: 12px; text-align: left;">
+            <summary style="font-size: 12px; color: rgba(255,255,255,0.3); cursor: pointer;">Policy Debug</summary>
+            <pre style="font-size: 10px; color: rgba(255,255,255,0.3); margin-top: 8px; padding: 8px; background: rgba(0,0,0,0.3); border-radius: 8px; overflow: auto; max-height: 150px; white-space: pre-wrap;">${escapeHtml(JSON.stringify(debugInfo.compiled_rule, null, 2))}</pre>
+          </details>
+        ` : ''}
         <div class="phylax-actions">
           <button class="phylax-btn phylax-btn-secondary" id="phylaxGoBack">Go Back</button>
           <button class="phylax-btn phylax-btn-muted" id="phylaxContinue">Continue Anyway</button>
