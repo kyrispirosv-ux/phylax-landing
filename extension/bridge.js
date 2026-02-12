@@ -26,28 +26,29 @@
 
   // ── Listen for postMessage from the web page ──────────────────
 
-  window.addEventListener('message', async (event) => {
+  function onMessage(event) {
     if (event.source !== window) return;
     if (!event.data || !event.data.type) return;
     if (!event.data.type.startsWith('PHYLAX_')) return;
 
     console.log('[Phylax Bridge] Received postMessage:', event.data.type);
 
-    try {
-      const response = await safeSendMessage(event.data);
+    safeSendMessage(event.data).then(response => {
       console.log('[Phylax Bridge] Background response:', response);
       window.postMessage({
         type: event.data.type + '_RESPONSE',
         ...response
       }, '*');
-    } catch (e) {
+    }).catch(e => {
       window.postMessage({
         type: event.data.type + '_RESPONSE',
         success: false,
         error: e.message
       }, '*');
-    }
-  });
+    });
+  }
+
+  window.addEventListener('message', onMessage);
 
   // ── Announce extension presence to the web page ───────────────
 
@@ -57,8 +58,8 @@
         type: 'PHYLAX_EXTENSION_READY',
         version: chrome.runtime.getManifest().version
       }, '*');
-    } catch (e) {
-      console.warn('[Phylax Bridge] Could not announce extension:', e.message);
+    } catch {
+      // Context lost before we could announce — silent fail
     }
   }
 
@@ -83,8 +84,8 @@
         const rules = JSON.parse(currentRules);
         safeSendMessage({ type: 'PHYLAX_SYNC_RULES', rules }).catch(() => {});
       }
-    } catch (e) {
-      console.error('[Phylax Bridge] Error in storage observer:', e.message);
+    } catch {
+      // Silent — will teardown on next tick if context is gone
     }
   }, 1000);
 
@@ -95,18 +96,23 @@
       const rules = JSON.parse(event.newValue || '[]');
       safeSendMessage({ type: 'PHYLAX_SYNC_RULES', rules }).catch(() => {});
       lastKnownRules = event.newValue || '[]';
-    } catch (e) {
-      console.error('[Phylax Bridge] Error handling storage event:', e.message);
+    } catch {
+      // Silent
     }
   }
 
   window.addEventListener('storage', onStorageEvent);
 
   // ── Teardown on context invalidation ──────────────────────────
+  // Uses console.log (not .warn/.error) to avoid Chrome flagging it
+  // as an extension error in chrome://extensions.
   function teardown() {
-    console.warn('[Phylax Bridge] Tearing down — extension context invalidated');
+    console.log('[Phylax Bridge] Context invalidated — cleaning up. Reload the page to reconnect.');
     if (storageObserver) { clearInterval(storageObserver); storageObserver = null; }
     window.removeEventListener('storage', onStorageEvent);
+    window.removeEventListener('message', onMessage);
+    // Signal the web app that the extension disconnected
+    window.postMessage({ type: 'PHYLAX_EXTENSION_DISCONNECTED' }, '*');
   }
 
   console.log('[Phylax Bridge] Bridge active — monitoring for rule changes');
