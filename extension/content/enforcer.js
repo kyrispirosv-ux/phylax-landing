@@ -1,14 +1,6 @@
-// Phylax SafeGuard — Enforcer (v3: Kids-Only Action Space)
-// Action space: ALLOW | BLOCK | LIMIT  (no WARN, no interstitials)
-//
-// BLOCK enforcement:
-//   - NETWORK/cancel_request → Full-page block (DOM replacement)
-//   - RENDER/overlay → Overlay block with evidence
-//
-// LIMIT enforcement:
-//   - FEATURE/scroll_gate → Scroll limiter (take a break)
-//   - FEATURE/time_gate → Session time limit
-//   - FEATURE/pause_autoplay → Disable autoplay
+// Phylax SafeGuard — Enforcer
+// Injected on ALL pages. Shows a single block screen when content is restricted.
+// Phylax quietly protects. That's it.
 
 (function () {
   'use strict';
@@ -19,81 +11,94 @@
   if (host === 'phylax-landing.vercel.app' || host === 'localhost' || host === '127.0.0.1') return;
 
   let currentOverlay = null;
-  let currentLimitBanner = null;
-  let blockedUrl = null;
-  let mediaKillInterval = null;
-  let navCleanupFns = [];
-  const dismissedPaths = {};
-  let lastEnforceTime = 0;
+  let blockedUrl = null;        // URL that triggered the current overlay
+  let mediaKillInterval = null; // interval that keeps killing media
+  let navCleanupFns = [];       // listeners to tear down on dismiss
+  const dismissedPaths = {};    // pathname → timestamp — recently dismissed, don't re-block
+  let lastEnforceTime = 0;      // timestamp of last enforce() call that did something
 
-  const DISMISS_COOLDOWN_MS = 60000;
-  const ENFORCE_DEDUP_MS = 2000;
+  const DISMISS_COOLDOWN_MS = 60000;  // 60s cooldown after dismiss
+  const ENFORCE_DEDUP_MS = 2000;      // ignore duplicate enforce calls within 2s
 
   // ── Listen for decisions ────────────────────────────────────
+  // Listen on ONLY the chrome.runtime channel. The observer no longer
+  // re-dispatches PHYLAX_ENFORCE_DECISION as window events (we removed that
+  // forwarding to eliminate duplicate triggers). The observer's sendEvent()
+  // response path is also handled here since observer now sends via
+  // chrome.runtime.sendMessage to background which replies, and observer
+  // forwards the decision through a direct function call.
+  //
+  // We use ONLY the window event channel. The observer forwards decisions
+  // from both its sendEvent() responses AND chrome.runtime.onMessage
+  // PHYLAX_ENFORCE_DECISION through a SINGLE phylax-decision window event.
+  // The enforcer does NOT listen on chrome.runtime.onMessage at all,
+  // eliminating the duplicate trigger from Path C.
 
   window.addEventListener('phylax-decision', (e) => {
     enforce(e.detail);
   });
 
-  // ── Enforce: route decisions to enforcement technique ───────
+  // ── Enforce: route decisions to the right block type ─────────
+  // Full-page block (DOM replacement): ONLY for explicit parent BLOCK_DOMAIN rules.
+  // Overlay block (floats over page): content-scoped parent rules + harm scorer.
+  // This ensures the generic harm scorer never independently triggers domain-level blocks.
 
   function enforce(decision) {
     if (!decision) return;
+    if (decision.action === 'ALLOW') return;
 
-    // Normalize: pipeline uses 'decision', legacy uses 'action'
-    const action = decision.decision || decision.action;
-    if (action === 'ALLOW') return;
+    const url = window.location.href;
+    const path = window.location.pathname + window.location.search.split('&t=')[0]; // stable path ignoring YouTube time param
 
-    const path = window.location.pathname + window.location.search.split('&t=')[0];
+    // Dedup guard: ignore rapid-fire enforce calls (within 2s of last action).
+    // A single background decision can arrive via multiple message paths.
     const now = Date.now();
-
-    // Dedup guard
     if (now - lastEnforceTime < ENFORCE_DEDUP_MS) return;
 
-    // Already showing overlay for this page
+    // Already showing overlay for this page — don't recreate (prevents flash).
+    // Use pathname-based matching so YouTube URL param changes don't bypass this.
     if (currentOverlay && blockedUrl === path) return;
 
-    // Recently dismissed
+    // Recently dismissed this path — don't re-block for 60s (prevents flash after Go Back).
+    // Uses pathname instead of full URL so YouTube's changing query params don't bypass cooldown.
     const dismissedAt = dismissedPaths[path];
     if (dismissedAt && now - dismissedAt < DISMISS_COOLDOWN_MS) return;
 
-    if (action === 'BLOCK') {
-      const layer = decision.enforcement?.layer;
-      const technique = decision.enforcement?.technique;
+    // Full-page block is reserved for explicit parent domain blocks only
+    const isParentDomainBlock = decision.hard_trigger === 'parent_rule';
 
-      if (layer === 'NETWORK' || technique === 'cancel_request' || decision.hard_trigger === 'parent_rule') {
-        lastEnforceTime = now;
-        showFullBlock(decision);
-      } else {
-        if (!isContentPage()) return;
-        lastEnforceTime = now;
-        showOverlayBlock(decision);
-      }
-    } else if (action === 'LIMIT') {
+    if (isParentDomainBlock) {
       lastEnforceTime = now;
-      applyLimit(decision);
+      showFullBlock();
+    } else {
+      // Content overlay only on actual content pages, not search/browse
+      if (!isContentPage()) return;
+      lastEnforceTime = now;
+      showOverlayBlock();
     }
   }
 
-  // ── Content page detection ──────────────────────────────────
+  // ── Content page detection ────────────────────────────────────
+  // Overlay blocks only fire on pages where the user is consuming content
+  // (e.g. watching a video). Search results, homepages, and channel pages
+  // are browse/discovery — blocking those would block the whole site.
 
   function isContentPage() {
     const path = window.location.pathname;
+    const host = window.location.hostname;
+
     if (host.includes('youtube.com') || host.includes('youtu.be')) {
       return path.startsWith('/watch') || path.startsWith('/shorts');
     }
+
+    // Other sites: allow content blocks anywhere
     return true;
   }
 
-  // ═══════════════════════════════════════════════════════════════
-  // BLOCK — Full page (replaces DOM)
-  // ═══════════════════════════════════════════════════════════════
+  // ── Full-page block (replaces the page entirely) ────────────
 
-  function showFullBlock(decision) {
+  function showFullBlock() {
     dismissOverlay();
-    const evidence = decision.evidence || [];
-    const reasonText = evidence[0] || 'This site is blocked by your family\'s safety rules.';
-
     document.documentElement.innerHTML = `
       <head>
         <meta charset="utf-8">
@@ -107,7 +112,7 @@
             display: flex; align-items: center; justify-content: center;
             min-height: 100vh; text-align: center; padding: 24px;
           }
-          .container { max-width: 420px; }
+          .container { max-width: 400px; }
           .shield {
             width: 80px; height: 80px;
             background: linear-gradient(135deg, #7C5CFF, #22D3EE);
@@ -117,7 +122,6 @@
           }
           h1 { font-size: 24px; font-weight: 700; margin-bottom: 12px; }
           p { color: rgba(255,255,255,0.5); font-size: 15px; line-height: 1.7; }
-          .evidence { color: rgba(255,255,255,0.35); font-size: 13px; margin-top: 8px; font-style: italic; }
           .btn {
             margin-top: 32px; padding: 12px 32px; border-radius: 12px;
             font-size: 15px; font-weight: 600; cursor: pointer; border: none;
@@ -137,7 +141,6 @@
           </div>
           <h1>Phylax is here to help</h1>
           <p>This isn't allowed by your family's safety settings.</p>
-          <p class="evidence">${escapeHtml(reasonText)}</p>
           <button class="btn" onclick="history.back()">Go Back</button>
         </div>
       </body>
@@ -145,17 +148,12 @@
     window.stop();
   }
 
-  // ═══════════════════════════════════════════════════════════════
-  // BLOCK — Overlay (floats over content)
-  // ═══════════════════════════════════════════════════════════════
+  // ── Overlay block (floats over the page for content blocks) ─
 
-  function showOverlayBlock(decision) {
+  function showOverlayBlock() {
     dismissOverlay();
-    blockedUrl = window.location.pathname + window.location.search.split('&t=')[0];
 
-    const evidence = decision.evidence || [];
-    const reasonText = evidence[0] || 'This content has been restricted by your family\'s safety settings.';
-    const confidence = decision.confidence ? `${Math.round(decision.confidence * 100)}% confidence` : '';
+    blockedUrl = window.location.pathname + window.location.search.split('&t=')[0];
 
     const overlay = document.createElement('div');
     overlay.id = 'phylax-overlay';
@@ -168,13 +166,18 @@
     `;
 
     const style = document.createElement('style');
-    style.textContent = `@keyframes phylaxFadeIn { from { opacity: 0; } to { opacity: 1; } }`;
+    style.textContent = `
+      @keyframes phylaxFadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+      }
+    `;
     overlay.appendChild(style);
 
     const card = document.createElement('div');
     card.style.cssText = `
       background: #0f1525; border: 1px solid rgba(124,92,255,0.25);
-      border-radius: 24px; padding: 40px; max-width: 420px; width: 90%;
+      border-radius: 24px; padding: 40px; max-width: 400px; width: 90%;
       text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,0.5);
     `;
     card.innerHTML = `
@@ -184,8 +187,7 @@
         </svg>
       </div>
       <h2 style="font-size:22px;font-weight:700;color:white;margin:0 0 12px;">Phylax is here to help</h2>
-      <p style="font-size:15px;color:rgba(255,255,255,0.5);line-height:1.7;margin:0 0 8px;">${escapeHtml(reasonText)}</p>
-      ${confidence ? `<p style="font-size:12px;color:rgba(255,255,255,0.25);margin:0 0 24px;">${escapeHtml(confidence)}</p>` : '<div style="height:16px"></div>'}
+      <p style="font-size:15px;color:rgba(255,255,255,0.5);line-height:1.7;margin:0 0 28px;">This isn't allowed by your family's safety settings.</p>
       <button id="phylaxGoBack" style="padding:12px 32px;border-radius:12px;font-size:15px;font-weight:600;cursor:pointer;border:none;background:linear-gradient(135deg,#7C5CFF,rgba(124,92,255,0.8));color:white;box-shadow:0 4px 16px rgba(124,92,255,0.3);font-family:inherit;transition:all 0.2s;">Go Back</button>
     `;
 
@@ -193,125 +195,26 @@
     safeAppendOverlay(overlay);
     currentOverlay = overlay;
 
+    // Aggressively kill all media — YouTube recreates video elements,
+    // so we poll every 300ms while the overlay is visible.
     killAllMedia();
     mediaKillInterval = setInterval(killAllMedia, 300);
 
+    // "Go Back" = dismiss overlay + navigate back so user stays on YouTube
     overlay.querySelector('#phylaxGoBack').addEventListener('click', () => {
       dismissOverlay();
       history.back();
     });
 
+    // Auto-dismiss when the user navigates away from the blocked URL.
+    // YouTube is a SPA — it fires popstate + custom yt-navigate-finish events
+    // instead of full page loads.
     watchForNavigation();
   }
 
-  // ═══════════════════════════════════════════════════════════════
-  // LIMIT — Feature-level enforcement
-  // ═══════════════════════════════════════════════════════════════
-
-  function applyLimit(decision) {
-    const technique = decision.enforcement?.technique;
-
-    if (technique === 'pause_autoplay') {
-      disableAutoplay();
-    }
-
-    if (technique === 'scroll_gate') {
-      showScrollGate(decision);
-    }
-
-    if (technique === 'time_gate') {
-      showTimeGate(decision);
-    }
-
-    // Always show the limit banner
-    showLimitBanner(decision);
-  }
-
-  function showLimitBanner(decision) {
-    if (currentLimitBanner) currentLimitBanner.remove();
-
-    const evidence = decision.evidence?.[0] || 'Usage pattern detected.';
-    const banner = document.createElement('div');
-    banner.id = 'phylax-limit-banner';
-    banner.style.cssText = `
-      position: fixed; bottom: 20px; right: 20px; z-index: 2147483646;
-      background: #1a1a2e; border: 1px solid rgba(124,92,255,0.3);
-      border-radius: 16px; padding: 16px 20px; max-width: 320px;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.4); animation: phylaxSlideIn 0.3s ease;
-    `;
-    banner.innerHTML = `
-      <style>@keyframes phylaxSlideIn { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }</style>
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
-        <div style="width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,#7C5CFF,#22D3EE);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path d="M12 9v4m0 4h.01M12 2a10 10 0 100 20 10 10 0 000-20z"/></svg>
-        </div>
-        <span style="color:white;font-size:14px;font-weight:600;">Take a break</span>
-        <button id="phylaxDismissLimit" style="margin-left:auto;background:none;border:none;color:rgba(255,255,255,0.4);cursor:pointer;font-size:18px;padding:0 4px;">&times;</button>
-      </div>
-      <p style="color:rgba(255,255,255,0.5);font-size:13px;line-height:1.5;margin:0;">${escapeHtml(evidence)}</p>
-    `;
-
-    safeAppendOverlay(banner);
-    currentLimitBanner = banner;
-
-    banner.querySelector('#phylaxDismissLimit').addEventListener('click', () => {
-      banner.remove();
-      currentLimitBanner = null;
-    });
-
-    // Auto-dismiss after 30s
-    setTimeout(() => {
-      if (currentLimitBanner === banner) {
-        banner.remove();
-        currentLimitBanner = null;
-      }
-    }, 30000);
-  }
-
-  function disableAutoplay() {
-    // Pause all videos and disable autoplay
-    document.querySelectorAll('video').forEach(v => {
-      try {
-        v.pause();
-        v.autoplay = false;
-      } catch {}
-    });
-    // YouTube: click the autoplay toggle off
-    const autoplayToggle = document.querySelector('.ytp-autonav-toggle-button[aria-checked="true"]');
-    if (autoplayToggle) autoplayToggle.click();
-  }
-
-  function showScrollGate(_decision) {
-    // Add scroll limiter — intercept scroll after threshold
-    let scrollGateShown = false;
-    const gateHandler = () => {
-      const scrollDepth = window.scrollY / (document.documentElement.scrollHeight - window.innerHeight || 1);
-      if (scrollDepth > 0.7 && !scrollGateShown) {
-        scrollGateShown = true;
-        showLimitBanner({
-          evidence: ['You\'ve been scrolling for a while. Consider taking a break.'],
-          enforcement: { technique: 'scroll_gate' },
-        });
-      }
-    };
-    window.addEventListener('scroll', gateHandler, { passive: true });
-  }
-
-  function showTimeGate(decision) {
-    const budgetMs = (decision.budget_minutes || 30) * 60000;
-    setTimeout(() => {
-      showLimitBanner({
-        evidence: ['Your session time budget has been reached.'],
-        enforcement: { technique: 'time_gate' },
-      });
-      disableAutoplay();
-    }, budgetMs);
-  }
-
-  // ═══════════════════════════════════════════════════════════════
-  // SHARED HELPERS
-  // ═══════════════════════════════════════════════════════════════
+  // ── Aggressive media killer ───────────────────────────────────
+  // YouTube's player restarts video elements after a simple pause().
+  // We pause, mute, and blank the src on every video/audio element.
 
   function killAllMedia() {
     document.querySelectorAll('video, audio').forEach(el => {
@@ -319,31 +222,46 @@
         el.pause();
         el.muted = true;
         el.volume = 0;
+        // Remove source so YouTube can't restart playback
         if (el.src) {
           el.removeAttribute('src');
-          el.load();
+          el.load(); // forces the element to drop its media resource
         }
       } catch {}
     });
   }
 
+  // ── SPA navigation watcher ────────────────────────────────────
+  // Detects when the URL changes (YouTube SPA navigation) and
+  // auto-dismisses the overlay so the user can keep browsing.
+
   function watchForNavigation() {
     teardownNavWatchers();
+
     const onNav = () => {
       const currentPath = window.location.pathname + window.location.search.split('&t=')[0];
       if (currentOverlay && currentPath !== blockedUrl) {
         dismissOverlay();
       }
     };
+
+    // YouTube fires this custom event on SPA navigation
     window.addEventListener('yt-navigate-finish', onNav);
     navCleanupFns.push(() => window.removeEventListener('yt-navigate-finish', onNav));
+
+    // Standard browser history navigation
     window.addEventListener('popstate', onNav);
     navCleanupFns.push(() => window.removeEventListener('popstate', onNav));
 
+    // Fallback: poll for URL changes every 500ms (covers pushState)
     let lastPath = window.location.pathname + window.location.search.split('&t=')[0];
     const pollId = setInterval(() => {
       const currentPath = window.location.pathname + window.location.search.split('&t=')[0];
-      if (currentPath !== lastPath) { lastPath = currentPath; onNav(); }
+      if (currentPath !== lastPath) {
+        lastPath = currentPath;
+        onNav();
+      }
+      // Stop polling once overlay is gone
       if (!currentOverlay) clearInterval(pollId);
     }, 500);
     navCleanupFns.push(() => clearInterval(pollId));
@@ -353,6 +271,8 @@
     navCleanupFns.forEach(fn => fn());
     navCleanupFns = [];
   }
+
+  // ── Helpers ─────────────────────────────────────────────────
 
   function safeAppendOverlay(overlay) {
     const target = document.body || document.documentElement;
@@ -366,24 +286,31 @@
   }
 
   function dismissOverlay() {
-    if (blockedUrl) dismissedPaths[blockedUrl] = Date.now();
+    // Remember this path so we don't re-block it immediately (prevents flash loop).
+    // Also remember the current path in case navigation already happened.
+    if (blockedUrl) {
+      dismissedPaths[blockedUrl] = Date.now();
+    }
     const currentPath = window.location.pathname + window.location.search.split('&t=')[0];
-    if (currentPath !== blockedUrl) dismissedPaths[currentPath] = Date.now();
+    if (currentPath !== blockedUrl) {
+      dismissedPaths[currentPath] = Date.now();
+    }
 
-    if (mediaKillInterval) { clearInterval(mediaKillInterval); mediaKillInterval = null; }
+    // Stop killing media
+    if (mediaKillInterval) {
+      clearInterval(mediaKillInterval);
+      mediaKillInterval = null;
+    }
     teardownNavWatchers();
     blockedUrl = null;
 
-    if (currentOverlay) { currentOverlay.remove(); currentOverlay = null; }
+    if (currentOverlay) {
+      currentOverlay.remove();
+      currentOverlay = null;
+    }
     const existing = document.getElementById('phylax-overlay');
     if (existing) existing.remove();
   }
 
-  function escapeHtml(str) {
-    const div = document.createElement('div');
-    div.textContent = str;
-    return div.innerHTML;
-  }
-
-  console.log('[Phylax Enforcer v3] Ready on:', host);
+  console.log('[Phylax Enforcer] Ready on:', window.location.hostname);
 })();

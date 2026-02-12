@@ -1,14 +1,13 @@
-// Phylax SafeGuard — Background Service Worker (v3: Deterministic Pipeline)
-// Kids-only engine: ALLOW | BLOCK | LIMIT
-//
-// Pipeline: domain gate → ContentObject → local scoring → topic policy →
-//           behavior policy → aggregate → enforce → cache
+// Phylax SafeGuard — Background Service Worker (Module-based Orchestrator)
+// Two-lane safety engine: Content Harm + Attention Compulsion → Policy → Enforcement
 
 import { createEvent, EventBuffer } from './engine/events.js';
-import { compileRules, extractDNRPatterns, RULE_ACTIONS } from './engine/rule-compiler.js';
-import { evaluate, buildPolicyObject, invalidateCache } from './engine/pipeline.js';
-import { createSessionState, updateSessionState } from './engine/behavior.js';
+import { semanticParse } from './engine/semantic.js';
+import { computeHarmRisk, checkEscalationTriggers } from './engine/harm-scorer.js';
+import { computeCompulsionRisk, createSessionState, updateSessionState } from './engine/compulsion-scorer.js';
+import { makeDecision, checkParentRules, ACTIONS } from './engine/policy-engine.js';
 import { DecisionLogger } from './engine/logger.js';
+import { compileRules, evaluateRules, extractDNRPatterns, RULE_ACTIONS, INTENT_TYPES, CONTENT_CONTEXTS, detectContentContext, getDebugLog, clearDebugLog } from './engine/rule-compiler.js';
 
 // ── State ───────────────────────────────────────────────────────
 
@@ -18,14 +17,16 @@ const PHYLAX_ORIGINS = [
   'http://127.0.0.1'
 ];
 
-const eventBuffer = new EventBuffer(500, 3600000);
+const eventBuffer = new EventBuffer(500, 3600000); // 500 events, 1 hour
 const logger = new DecisionLogger();
 let sessionState = createSessionState();
-let profileTier = 'tween_13';
+let profileTier = 'tween_13'; // Default, configurable by parent
 
 // ── Per-tab decision throttle ─────────────────────────────────
+// Prevents sending multiple non-ALLOW decisions to the same tab in rapid succession.
+// Key: tabId → { action, timestamp, path }
 const tabDecisionCache = new Map();
-const TAB_DECISION_THROTTLE_MS = 10000;
+const TAB_DECISION_THROTTLE_MS = 10000; // 10s throttle per tab for same-action decisions
 
 // ── Rule Storage ────────────────────────────────────────────────
 
@@ -42,101 +43,99 @@ async function getProfileTier() {
 async function setRules(rules) {
   await chrome.storage.local.set({ phylaxRules: rules });
   await updateDeclarativeNetRequestRules(rules);
+  // Notify all tabs that rules changed
   const tabs = await chrome.tabs.query({});
   for (const tab of tabs) {
     chrome.tabs.sendMessage(tab.id, { type: 'PHYLAX_RULES_UPDATED', rules }).catch(() => {});
   }
 }
 
-// ── Compiled rules + Policy cache ─────────────────────────────
-
+// ── Compiled rules cache ─────────────────────────────────────────
 let compiledRulesCache = [];
-let policyCache = null;
 
 function getCompiledRules() {
   return compiledRulesCache;
 }
 
-function getPolicy() {
-  if (!policyCache) {
-    policyCache = buildPolicyObject(compiledRulesCache, { age: 13, sensitivity: 'med' });
-  }
-  return policyCache;
-}
-
 async function recompileRules(rules) {
   compiledRulesCache = compileRules(rules);
-  policyCache = buildPolicyObject(compiledRulesCache, { age: 13, sensitivity: 'med' });
-  invalidateCache(); // Clear decision cache when policy changes
   console.log('[Phylax] Rules compiled:', compiledRulesCache.length, 'rules →',
     compiledRulesCache.map(r => `${r.id}:${r.action.type}`).join(', '));
-  console.log('[Phylax] Policy: domains_blocked=', policyCache.domain_rules.block_domains.length,
-    'topic_rules=', policyCache.topic_rules.length,
-    'behavior_rules=', policyCache.behavior_rules.length);
   return compiledRulesCache;
 }
 
-// ── DNR (network-level blocking) ──────────────────────────────
+// ── Declarative Net Request (URL-level blocking) ────────────────
+// ONLY creates network-level blocks for BLOCK_DOMAIN rules (never content-scoped rules)
 
 async function updateDeclarativeNetRequestRules(rules) {
   const existing = await chrome.declarativeNetRequest.getDynamicRules();
   const removeIds = existing.map(r => r.id);
 
+  // Compile rules and extract ONLY domain-level block patterns
   const compiled = await recompileRules(rules);
   const dnrPatterns = extractDNRPatterns(compiled);
 
   const addRules = [];
   let ruleId = 1;
-  for (const { pattern, ruleText } of dnrPatterns) {
+
+  for (const { pattern, ruleId: srcRuleId, ruleText } of dnrPatterns) {
     addRules.push({
       id: ruleId++,
       priority: 1,
       action: { type: 'redirect', redirect: { extensionPath: '/blocked.html' } },
       condition: { urlFilter: pattern, resourceTypes: ['main_frame'] },
     });
-    console.log(`[Phylax] DNR: "${pattern}" from "${ruleText}"`);
+    console.log(`[Phylax] DNR pattern: "${pattern}" from rule "${ruleText}" (${srcRuleId})`);
   }
 
   try {
     await chrome.declarativeNetRequest.updateDynamicRules({
       removeRuleIds: removeIds,
-      addRules,
+      addRules: addRules,
     });
-    console.log('[Phylax] DNR rules updated:', addRules.length);
+    console.log('[Phylax] DNR rules updated:', addRules.length, '(only BLOCK_DOMAIN rules)');
   } catch (e) {
     console.error('[Phylax] DNR error:', e);
   }
 }
 
-// ── Decision throttle ───────────────────────────────────────────
+// ── Decision throttle helper ──────────────────────────────────
 
-function shouldThrottleDecision(tabId, decision, url) {
-  if (!tabId || decision === 'ALLOW') return false;
-  const cached = tabDecisionCache.get(tabId);
+function shouldThrottleDecision(tabId, action, url) {
+  if (!tabId || action === ACTIONS.ALLOW) return false;
+
+  const key = tabId;
+  const cached = tabDecisionCache.get(key);
   if (!cached) return false;
 
-  const elapsed = Date.now() - cached.timestamp;
+  const now = Date.now();
+  const elapsed = now - cached.timestamp;
+
+  // Extract path for comparison (ignore YouTube time params, etc.)
   let urlPath = '';
   try { urlPath = new URL(url).pathname; } catch { urlPath = url; }
 
-  return cached.decision === decision && cached.path === urlPath && elapsed < TAB_DECISION_THROTTLE_MS;
+  // Throttle: same tab, same action, same path, within throttle window
+  if (cached.action === action && cached.path === urlPath && elapsed < TAB_DECISION_THROTTLE_MS) {
+    return true;
+  }
+
+  return false;
 }
 
-function recordTabDecision(tabId, decision, url) {
-  if (!tabId || decision === 'ALLOW') return;
+function recordTabDecision(tabId, action, url) {
+  if (!tabId || action === ACTIONS.ALLOW) return;
   let urlPath = '';
   try { urlPath = new URL(url).pathname; } catch { urlPath = url; }
-  tabDecisionCache.set(tabId, { decision, path: urlPath, timestamp: Date.now() });
+  tabDecisionCache.set(tabId, { action, path: urlPath, timestamp: Date.now() });
 }
 
-// ═══════════════════════════════════════════════════════════════
-// CORE PIPELINE PROCESSING
-// ═══════════════════════════════════════════════════════════════
+// ── Core Event Processing Pipeline ──────────────────────────────
 
 async function processEvent(rawEvent, tabId) {
   const startTime = performance.now();
 
-  // 1. Create typed event for buffer/logging
+  // 1. Create typed event
   const event = createEvent({
     eventType: rawEvent.event_type,
     tabId,
@@ -146,150 +145,203 @@ async function processEvent(rawEvent, tabId) {
     profileId: profileTier,
   });
 
-  // 2. Update session state (behavior tracking)
-  sessionState = updateSessionState(sessionState, {
-    event_type: rawEvent.event_type,
-    domain: rawEvent.domain,
-    url: rawEvent.url,
-    content_type: rawEvent.payload?.content_type_hint,
-    ui: rawEvent.payload?.content_object?.ui,
-  });
+  // 2. Update session state
+  sessionState = updateSessionState(sessionState, event);
 
-  // 3. Get policy
-  const policy = getPolicy();
+  // 3. Check compiled parent-defined rules (smart path)
+  const compiled = getCompiledRules();
+  const pageContent = rawEvent.payload?.text || rawEvent.payload?.title || '';
+  const ruleResult = evaluateRules(compiled, rawEvent.url, rawEvent.domain, pageContent);
 
-  // 4. Build ContentObject from event payload
-  const contentObject = rawEvent.payload?.content_object || buildContentObjectFromLegacy(rawEvent);
+  console.log(`[Phylax] Rule evaluation for ${rawEvent.domain}: action=${ruleResult.action}, reason=${ruleResult.reason}`);
 
-  // 5. Run the deterministic pipeline
-  const result = evaluate(contentObject, policy, sessionState);
+  if (ruleResult.action === RULE_ACTIONS.BLOCK_DOMAIN) {
+    const matchedRule = ruleResult.matchedRules[0]?.rule;
+    const decision = {
+      action: 'BLOCK',
+      scores: { harm: 100, compulsion: 0 },
+      top_reasons: [`parent_rule:${matchedRule?.source_text || 'unknown'}`],
+      message_child: matchedRule?.explain?.child || 'This site is blocked by your family\'s safety rules.',
+      message_parent: matchedRule?.explain?.parent || 'Domain blocked by parent rule.',
+      cooldown_seconds: 0,
+      hard_trigger: 'parent_rule',
+      intent_model: matchedRule?.parsed_intent_model || null,
+      reason_graph: ruleResult.reason_graph || null,
+      rule_debug: {
+        compiled_rule: matchedRule,
+        evaluation: ruleResult.reason,
+        all_results: ruleResult.debug?.map(r => ({ id: r.rule.id, matched: r.matched, action: r.action, reason: r.reason })),
+      },
+      timestamp: Date.now(),
+    };
 
-  console.log(`[Phylax] ${rawEvent.event_type} on ${rawEvent.domain}: ` +
-    `decision=${result.decision} reason=${result.reason_code} ` +
-    `confidence=${result.confidence} (${Math.round(performance.now() - startTime)}ms)`);
+    const logRecord = logger.log(event, decision);
+    logRecord.model.latency_ms = Math.round(performance.now() - startTime);
+    event._decision = decision;
+    eventBuffer.push(event);
+    return decision;
+  }
 
-  // 6. Map pipeline result to enforcer decision format
-  const decision = mapToEnforcerDecision(result, event);
+  if (ruleResult.action === RULE_ACTIONS.BLOCK_CONTENT) {
+    const matchedRule = ruleResult.matchedRules[0]?.rule;
+    const decision = {
+      action: 'BLOCK',
+      scores: { harm: 80, compulsion: 0 },
+      top_reasons: [`content_rule:${matchedRule?.source_text || 'unknown'}`],
+      message_child: matchedRule?.explain?.child || 'This content has been blocked by your family\'s safety rules.',
+      message_parent: matchedRule?.explain?.parent || 'Content blocked by parent rule.',
+      cooldown_seconds: 0,
+      hard_trigger: 'content_rule',
+      intent_model: matchedRule?.parsed_intent_model || null,
+      reason_graph: ruleResult.reason_graph || null,
+      rule_debug: {
+        compiled_rule: matchedRule,
+        evaluation: ruleResult.reason,
+        confidence: ruleResult.confidence,
+        all_results: ruleResult.debug?.map(r => ({ id: r.rule.id, matched: r.matched, action: r.action, reason: r.reason })),
+      },
+      timestamp: Date.now(),
+    };
 
-  // 7. Log
-  const logRecord = logger.log(event, decision);
-  logRecord.model.latency_ms = Math.round(performance.now() - startTime);
+    const logRecord = logger.log(event, decision);
+    logRecord.model.latency_ms = Math.round(performance.now() - startTime);
+    event._decision = decision;
+    eventBuffer.push(event);
+    return decision;
+  }
+
+  if (ruleResult.action === RULE_ACTIONS.WARN_CONTENT) {
+    const matchedRule = ruleResult.matchedRules[0]?.rule;
+    const decision = {
+      action: 'WARN',
+      scores: { harm: 50, compulsion: 0 },
+      top_reasons: [`content_warn:${matchedRule?.source_text || 'unknown'}`],
+      message_child: matchedRule?.explain?.child || 'This content may not be appropriate.',
+      message_parent: matchedRule?.explain?.parent || 'Content warning from parent rule.',
+      cooldown_seconds: 0,
+      intent_model: matchedRule?.parsed_intent_model || null,
+      reason_graph: ruleResult.reason_graph || null,
+      rule_debug: {
+        compiled_rule: matchedRule,
+        evaluation: ruleResult.reason,
+        confidence: ruleResult.confidence,
+        all_results: ruleResult.debug?.map(r => ({ id: r.rule.id, matched: r.matched, action: r.action, reason: r.reason })),
+      },
+      timestamp: Date.now(),
+    };
+
+    const logRecord = logger.log(event, decision);
+    logRecord.model.latency_ms = Math.round(performance.now() - startTime);
+    event._decision = decision;
+    eventBuffer.push(event);
+    return decision;
+  }
+
+  // 3b. Parent-approved domain bypass: if ANY compiled rule has this domain
+  // in its domain_allowlist, the parent explicitly created a content-scoped
+  // rule for this domain — meaning they ALLOW the domain itself.
+  // The rule compiler already checked content conditions above and didn't block,
+  // so we skip the generic harm scorer to avoid false-positive overrides.
+  const domainLower = (rawEvent.domain || '').toLowerCase();
+  const isParentApprovedDomain = compiled.some(rule =>
+    (rule.action?.type === RULE_ACTIONS.BLOCK_CONTENT ||
+     rule.action?.type === RULE_ACTIONS.WARN_CONTENT) &&
+    rule.scope?.domain_allowlist?.some(d =>
+      domainLower.includes(d) || domainLower.endsWith(d)
+    )
+  );
+
+  if (isParentApprovedDomain) {
+    console.log(`[Phylax] Domain ${rawEvent.domain} is parent-approved (content-scoped rule exists). Skipping harm scorer.`);
+    const decision = {
+      action: ACTIONS.ALLOW,
+      scores: { harm: 0, compulsion: 0 },
+      top_reasons: ['parent_approved_domain'],
+      message_child: '',
+      message_parent: `Domain allowed by parent content-scoped rule.`,
+      cooldown_seconds: 0,
+      hard_trigger: null,
+      timestamp: Date.now(),
+    };
+    event._decision = decision;
+    eventBuffer.push(event);
+    return decision;
+  }
+
+  // 4. Rules-only enforcement mode.
+  // The generic harm scorer uses broad keyword matching that produces too many
+  // false positives on normal content (e.g., sports pages flagged as "gambling"
+  // because search results mention odds/spreads). Only parent-defined rules
+  // should trigger blocking — if no rules matched above, ALLOW the page.
+  const decision = {
+    action: ACTIONS.ALLOW,
+    scores: { harm: 0, compulsion: 0 },
+    top_reasons: ['no_matching_rules'],
+    message_child: '',
+    message_parent: 'No parent rules matched. Page allowed.',
+    cooldown_seconds: 0,
+    hard_trigger: null,
+    timestamp: Date.now(),
+  };
+
   event._decision = decision;
   eventBuffer.push(event);
 
+  console.log(`[Phylax] ${event.event_type} on ${event.source?.domain || rawEvent.domain}: no rules matched → ALLOW (${Math.round(performance.now() - startTime)}ms)`);
+
   return decision;
 }
 
-/**
- * Build a minimal ContentObject from legacy event payloads
- * (for backward compat when observer hasn't sent a full ContentObject)
- */
-function buildContentObjectFromLegacy(rawEvent) {
-  const payload = rawEvent.payload || {};
-  return {
-    url: rawEvent.url || '',
-    domain: rawEvent.domain || '',
-    ts_ms: Date.now(),
-    content_type: payload.content_type_hint || 'unknown',
-    spa_route_key: (rawEvent.domain || '') + (new URL(rawEvent.url || 'http://x').pathname),
-    title: payload.title || '',
-    description: '',
-    headings: [],
-    main_text: payload.text || '',
-    visible_text_sample: (payload.text || '').slice(0, 2000),
-    og: {},
-    schema_org: null,
-    keywords: [],
-    entities: [],
-    language: payload.lang || 'unknown',
-    media: { has_video: false, has_audio: false, image_count: 0 },
-    ui: {},
-    platform: { name: 'none', object_kind: 'unknown', channel_or_author: '', tags: [] },
-  };
-}
+// ── Message Handling ────────────────────────────────────────────
 
-/**
- * Map pipeline DecisionObject to enforcer-compatible decision format.
- * The enforcer reads: decision (or action), evidence, confidence, enforcement, hard_trigger
- */
-function mapToEnforcerDecision(result, event) {
-  // The enforcer needs both 'decision' and 'action' fields for backward compat
-  const decision = {
-    decision: result.decision,
-    action: result.decision, // backward compat for enforcer
-    reason_code: result.reason_code,
-    confidence: result.confidence,
-    evidence: result.evidence || [],
-    enforcement: result.enforcement || { layer: 'RENDER', technique: 'overlay' },
-    // Scores for logging
-    scores: {
-      harm: result.decision === 'BLOCK' ? Math.round(result.confidence * 100) : 0,
-      compulsion: result.decision === 'LIMIT' ? Math.round(result.confidence * 100) : 0,
-    },
-    top_reasons: [result.reason_code],
-    message_child: result.evidence?.[0] || '',
-    message_parent: `${result.reason_code}: ${result.evidence?.join('; ') || 'N/A'}`,
-    cooldown_seconds: 0,
-    // Mark domain-gate blocks as parent_rule for full-page block enforcement
-    hard_trigger: result.reason_code === 'DOMAIN_BLOCK' ? 'parent_rule' : null,
-    // Debug info
-    debug: result.debug,
-    // LIMIT-specific
-    budget_minutes: result.budget_minutes || null,
-    timestamp: Date.now(),
-  };
-  return decision;
-}
-
-// ═══════════════════════════════════════════════════════════════
-// MESSAGE HANDLING
-// ═══════════════════════════════════════════════════════════════
-
+// Messages from content scripts
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  // Core pipeline: process events from observer.js
   if (message.type === 'PHYLAX_PROCESS_EVENT') {
     const tabId = sender.tab?.id;
     const eventUrl = message.event?.url || '';
-
     processEvent(message.event, tabId).then(decision => {
-      if (decision && decision.decision !== 'ALLOW' &&
-          shouldThrottleDecision(tabId, decision.decision, eventUrl)) {
-        console.log(`[Phylax] Throttled ${decision.decision} for tab ${tabId}`);
-        sendResponse({ decision: { decision: 'ALLOW', action: 'ALLOW', throttled: true } });
+      // Throttle: if we recently sent a non-ALLOW decision for this tab+path, convert to ALLOW
+      // This prevents the observer's periodic events from re-triggering blocks
+      if (decision && decision.action !== ACTIONS.ALLOW && shouldThrottleDecision(tabId, decision.action, eventUrl)) {
+        console.log(`[Phylax] Throttled ${decision.action} for tab ${tabId} (duplicate within ${TAB_DECISION_THROTTLE_MS}ms)`);
+        sendResponse({ decision: { action: ACTIONS.ALLOW, scores: decision.scores, throttled: true } });
       } else {
-        if (decision && decision.decision !== 'ALLOW') {
-          recordTabDecision(tabId, decision.decision, eventUrl);
+        if (decision && decision.action !== ACTIONS.ALLOW) {
+          recordTabDecision(tabId, decision.action, eventUrl);
         }
         sendResponse({ decision });
       }
     });
-    return true;
+    return true; // async
   }
 
+  // Legacy: rules request
   if (message.type === 'GET_PHYLAX_RULES') {
     getRules().then(rules => sendResponse({ rules }));
     return true;
   }
 
+  // Get compiled rules (for debug panel)
   if (message.type === 'GET_PHYLAX_COMPILED_RULES') {
     sendResponse({ compiledRules: getCompiledRules() });
     return true;
   }
 
+  // Get rule compiler debug log
   if (message.type === 'GET_PHYLAX_DEBUG_LOG') {
-    import('./engine/rule-compiler.js').then(({ getDebugLog }) => {
-      sendResponse({ debugLog: getDebugLog() });
-    });
+    sendResponse({ debugLog: getDebugLog() });
     return true;
   }
 
+  // Clear debug log
   if (message.type === 'CLEAR_PHYLAX_DEBUG_LOG') {
-    import('./engine/rule-compiler.js').then(({ clearDebugLog }) => {
-      clearDebugLog();
-      sendResponse({ success: true });
-    });
+    clearDebugLog();
+    sendResponse({ success: true });
     return true;
   }
 
+  // Test rule compilation (for debug panel)
   if (message.type === 'PHYLAX_TEST_COMPILE_RULE') {
     import('./engine/rule-compiler.js').then(({ compileRule }) => {
       const compiled = compileRule(message.ruleText);
@@ -298,17 +350,20 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
+  // Popup requesting engine status
   if (message.type === 'GET_PHYLAX_STATUS') {
     handleStatusRequest(sendResponse);
     return true;
   }
 
+  // Dashboard bridge messages (from bridge.js) — catch-all for PHYLAX_ prefixed messages
   if (message.type && message.type.startsWith('PHYLAX_')) {
     handleDashboardMessage(message, sendResponse);
     return true;
   }
 });
 
+// Messages from the web app (via externally_connectable)
 chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => {
   if (!isPhylaxOrigin(sender.origin || sender.url)) {
     sendResponse({ success: false, error: 'Unauthorized origin' });
@@ -358,7 +413,7 @@ async function handleDashboardMessage(message, sendResponse) {
         sendResponse({
           success: true,
           version: chrome.runtime.getManifest().version,
-          engine: 'pipeline-v3',
+          engine: 'two-lane-v1',
           profile: profileTier,
         });
         break;
@@ -375,12 +430,11 @@ async function handleDashboardMessage(message, sendResponse) {
 async function handleStatusRequest(sendResponse) {
   const rules = await getRules();
   const compiled = getCompiledRules();
-  const policy = getPolicy();
   const summary = logger.getTodaySummary();
   const stats = logger.getStats();
 
   sendResponse({
-    engine: 'pipeline-v3',
+    engine: 'two-lane-v2',
     profile: profileTier,
     rules_count: rules.length,
     active_rules: rules.filter(r => r.active).length,
@@ -390,19 +444,15 @@ async function handleStatusRequest(sendResponse) {
       action: r.action.type,
       scope: r.scope,
       priority: r.priority,
+      intent_model: r.parsed_intent_model || null,
       parsed_intent: r.parsed_intent || null,
+      _compiled: r._compiled,
+      _errors: r._errors,
     })),
-    policy: {
-      version: policy.policy_version,
-      domain_blocked: policy.domain_rules.block_domains.length,
-      topic_rules: policy.topic_rules.length,
-      behavior_rules: policy.behavior_rules.length,
-    },
     session: {
-      start: sessionState.session_start_ms,
-      page_hops_5m: sessionState.page_hops_last_5m,
-      scroll_events_60s: sessionState.scroll_events_last_60s,
-      short_form_streak: sessionState.short_form_streak,
+      start: sessionState.session_start,
+      active_minutes: sessionState.today_active_minutes,
+      interventions: sessionState.interventions_today,
     },
     events_buffered: eventBuffer.size,
     today: summary,
@@ -415,10 +465,10 @@ function isPhylaxOrigin(origin) {
   return PHYLAX_ORIGINS.some(a => origin.startsWith(a));
 }
 
-// ═══════════════════════════════════════════════════════════════
-// TAB NAVIGATION (early blocking for domain-gate rules)
-// ═══════════════════════════════════════════════════════════════
+// ── Tab navigation tracking ─────────────────────────────────────
 
+// Early blocking: onCommitted fires as soon as navigation commits (before page renders)
+// ONLY blocks for BLOCK_DOMAIN rules (not content-scoped rules)
 chrome.webNavigation.onCommitted.addListener(async (details) => {
   if (details.frameId !== 0) return;
   const url = details.url;
@@ -428,26 +478,26 @@ chrome.webNavigation.onCommitted.addListener(async (details) => {
     const domain = new URL(url).hostname;
     if (['phylax-landing.vercel.app', 'localhost', '127.0.0.1'].includes(domain)) return;
 
-    // Fast domain gate check
-    const policy = getPolicy();
-    const domainLower = domain.toLowerCase().replace(/^www\./, '');
-    const isDomainBlocked = policy.domain_rules.block_domains.some(d =>
-      domainLower.includes(d) || domainLower.endsWith(d)
-    );
+    // Fast-path: only check compiled rules for BLOCK_DOMAIN actions
+    // Content-scoped rules need page content, so they wait for onCompleted
+    const compiled = getCompiledRules();
+    const result = evaluateRules(compiled, url, domain, '');
 
-    if (isDomainBlocked) {
+    if (result.action === RULE_ACTIONS.BLOCK_DOMAIN) {
+      const matchedRule = result.matchedRules[0]?.rule;
       const blockDecision = {
-        decision: 'BLOCK',
         action: 'BLOCK',
-        reason_code: 'DOMAIN_BLOCK',
-        confidence: 0.99,
-        evidence: ['Blocked by parent domain rule.'],
-        enforcement: { layer: 'NETWORK', technique: 'cancel_request' },
+        scores: { harm: 100, compulsion: 0 },
+        top_reasons: [`parent_rule:${matchedRule?.source_text || 'unknown'}`],
+        message_child: matchedRule?.explain?.child || 'This site is blocked by your family\'s safety rules.',
         hard_trigger: 'parent_rule',
+        rule_debug: { compiled_rule: matchedRule, evaluation: result.reason },
       };
 
-      if (!shouldThrottleDecision(details.tabId, 'BLOCK', url)) {
-        console.log(`[Phylax] Early domain block: ${domain}`);
+      if (shouldThrottleDecision(details.tabId, 'BLOCK', url)) {
+        console.log(`[Phylax] onCommitted: throttled BLOCK for tab ${details.tabId}`);
+      } else {
+        console.log(`[Phylax] Early block: ${domain} matched BLOCK_DOMAIN rule: "${matchedRule?.source_text}"`);
         recordTabDecision(details.tabId, 'BLOCK', url);
         chrome.tabs.sendMessage(details.tabId, {
           type: 'PHYLAX_ENFORCE_DECISION',
@@ -455,14 +505,20 @@ chrome.webNavigation.onCommitted.addListener(async (details) => {
         }).catch(() => {});
       }
     }
+    // NOTE: BLOCK_CONTENT and WARN_CONTENT are NOT enforced here —
+    // they need page content analysis which happens in onCompleted
   } catch { /* ignore */ }
 });
 
+// Full analysis: onCompleted fires after page loads (for content analysis)
 chrome.webNavigation.onCompleted.addListener(async (details) => {
-  if (details.frameId !== 0) return;
+  if (details.frameId !== 0) return; // Only main frame
+
+  // Process as a PAGE_LOAD event
   const url = details.url;
   if (url.startsWith('chrome://') || url.startsWith('chrome-extension://')) return;
 
+  // Skip Phylax dashboard
   let domain;
   try {
     domain = new URL(url).hostname;
@@ -476,9 +532,14 @@ chrome.webNavigation.onCompleted.addListener(async (details) => {
     payload: { title: '', text: '', content_type_hint: 'unknown' },
   }, details.tabId);
 
-  if (decision && decision.decision !== 'ALLOW') {
-    if (!shouldThrottleDecision(details.tabId, decision.decision, url)) {
-      recordTabDecision(details.tabId, decision.decision, url);
+  // If the decision requires enforcement, send to the tab — but throttle duplicates.
+  // The observer already handles the sendEvent() response path, so onCompleted
+  // sending PHYLAX_ENFORCE_DECISION is a backup. Throttle to avoid double-triggering.
+  if (decision && decision.action !== ACTIONS.ALLOW) {
+    if (shouldThrottleDecision(details.tabId, decision.action, url)) {
+      console.log(`[Phylax] onCompleted: throttled ${decision.action} for tab ${details.tabId}`);
+    } else {
+      recordTabDecision(details.tabId, decision.action, url);
       chrome.tabs.sendMessage(details.tabId, {
         type: 'PHYLAX_ENFORCE_DECISION',
         decision,
@@ -487,12 +548,10 @@ chrome.webNavigation.onCompleted.addListener(async (details) => {
   }
 });
 
-// ═══════════════════════════════════════════════════════════════
-// INITIALIZATION
-// ═══════════════════════════════════════════════════════════════
+// ── Initialization ──────────────────────────────────────────────
 
 chrome.runtime.onInstalled.addListener(async () => {
-  console.log('[Phylax] Pipeline v3 installed — Kids-Only Engine');
+  console.log('[Phylax] Engine installed — Two-Lane Safety Engine v1');
   profileTier = await getProfileTier();
   await logger.restore();
   const rules = await getRules();
@@ -502,6 +561,7 @@ chrome.runtime.onInstalled.addListener(async () => {
   }
 });
 
+// Restore state on service worker wake
 (async () => {
   profileTier = await getProfileTier();
   await logger.restore();
@@ -512,4 +572,7 @@ chrome.runtime.onInstalled.addListener(async () => {
   console.log('[Phylax] Service worker ready. Profile:', profileTier, '| Events buffered:', eventBuffer.size);
 })();
 
-setInterval(() => { logger.persist(); }, 60000);
+// Persist logs periodically
+setInterval(() => {
+  logger.persist();
+}, 60000); // Every minute

@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Phylax SafeGuard",
-  "version": "3.0.0",
-  "description": "Deterministic classification pipeline. ContentObject extraction, weighted lexicon scoring, behavior intelligence, kids-only actions (ALLOW/BLOCK/LIMIT).",
+  "version": "2.6.0",
+  "description": "Rules-only enforcement mode. Disables generic harm scorer to prevent false positives on normal content.",
 
   "permissions": [
     "storage",
