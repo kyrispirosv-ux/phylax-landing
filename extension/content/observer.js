@@ -15,12 +15,20 @@
   const SNAPSHOT_INTERVAL = 15000;  // DOM text snapshot every 15s
   const SCROLL_DEBOUNCE = 2000;     // Scroll event debounce
   const MAX_TEXT_LENGTH = 5000;     // Max text to extract per snapshot
+  const MUTATION_DEBOUNCE_DEFAULT = 3000;  // Default MutationObserver debounce
+  const MUTATION_DEBOUNCE_YOUTUBE = 10000; // YouTube-specific: 10s debounce (YouTube constantly mutates DOM)
+  const MIN_SNAPSHOT_INTERVAL = 12000;     // Minimum time between any two snapshots
+  const BLOCKED_PAUSE_MS = 15000;          // Pause sending events for 15s after a BLOCK decision
 
   let lastScrollTime = 0;
   let scrollCount = 0;
   let pageStartTime = Date.now();
   let snapshotTimer = null;
   let isActive = true;
+  let lastSnapshotTime = 0;           // Timestamp of last snapshot sent
+  let lastBlockDecisionTime = 0;       // Timestamp of last BLOCK decision received
+  let lastBlockDecisionPath = null;    // Path that was blocked
+  let lastDecisionForwardTime = 0;     // Dedup: timestamp of last forwarded decision
 
   // ── Context validity check ──────────────────────────────────
   function isContextValid() {
@@ -29,6 +37,25 @@
     } catch {
       return false;
     }
+  }
+
+  // ── Should we pause event sending? ─────────────────────────
+  // After a BLOCK decision, pause periodic events (snapshots, ticks, scrolls)
+  // to prevent re-triggering the pipeline. Resume when the URL path changes
+  // (user navigated away) or after the pause window expires.
+
+  function shouldPauseEvents() {
+    if (!lastBlockDecisionTime) return false;
+    const now = Date.now();
+    const elapsed = now - lastBlockDecisionTime;
+    // If user navigated away from the blocked path, stop pausing
+    if (lastBlockDecisionPath && window.location.pathname !== lastBlockDecisionPath) {
+      lastBlockDecisionTime = 0;
+      lastBlockDecisionPath = null;
+      return false;
+    }
+    // Pause for BLOCKED_PAUSE_MS after a block decision on the same path
+    return elapsed < BLOCKED_PAUSE_MS;
   }
 
   // ── Send event to background ────────────────────────────────
@@ -59,6 +86,19 @@
   function handleDecision(decision) {
     if (!decision || decision.action === 'ALLOW') return;
 
+    // Dedup: don't forward multiple decisions within 1s (a single background
+    // decision can arrive via both the sendEvent response AND the
+    // PHYLAX_ENFORCE_DECISION message from onCompleted/onCommitted).
+    const now = Date.now();
+    if (now - lastDecisionForwardTime < 1000) return;
+    lastDecisionForwardTime = now;
+
+    // Track BLOCK decisions so we can pause event sending
+    if (decision.action === 'BLOCK') {
+      lastBlockDecisionTime = now;
+      lastBlockDecisionPath = window.location.pathname;
+    }
+
     // Forward to enforcer (runs in same content script context)
     window.dispatchEvent(new CustomEvent('phylax-decision', {
       detail: decision,
@@ -84,9 +124,17 @@
   function takeSnapshot() {
     if (!isActive) return;
 
+    // Don't send snapshots while paused after a BLOCK decision
+    if (shouldPauseEvents()) return;
+
+    // Enforce minimum interval between snapshots (prevents MutationObserver flood)
+    const now = Date.now();
+    if (now - lastSnapshotTime < MIN_SNAPSHOT_INTERVAL) return;
+
     const text = extractVisibleText();
     if (text.length < 10) return; // Skip near-empty pages
 
+    lastSnapshotTime = now;
     sendEvent('DOM_TEXT_SNAPSHOT', {
       text: text.slice(0, MAX_TEXT_LENGTH),
       title: document.title || '',
@@ -180,6 +228,9 @@
     if (now - lastScrollTime < SCROLL_DEBOUNCE) return;
     lastScrollTime = now;
 
+    // Don't send scroll events while paused after a BLOCK decision
+    if (shouldPauseEvents()) return;
+
     const scrollDepth = window.scrollY / (document.documentElement.scrollHeight - window.innerHeight || 1);
 
     sendEvent('FEED_SCROLL', {
@@ -256,12 +307,16 @@
   // ── DOM Mutation Observer (for dynamic content) ─────────────
 
   let mutationDebounce = null;
+  const isYouTube = host.includes('youtube.com') || host.includes('youtu.be');
+  const mutationDebounceMs = isYouTube ? MUTATION_DEBOUNCE_YOUTUBE : MUTATION_DEBOUNCE_DEFAULT;
+
   const observer = new MutationObserver(() => {
     clearTimeout(mutationDebounce);
     mutationDebounce = setTimeout(() => {
       // Re-snapshot after significant DOM changes
+      // (takeSnapshot() has its own MIN_SNAPSHOT_INTERVAL guard)
       takeSnapshot();
-    }, 3000);
+    }, mutationDebounceMs);
   });
 
   // ── Listen for real-time decisions from background ──────────
@@ -280,6 +335,8 @@
 
   setInterval(() => {
     if (!isActive) return;
+    // Don't send ticks while paused after a BLOCK decision
+    if (shouldPauseEvents()) return;
     sendEvent('TIME_TICK', {
       session_seconds: Math.round((Date.now() - pageStartTime) / 1000),
       scroll_count: scrollCount,

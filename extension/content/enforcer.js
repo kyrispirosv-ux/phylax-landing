@@ -14,23 +14,28 @@
   let blockedUrl = null;        // URL that triggered the current overlay
   let mediaKillInterval = null; // interval that keeps killing media
   let navCleanupFns = [];       // listeners to tear down on dismiss
-  const dismissedUrls = {};     // url → timestamp — recently dismissed, don't re-block
+  const dismissedPaths = {};    // pathname → timestamp — recently dismissed, don't re-block
+  let lastEnforceTime = 0;      // timestamp of last enforce() call that did something
+
+  const DISMISS_COOLDOWN_MS = 60000;  // 60s cooldown after dismiss
+  const ENFORCE_DEDUP_MS = 2000;      // ignore duplicate enforce calls within 2s
 
   // ── Listen for decisions ────────────────────────────────────
-  // Only listen on ONE channel to avoid duplicates.
-  // The observer already forwards background PHYLAX_ENFORCE_DECISION messages
-  // as phylax-decision window events, so we only need the window listener.
-  // We also keep the chrome.runtime listener for direct background → enforcer
-  // messages, but dedup via the enforce() guards.
+  // Listen on ONLY the chrome.runtime channel. The observer no longer
+  // re-dispatches PHYLAX_ENFORCE_DECISION as window events (we removed that
+  // forwarding to eliminate duplicate triggers). The observer's sendEvent()
+  // response path is also handled here since observer now sends via
+  // chrome.runtime.sendMessage to background which replies, and observer
+  // forwards the decision through a direct function call.
+  //
+  // We use ONLY the window event channel. The observer forwards decisions
+  // from both its sendEvent() responses AND chrome.runtime.onMessage
+  // PHYLAX_ENFORCE_DECISION through a SINGLE phylax-decision window event.
+  // The enforcer does NOT listen on chrome.runtime.onMessage at all,
+  // eliminating the duplicate trigger from Path C.
 
   window.addEventListener('phylax-decision', (e) => {
     enforce(e.detail);
-  });
-
-  chrome.runtime.onMessage.addListener((message) => {
-    if (message.type === 'PHYLAX_ENFORCE_DECISION') {
-      enforce(message.decision);
-    }
   });
 
   // ── Enforce: route decisions to the right block type ─────────
@@ -43,22 +48,32 @@
     if (decision.action === 'ALLOW') return;
 
     const url = window.location.href;
+    const path = window.location.pathname + window.location.search.split('&t=')[0]; // stable path ignoring YouTube time param
 
-    // Already showing overlay for this exact URL — don't recreate (prevents flash)
-    if (currentOverlay && blockedUrl === url) return;
+    // Dedup guard: ignore rapid-fire enforce calls (within 2s of last action).
+    // A single background decision can arrive via multiple message paths.
+    const now = Date.now();
+    if (now - lastEnforceTime < ENFORCE_DEDUP_MS) return;
 
-    // Recently dismissed this URL — don't re-block for 30s (prevents flash after Go Back)
-    const dismissedAt = dismissedUrls[url];
-    if (dismissedAt && Date.now() - dismissedAt < 30000) return;
+    // Already showing overlay for this page — don't recreate (prevents flash).
+    // Use pathname-based matching so YouTube URL param changes don't bypass this.
+    if (currentOverlay && blockedUrl === path) return;
+
+    // Recently dismissed this path — don't re-block for 60s (prevents flash after Go Back).
+    // Uses pathname instead of full URL so YouTube's changing query params don't bypass cooldown.
+    const dismissedAt = dismissedPaths[path];
+    if (dismissedAt && now - dismissedAt < DISMISS_COOLDOWN_MS) return;
 
     // Full-page block is reserved for explicit parent domain blocks only
     const isParentDomainBlock = decision.hard_trigger === 'parent_rule';
 
     if (isParentDomainBlock) {
+      lastEnforceTime = now;
       showFullBlock();
     } else {
       // Content overlay only on actual content pages, not search/browse
       if (!isContentPage()) return;
+      lastEnforceTime = now;
       showOverlayBlock();
     }
   }
@@ -138,7 +153,7 @@
   function showOverlayBlock() {
     dismissOverlay();
 
-    blockedUrl = window.location.href;
+    blockedUrl = window.location.pathname + window.location.search.split('&t=')[0];
 
     const overlay = document.createElement('div');
     overlay.id = 'phylax-overlay';
@@ -224,7 +239,8 @@
     teardownNavWatchers();
 
     const onNav = () => {
-      if (currentOverlay && window.location.href !== blockedUrl) {
+      const currentPath = window.location.pathname + window.location.search.split('&t=')[0];
+      if (currentOverlay && currentPath !== blockedUrl) {
         dismissOverlay();
       }
     };
@@ -238,10 +254,11 @@
     navCleanupFns.push(() => window.removeEventListener('popstate', onNav));
 
     // Fallback: poll for URL changes every 500ms (covers pushState)
-    let lastHref = window.location.href;
+    let lastPath = window.location.pathname + window.location.search.split('&t=')[0];
     const pollId = setInterval(() => {
-      if (window.location.href !== lastHref) {
-        lastHref = window.location.href;
+      const currentPath = window.location.pathname + window.location.search.split('&t=')[0];
+      if (currentPath !== lastPath) {
+        lastPath = currentPath;
         onNav();
       }
       // Stop polling once overlay is gone
@@ -269,9 +286,14 @@
   }
 
   function dismissOverlay() {
-    // Remember this URL so we don't re-block it immediately (prevents flash loop)
+    // Remember this path so we don't re-block it immediately (prevents flash loop).
+    // Also remember the current path in case navigation already happened.
     if (blockedUrl) {
-      dismissedUrls[blockedUrl] = Date.now();
+      dismissedPaths[blockedUrl] = Date.now();
+    }
+    const currentPath = window.location.pathname + window.location.search.split('&t=')[0];
+    if (currentPath !== blockedUrl) {
+      dismissedPaths[currentPath] = Date.now();
     }
 
     // Stop killing media

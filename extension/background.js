@@ -22,6 +22,12 @@ const logger = new DecisionLogger();
 let sessionState = createSessionState();
 let profileTier = 'tween_13'; // Default, configurable by parent
 
+// ── Per-tab decision throttle ─────────────────────────────────
+// Prevents sending multiple non-ALLOW decisions to the same tab in rapid succession.
+// Key: tabId → { action, timestamp, path }
+const tabDecisionCache = new Map();
+const TAB_DECISION_THROTTLE_MS = 10000; // 10s throttle per tab for same-action decisions
+
 // ── Rule Storage ────────────────────────────────────────────────
 
 async function getRules() {
@@ -91,6 +97,37 @@ async function updateDeclarativeNetRequestRules(rules) {
   } catch (e) {
     console.error('[Phylax] DNR error:', e);
   }
+}
+
+// ── Decision throttle helper ──────────────────────────────────
+
+function shouldThrottleDecision(tabId, action, url) {
+  if (!tabId || action === ACTIONS.ALLOW) return false;
+
+  const key = tabId;
+  const cached = tabDecisionCache.get(key);
+  if (!cached) return false;
+
+  const now = Date.now();
+  const elapsed = now - cached.timestamp;
+
+  // Extract path for comparison (ignore YouTube time params, etc.)
+  let urlPath = '';
+  try { urlPath = new URL(url).pathname; } catch { urlPath = url; }
+
+  // Throttle: same tab, same action, same path, within throttle window
+  if (cached.action === action && cached.path === urlPath && elapsed < TAB_DECISION_THROTTLE_MS) {
+    return true;
+  }
+
+  return false;
+}
+
+function recordTabDecision(tabId, action, url) {
+  if (!tabId || action === ACTIONS.ALLOW) return;
+  let urlPath = '';
+  try { urlPath = new URL(url).pathname; } catch { urlPath = url; }
+  tabDecisionCache.set(tabId, { action, path: urlPath, timestamp: Date.now() });
 }
 
 // ── Core Event Processing Pipeline ──────────────────────────────
@@ -289,8 +326,19 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   // Core pipeline: process events from observer.js
   if (message.type === 'PHYLAX_PROCESS_EVENT') {
     const tabId = sender.tab?.id;
+    const eventUrl = message.event?.url || '';
     processEvent(message.event, tabId).then(decision => {
-      sendResponse({ decision });
+      // Throttle: if we recently sent a non-ALLOW decision for this tab+path, convert to ALLOW
+      // This prevents the observer's periodic events from re-triggering blocks
+      if (decision && decision.action !== ACTIONS.ALLOW && shouldThrottleDecision(tabId, decision.action, eventUrl)) {
+        console.log(`[Phylax] Throttled ${decision.action} for tab ${tabId} (duplicate within ${TAB_DECISION_THROTTLE_MS}ms)`);
+        sendResponse({ decision: { action: ACTIONS.ALLOW, scores: decision.scores, throttled: true } });
+      } else {
+        if (decision && decision.action !== ACTIONS.ALLOW) {
+          recordTabDecision(tabId, decision.action, eventUrl);
+        }
+        sendResponse({ decision });
+      }
     });
     return true; // async
   }
@@ -464,18 +512,25 @@ chrome.webNavigation.onCommitted.addListener(async (details) => {
 
     if (result.action === RULE_ACTIONS.BLOCK_DOMAIN) {
       const matchedRule = result.matchedRules[0]?.rule;
-      console.log(`[Phylax] Early block: ${domain} matched BLOCK_DOMAIN rule: "${matchedRule?.source_text}"`);
-      chrome.tabs.sendMessage(details.tabId, {
-        type: 'PHYLAX_ENFORCE_DECISION',
-        decision: {
-          action: 'BLOCK',
-          scores: { harm: 100, compulsion: 0 },
-          top_reasons: [`parent_rule:${matchedRule?.source_text || 'unknown'}`],
-          message_child: matchedRule?.explain?.child || 'This site is blocked by your family\'s safety rules.',
-          hard_trigger: 'parent_rule',
-          rule_debug: { compiled_rule: matchedRule, evaluation: result.reason },
-        },
-      }).catch(() => {});
+      const blockDecision = {
+        action: 'BLOCK',
+        scores: { harm: 100, compulsion: 0 },
+        top_reasons: [`parent_rule:${matchedRule?.source_text || 'unknown'}`],
+        message_child: matchedRule?.explain?.child || 'This site is blocked by your family\'s safety rules.',
+        hard_trigger: 'parent_rule',
+        rule_debug: { compiled_rule: matchedRule, evaluation: result.reason },
+      };
+
+      if (shouldThrottleDecision(details.tabId, 'BLOCK', url)) {
+        console.log(`[Phylax] onCommitted: throttled BLOCK for tab ${details.tabId}`);
+      } else {
+        console.log(`[Phylax] Early block: ${domain} matched BLOCK_DOMAIN rule: "${matchedRule?.source_text}"`);
+        recordTabDecision(details.tabId, 'BLOCK', url);
+        chrome.tabs.sendMessage(details.tabId, {
+          type: 'PHYLAX_ENFORCE_DECISION',
+          decision: blockDecision,
+        }).catch(() => {});
+      }
     }
     // NOTE: BLOCK_CONTENT and WARN_CONTENT are NOT enforced here —
     // they need page content analysis which happens in onCompleted
@@ -491,24 +546,32 @@ chrome.webNavigation.onCompleted.addListener(async (details) => {
   if (url.startsWith('chrome://') || url.startsWith('chrome-extension://')) return;
 
   // Skip Phylax dashboard
+  let domain;
   try {
-    const domain = new URL(url).hostname;
+    domain = new URL(url).hostname;
     if (['phylax-landing.vercel.app', 'localhost', '127.0.0.1'].includes(domain)) return;
   } catch { return; }
 
   const decision = await processEvent({
     event_type: 'PAGE_LOAD',
     url,
-    domain: new URL(url).hostname,
+    domain,
     payload: { title: '', text: '', content_type_hint: 'unknown' },
   }, details.tabId);
 
-  // If the decision requires enforcement, send to the tab
+  // If the decision requires enforcement, send to the tab — but throttle duplicates.
+  // The observer already handles the sendEvent() response path, so onCompleted
+  // sending PHYLAX_ENFORCE_DECISION is a backup. Throttle to avoid double-triggering.
   if (decision && decision.action !== ACTIONS.ALLOW) {
-    chrome.tabs.sendMessage(details.tabId, {
-      type: 'PHYLAX_ENFORCE_DECISION',
-      decision,
-    }).catch(() => {});
+    if (shouldThrottleDecision(details.tabId, decision.action, url)) {
+      console.log(`[Phylax] onCompleted: throttled ${decision.action} for tab ${details.tabId}`);
+    } else {
+      recordTabDecision(details.tabId, decision.action, url);
+      chrome.tabs.sendMessage(details.tabId, {
+        type: 'PHYLAX_ENFORCE_DECISION',
+        decision,
+      }).catch(() => {});
+    }
   }
 });
 
