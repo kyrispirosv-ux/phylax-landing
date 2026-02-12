@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Phylax SafeGuard",
-  "version": "2.6.0",
-  "description": "Rules-only enforcement mode. Disables generic harm scorer to prevent false positives on normal content.",
+  "version": "2.7.0",
+  "description": "Rules-only enforcement. Category toggles and custom chat rules drive all blocking decisions.",
 
   "permissions": [
     "storage",
