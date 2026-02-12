@@ -76,11 +76,24 @@ export function makeDecision({
     }
   }
 
-  // 3. Score-based harm decision
+  // 3. Score-based harm decision with contextual reasoning
+  //    Educational/supportive intent reduces effective harm score
+  const topIntent = semanticParse?.content?.intent?.[0]?.label || 'informational';
+  const intentP = semanticParse?.content?.intent?.[0]?.p || 0.5;
+  let effectiveHarmScore = harmResult.score;
+
+  if (topIntent === 'educational' && intentP > 0.5) {
+    effectiveHarmScore = Math.round(effectiveHarmScore * 0.6);
+  } else if (topIntent === 'supportive' && intentP > 0.5) {
+    effectiveHarmScore = Math.round(effectiveHarmScore * 0.5);
+  } else if (topIntent === 'promotional' && intentP > 0.6) {
+    effectiveHarmScore = Math.min(100, Math.round(effectiveHarmScore * 1.2));
+  }
+
   let harmAction = ACTIONS.ALLOW;
-  if (harmResult.score >= config.harm_block_threshold) {
+  if (effectiveHarmScore >= config.harm_block_threshold) {
     harmAction = ACTIONS.BLOCK;
-  } else if (harmResult.score >= config.harm_warn_threshold) {
+  } else if (effectiveHarmScore >= config.harm_warn_threshold) {
     harmAction = ACTIONS.WARN;
   }
 

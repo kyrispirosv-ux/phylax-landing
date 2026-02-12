@@ -3,7 +3,7 @@
 //
 // Run with: node extension/engine/__tests__/rule-compiler.test.js
 
-import { compileRule, compileRules, evaluateRules, extractDNRPatterns, RULE_ACTIONS } from '../rule-compiler.js';
+import { compileRule, compileRules, evaluateRules, extractDNRPatterns, RULE_ACTIONS, INTENT_TYPES } from '../rule-compiler.js';
 
 let passed = 0;
 let failed = 0;
@@ -562,6 +562,157 @@ console.log('\n📋 TEST 25: Debug metadata on compiled rules');
     assert(Array.isArray(rule.debug_reason_codes) || Array.isArray(rule._errors), `debug_reason_codes present for: "${text}"`);
     assert(rule.id != null, `id present for: "${text}"`);
   }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// TEST 26: Intent Model — structured intent on compiled rules
+// ═══════════════════════════════════════════════════════════════════
+console.log('\n📋 TEST 26: Intent Model output');
+{
+  const rule1 = compileRule("block youtube");
+  assert(rule1.parsed_intent_model != null, 'Intent model present on domain block');
+  assertEq(rule1.parsed_intent_model.user_intent_type, INTENT_TYPES.BLOCK_DOMAIN, 'Intent type is BLOCK_DOMAIN');
+  assertEq(rule1.parsed_intent_model.strength, 'hard', 'Strength is hard');
+  assert(rule1.parsed_intent_model.confidence >= 0.9, 'Confidence >= 0.9 for explicit block');
+
+  const rule2 = compileRule("allow reddit but block hate speech");
+  assert(rule2.parsed_intent_model != null, 'Intent model present on conditional rule');
+  assertEq(rule2.parsed_intent_model.user_intent_type, INTENT_TYPES.ALLOW_DOMAIN_EXCEPT_TOPIC, 'Intent type is ALLOW_DOMAIN_EXCEPT_TOPIC');
+  assertEq(rule2.parsed_intent_model.scope_granularity, 'content', 'Scope granularity is content');
+
+  const rule3 = compileRule("no gambling sites");
+  assert(rule3.parsed_intent_model != null, 'Intent model present on category block');
+  assertEq(rule3.parsed_intent_model.user_intent_type, INTENT_TYPES.BLOCK_TOPIC_GLOBAL, 'Intent type is BLOCK_TOPIC_GLOBAL');
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// TEST 27: Reason Graph — present in evaluation results
+// ═══════════════════════════════════════════════════════════════════
+console.log('\n📋 TEST 27: Reason Graph in evaluation results');
+{
+  const rules = compileRules([
+    { text: "dont block all of youtube only videos about gambling", active: true },
+    { text: "no gambling sites", active: true },
+  ]);
+
+  const result = evaluateRules(rules, 'https://www.youtube.com/watch?v=abc', 'www.youtube.com', 'casino gambling poker slots betting tips');
+  assert(result.reason_graph != null, 'Reason graph present in result');
+  assert(result.reason_graph.domain === 'www.youtube.com', 'Reason graph has correct domain');
+  assert(result.reason_graph.rules_evaluated > 0, 'Reason graph shows rules evaluated');
+  assert(Array.isArray(result.reason_graph.decision_path), 'Reason graph has decision path array');
+  assert(result.reason_graph.decision_path.length > 0, 'Decision path is not empty');
+  assert(result.reason_graph.decision_path[0].rule_id != null, 'Decision path entries have rule_id');
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// TEST 28: FALSE POSITIVE PREVENTION — Google search for "religion"
+// This was the original bug: searching "religion" on Google got blocked
+// ═══════════════════════════════════════════════════════════════════
+console.log('\n📋 TEST 28: FALSE POSITIVE — Google "religion" search NOT blocked');
+{
+  const rules = compileRules([
+    { text: "no gambling sites", active: true },
+    { text: "block adult content", active: true },
+    { text: "dont block all of youtube only videos about gambling", active: true },
+  ]);
+
+  const googleReligion = evaluateRules(
+    rules,
+    'https://www.google.com/search?q=religion',
+    'www.google.com',
+    'religion world religions christianity islam buddhism hinduism judaism history faith belief spiritual'
+  );
+  assertEq(googleReligion.action, 'ALLOW', 'Google search for "religion" is ALLOWED (not a false positive)');
+
+  const googleHistory = evaluateRules(
+    rules,
+    'https://www.google.com/search?q=history+of+gambling',
+    'www.google.com',
+    'history of gambling ancient civilizations dice games roman empire betting study finds research shows'
+  );
+  assertEq(googleHistory.action, 'ALLOW', 'Google search for "history of gambling" is ALLOWED (educational context on search engine)');
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// TEST 29: Contextual Reasoning — educational vs promotional
+// ═══════════════════════════════════════════════════════════════════
+console.log('\n📋 TEST 29: Contextual Reasoning — educational vs promotional');
+{
+  const rules = compileRules([
+    { text: "dont block all of youtube only videos about gambling", active: true },
+  ]);
+
+  // Educational content about gambling on YouTube should be ALLOWED or at most warned
+  const ytEducational = evaluateRules(
+    rules,
+    'https://www.youtube.com/watch?v=edu',
+    'www.youtube.com',
+    'study finds research shows gambling addiction published in journal of psychology education understanding compulsive gambling academic'
+  );
+  // Even though it mentions gambling, educational context should reduce the score
+  assert(
+    ytEducational.action === 'ALLOW' || ytEducational.action === RULE_ACTIONS.WARN_CONTENT,
+    'Educational gambling content on YouTube is ALLOWED or WARNED (not hard blocked)'
+  );
+
+  // Promotional gambling content on YouTube should be BLOCKED
+  const ytPromotional = evaluateRules(
+    rules,
+    'https://www.youtube.com/watch?v=promo',
+    'www.youtube.com',
+    'sign up now free spins casino bonus bet now play now slots gambling jackpot win big guaranteed poker online betting odds'
+  );
+  assert(
+    ytPromotional.action === RULE_ACTIONS.BLOCK_CONTENT || ytPromotional.action === RULE_ACTIONS.WARN_CONTENT,
+    'Promotional gambling content on YouTube is BLOCKED or WARNED'
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// TEST 30: Specificity-based conflict resolution
+// ═══════════════════════════════════════════════════════════════════
+console.log('\n📋 TEST 30: Specificity-based conflict resolution');
+{
+  // Rule A: "no gambling sites" (category domain block — less specific)
+  // Rule B: "allow youtube except gambling" (content-scoped — more specific)
+  const rules = compileRules([
+    { text: "no gambling sites", active: true },
+    { text: "allow youtube but block gambling", active: true },
+  ]);
+
+  // bet365 should still be blocked by Rule A
+  const bet365 = evaluateRules(rules, 'https://www.bet365.com/', 'www.bet365.com', '');
+  assertEq(bet365.action, RULE_ACTIONS.BLOCK_DOMAIN, 'bet365 blocked by category rule');
+
+  // YouTube homepage should be allowed (Rule B is more specific and allows YouTube)
+  const ytHome = evaluateRules(rules, 'https://www.youtube.com/', 'www.youtube.com', 'YouTube trending videos');
+  assertEq(ytHome.action, 'ALLOW', 'YouTube homepage allowed by more specific content-scoped rule');
+
+  // YouTube gambling video should be blocked at content level
+  const ytGambling = evaluateRules(rules, 'https://www.youtube.com/watch?v=abc', 'www.youtube.com', 'casino slots gambling poker betting jackpot bet now odds sportsbook');
+  assert(
+    ytGambling.action === RULE_ACTIONS.BLOCK_CONTENT || ytGambling.action === RULE_ACTIONS.WARN_CONTENT,
+    'YouTube gambling video blocked at content level (not domain level)'
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// TEST 31: Wikipedia safe-listing (educational domain context)
+// ═══════════════════════════════════════════════════════════════════
+console.log('\n📋 TEST 31: Wikipedia educational context');
+{
+  const rules = compileRules([
+    { text: "no gambling sites", active: true },
+  ]);
+
+  // Wikipedia article about gambling should be ALLOWED (educational context)
+  const wikiGambling = evaluateRules(
+    rules,
+    'https://en.wikipedia.org/wiki/Gambling',
+    'en.wikipedia.org',
+    'gambling casino history betting games study finds research published in encyclopedia'
+  );
+  assertEq(wikiGambling.action, 'ALLOW', 'Wikipedia gambling article is ALLOWED (educational domain, not a gambling domain)');
 }
 
 // ═══════════════════════════════════════════════════════════════════

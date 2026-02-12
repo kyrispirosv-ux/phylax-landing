@@ -22,9 +22,19 @@
   let snapshotTimer = null;
   let isActive = true;
 
+  // ── Context validity check ──────────────────────────────────
+  function isContextValid() {
+    try {
+      return !!(chrome.runtime && chrome.runtime.id);
+    } catch {
+      return false;
+    }
+  }
+
   // ── Send event to background ────────────────────────────────
 
   async function sendEvent(eventType, payload = {}) {
+    if (!isContextValid()) return;
     try {
       const response = await chrome.runtime.sendMessage({
         type: 'PHYLAX_PROCESS_EVENT',
@@ -40,7 +50,7 @@
         handleDecision(response.decision);
       }
     } catch (e) {
-      // Extension might not be ready
+      // Extension might not be ready or context invalidated
     }
   }
 

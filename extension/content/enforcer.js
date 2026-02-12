@@ -138,7 +138,7 @@
       </div>
     `;
 
-    document.body.appendChild(overlay);
+    safeAppendOverlay(overlay);
     currentOverlay = overlay;
 
     overlay.querySelector('#phylaxGoBack').addEventListener('click', () => {
@@ -171,7 +171,7 @@
       </div>
     `;
 
-    document.body.appendChild(overlay);
+    safeAppendOverlay(overlay);
     currentOverlay = overlay;
 
     overlay.querySelector('#phylaxGoBack').addEventListener('click', () => {
@@ -213,7 +213,7 @@
       </p>
     `;
 
-    document.body.appendChild(nudge);
+    safeAppendOverlay(nudge);
     currentOverlay = nudge;
 
     nudge.querySelector('#phylaxDismissNudge').addEventListener('click', () => {
@@ -250,7 +250,7 @@
       </div>
     `;
 
-    document.body.appendChild(overlay);
+    safeAppendOverlay(overlay);
     currentOverlay = overlay;
 
     const countdownEl = overlay.querySelector('#phylaxCountdown');
@@ -297,7 +297,7 @@
       </div>
     `;
 
-    document.body.appendChild(overlay);
+    safeAppendOverlay(overlay);
     currentOverlay = overlay;
 
     const timerEl = overlay.querySelector('#phylaxCooldownTimer');
@@ -340,7 +340,7 @@
       </div>
     `;
 
-    document.body.appendChild(overlay);
+    safeAppendOverlay(overlay);
     currentOverlay = overlay;
 
     overlay.querySelector('#phylaxRedirectBack').addEventListener('click', () => {
@@ -349,6 +349,19 @@
     overlay.querySelector('#phylaxRedirectContinue').addEventListener('click', () => {
       removeOverlay();
     });
+  }
+
+  // ── Safe DOM append (guards against null document.body) ─────
+
+  function safeAppendOverlay(overlay) {
+    const target = document.body || document.documentElement;
+    if (target) {
+      target.appendChild(overlay);
+    } else {
+      document.addEventListener('DOMContentLoaded', () => {
+        (document.body || document.documentElement).appendChild(overlay);
+      }, { once: true });
+    }
   }
 
   // ── Overlay helpers ─────────────────────────────────────────

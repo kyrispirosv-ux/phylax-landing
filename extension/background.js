@@ -7,7 +7,7 @@ import { computeHarmRisk, checkEscalationTriggers } from './engine/harm-scorer.j
 import { computeCompulsionRisk, createSessionState, updateSessionState } from './engine/compulsion-scorer.js';
 import { makeDecision, checkParentRules, ACTIONS } from './engine/policy-engine.js';
 import { DecisionLogger } from './engine/logger.js';
-import { compileRules, evaluateRules, extractDNRPatterns, RULE_ACTIONS, getDebugLog, clearDebugLog } from './engine/rule-compiler.js';
+import { compileRules, evaluateRules, extractDNRPatterns, RULE_ACTIONS, INTENT_TYPES, CONTENT_CONTEXTS, detectContentContext, getDebugLog, clearDebugLog } from './engine/rule-compiler.js';
 
 // ── State ───────────────────────────────────────────────────────
 
@@ -128,6 +128,8 @@ async function processEvent(rawEvent, tabId) {
       message_parent: matchedRule?.explain?.parent || 'Domain blocked by parent rule.',
       cooldown_seconds: 0,
       hard_trigger: 'parent_rule',
+      intent_model: matchedRule?.parsed_intent_model || null,
+      reason_graph: ruleResult.reason_graph || null,
       rule_debug: {
         compiled_rule: matchedRule,
         evaluation: ruleResult.reason,
@@ -153,6 +155,8 @@ async function processEvent(rawEvent, tabId) {
       message_parent: matchedRule?.explain?.parent || 'Content blocked by parent rule.',
       cooldown_seconds: 0,
       hard_trigger: 'content_rule',
+      intent_model: matchedRule?.parsed_intent_model || null,
+      reason_graph: ruleResult.reason_graph || null,
       rule_debug: {
         compiled_rule: matchedRule,
         evaluation: ruleResult.reason,
@@ -178,6 +182,8 @@ async function processEvent(rawEvent, tabId) {
       message_child: matchedRule?.explain?.child || 'This content may not be appropriate.',
       message_parent: matchedRule?.explain?.parent || 'Content warning from parent rule.',
       cooldown_seconds: 0,
+      intent_model: matchedRule?.parsed_intent_model || null,
+      reason_graph: ruleResult.reason_graph || null,
       rule_debug: {
         compiled_rule: matchedRule,
         evaluation: ruleResult.reason,
@@ -379,6 +385,8 @@ async function handleStatusRequest(sendResponse) {
       action: r.action.type,
       scope: r.scope,
       priority: r.priority,
+      intent_model: r.parsed_intent_model || null,
+      parsed_intent: r.parsed_intent || null,
       _compiled: r._compiled,
       _errors: r._errors,
     })),

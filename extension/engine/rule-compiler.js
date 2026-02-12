@@ -1,6 +1,10 @@
-// Phylax Engine — Rule Compiler (Generalized)
-// Compiles natural language rules into structured rule objects.
-// Works for ANY topic × ANY platform combination.
+// Phylax Engine — Rule Compiler v2 (Intent-Aware Intelligence Layer)
+// Compiles natural language rules into structured rule objects with:
+//   1. Intent Modeling (BLOCK_DOMAIN, ALLOW_DOMAIN_EXCEPT_TOPIC, etc.)
+//   2. Rule Hierarchy + Conflict Resolution (specificity wins)
+//   3. Contextual Reasoning (educational vs promotional tone)
+//   4. Reason Graph (transparent decision trail)
+//   5. Generalized across ALL harmful content topics
 // Core invariant: domain-level blocking ONLY happens for explicit "block <site>" rules.
 // "Allow site, block content inside it" is a first-class concept.
 
@@ -13,6 +17,43 @@ export const RULE_ACTIONS = {
   FRICTION:       'FRICTION',
   COOLDOWN:       'COOLDOWN',
 };
+
+// ── Intent Types (what the parent MEANT) ────────────────────────
+export const INTENT_TYPES = {
+  BLOCK_DOMAIN:               'BLOCK_DOMAIN',
+  ALLOW_DOMAIN:               'ALLOW_DOMAIN',
+  BLOCK_TOPIC_GLOBAL:         'BLOCK_TOPIC_GLOBAL',
+  ALLOW_DOMAIN_EXCEPT_TOPIC:  'ALLOW_DOMAIN_EXCEPT_TOPIC',
+  BLOCK_TOPIC_WITHIN_DOMAIN:  'BLOCK_TOPIC_WITHIN_DOMAIN',
+  REDUCE_ADDICTION:           'REDUCE_ADDICTION',
+  WARN_ONLY:                  'WARN_ONLY',
+};
+
+// ── Content Context Types (for contextual reasoning) ────────────
+const CONTENT_CONTEXTS = {
+  SEARCH_RESULTS: 'search_results',
+  EDUCATIONAL:    'educational',
+  NEWS:           'news',
+  ACADEMIC:       'academic',
+  PROMOTIONAL:    'promotional',
+  ENTERTAINMENT:  'entertainment',
+  NEUTRAL:        'neutral',
+};
+
+// ── Search engine domains (safe-list for reduced sensitivity) ───
+const SEARCH_ENGINE_DOMAINS = [
+  'google.com', 'www.google.com', 'bing.com', 'www.bing.com',
+  'duckduckgo.com', 'search.yahoo.com', 'ecosia.org',
+  'startpage.com', 'brave.com', 'search.brave.com',
+];
+
+// ── Educational / reference domains (safe-list) ─────────────────
+const EDUCATIONAL_DOMAINS = [
+  'wikipedia.org', 'en.wikipedia.org', 'britannica.com',
+  'khanacademy.org', 'coursera.org', 'edx.org',
+  'scholar.google.com', 'jstor.org', 'pubmed.ncbi.nlm.nih.gov',
+  'wolframalpha.com', 'stackexchange.com', 'stackoverflow.com',
+];
 
 // ═════════════════════════════════════════════════════════════════
 // DATA: Sites, Categories, Topics — all extensible
@@ -285,6 +326,12 @@ export function compileRule(ruleText) {
   return {
     ...compiled,
     parsed_intent: intent.type,
+    parsed_intent_model: {
+      user_intent_type: intent.user_intent_type || intent.type,
+      strength: intent.strength || 'hard',
+      confidence: intent.confidence || 0.5,
+      scope_granularity: intent.scope_granularity || 'global',
+    },
     debug_reason_codes: [],
     _compiled: true,
     _errors: [],
@@ -375,58 +422,148 @@ function extractCategories(text) {
 // ═════════════════════════════════════════════════════════════════
 
 function detectIntent(text, sites, labels, categories) {
-  // 1. Conditional / content-scoped patterns (highest priority)
-  //    If the text indicates "allow the site, block content matching X"
+  // ── Intent Model Output ─────────────────────────────────────
+  // Returns: { type, user_intent_type, strength, confidence, scope_granularity, pattern }
+
+  // 1. Warn-only patterns ("warn about X", "alert about X")
+  const warnPatterns = [
+    /(?:warn|alert|notify|flag)\s+(?:about|if|when|for)\s+/i,
+    /(?:just|only)\s+warn/i,
+  ];
+  for (const p of warnPatterns) {
+    if (p.test(text)) {
+      return {
+        type: 'WARN_ONLY',
+        user_intent_type: INTENT_TYPES.WARN_ONLY,
+        strength: 'soft',
+        confidence: 0.85,
+        scope_granularity: labels.length > 0 ? 'content' : 'global',
+        pattern: p.toString(),
+      };
+    }
+  }
+
+  // 2. Addiction / compulsion patterns ("limit time", "reduce usage", "restrict screen time")
+  const addictionPatterns = [
+    /(?:limit|reduce|restrict|control)\s+(?:time|usage|screen\s*time|hours|minutes|browsing)/i,
+    /(?:no\s+more\s+than|max(?:imum)?)\s+\d+\s+(?:minutes?|hours?|mins?|hrs?)/i,
+    /(?:take\s+a\s+break|force\s+break|mandatory\s+break)/i,
+  ];
+  for (const p of addictionPatterns) {
+    if (p.test(text)) {
+      return {
+        type: 'REDUCE_ADDICTION',
+        user_intent_type: INTENT_TYPES.REDUCE_ADDICTION,
+        strength: 'hard',
+        confidence: 0.88,
+        scope_granularity: sites.length > 0 ? 'domain' : 'global',
+        pattern: p.toString(),
+      };
+    }
+  }
+
+  // 3. Conditional / content-scoped patterns (highest priority for content rules)
   for (const pattern of CONDITIONAL_PATTERNS) {
     if (pattern.test(text)) {
-      return { type: 'CONDITIONAL_CONTENT_BLOCK', pattern: pattern.toString() };
+      return {
+        type: 'CONDITIONAL_CONTENT_BLOCK',
+        user_intent_type: sites.length > 0
+          ? INTENT_TYPES.ALLOW_DOMAIN_EXCEPT_TOPIC
+          : INTENT_TYPES.BLOCK_TOPIC_GLOBAL,
+        strength: 'hard',
+        confidence: 0.90,
+        scope_granularity: sites.length > 0 ? 'content' : 'global',
+        pattern: pattern.toString(),
+      };
     }
   }
 
-  // Also: if we have BOTH a site AND a topic, and the text doesn't explicitly
-  // say "block <site>", infer content-level intent
+  // Also: if we have BOTH a site AND a topic → content-level intent
   if (sites.length > 0 && labels.length > 0) {
-    // Check it's not an explicit "block <site>" pattern
     const isExplicitBlock = EXPLICIT_BLOCK_PATTERNS.some(p => p.test(text));
     if (!isExplicitBlock) {
-      return { type: 'CONDITIONAL_CONTENT_BLOCK', pattern: 'inferred:site+topic' };
+      return {
+        type: 'CONDITIONAL_CONTENT_BLOCK',
+        user_intent_type: INTENT_TYPES.ALLOW_DOMAIN_EXCEPT_TOPIC,
+        strength: 'hard',
+        confidence: 0.87,
+        scope_granularity: 'content',
+        pattern: 'inferred:site+topic',
+      };
     }
   }
 
-  // 2. Category-level domain blocks ("no gambling sites", "block adult content")
+  // 4. Category-level domain blocks ("no gambling sites", "block adult content")
   for (const pattern of CATEGORY_BLOCK_PATTERNS) {
     const match = text.match(pattern);
     if (match) {
       const rawCat = match[1].toLowerCase().replace(/\s+/g, ' ');
       const resolvedCat = resolveCategoryName(rawCat);
-      return { type: 'CATEGORY_BLOCK', category: resolvedCat, pattern: pattern.toString() };
+      return {
+        type: 'CATEGORY_BLOCK',
+        user_intent_type: INTENT_TYPES.BLOCK_TOPIC_GLOBAL,
+        category: resolvedCat,
+        strength: 'hard',
+        confidence: 0.92,
+        scope_granularity: 'domain',
+        pattern: pattern.toString(),
+      };
     }
   }
 
-  // 3. Explicit domain blocks ("block youtube", "ban reddit")
+  // 5. Explicit domain blocks ("block youtube", "ban reddit")
   for (const pattern of EXPLICIT_BLOCK_PATTERNS) {
     const match = text.match(pattern);
     if (match) {
       const target = match[1].toLowerCase();
-      // If the target is a topic alias (not a known site), reclassify
       const isKnownSite = Object.keys(SITE_MAP).includes(target) ||
         Object.values(SITE_MAP).some(s => s.domains.some(d => d.includes(target)));
       if (!isKnownSite) {
-        // Check if it maps to a category with known domains
         const resolvedCat = resolveTopicToCategory(target);
         if (resolvedCat) {
-          return { type: 'CATEGORY_BLOCK', category: resolvedCat, pattern: pattern.toString() };
+          return {
+            type: 'CATEGORY_BLOCK',
+            user_intent_type: INTENT_TYPES.BLOCK_TOPIC_GLOBAL,
+            category: resolvedCat,
+            strength: 'hard',
+            confidence: 0.88,
+            scope_granularity: 'domain',
+            pattern: pattern.toString(),
+          };
         }
-        // It's a topic without a domain category — treat as general (will become content block)
         if (labels.length > 0) {
-          return { type: 'GENERAL', pattern: pattern.toString() };
+          return {
+            type: 'GENERAL',
+            user_intent_type: INTENT_TYPES.BLOCK_TOPIC_GLOBAL,
+            strength: 'hard',
+            confidence: 0.70,
+            scope_granularity: 'global',
+            pattern: pattern.toString(),
+          };
         }
       }
-      return { type: 'EXPLICIT_DOMAIN_BLOCK', target: match[1], pattern: pattern.toString() };
+      return {
+        type: 'EXPLICIT_DOMAIN_BLOCK',
+        user_intent_type: INTENT_TYPES.BLOCK_DOMAIN,
+        target: match[1],
+        strength: 'hard',
+        confidence: 0.95,
+        scope_granularity: 'domain',
+        pattern: pattern.toString(),
+      };
     }
   }
 
-  return { type: 'GENERAL', pattern: null };
+  return {
+    type: 'GENERAL',
+    user_intent_type: labels.length > 0
+      ? INTENT_TYPES.BLOCK_TOPIC_GLOBAL
+      : INTENT_TYPES.WARN_ONLY,
+    strength: labels.length > 0 ? 'hard' : 'soft',
+    confidence: 0.60,
+    scope_granularity: 'global',
+    pattern: null,
+  };
 }
 
 // Resolve a topic alias to a CATEGORY_DOMAINS key (e.g., "porn" → "adult")
@@ -673,12 +810,50 @@ function validateRule(rule) {
 // UNIFIED CONTENT CLASSIFIER
 // ═════════════════════════════════════════════════════════════════
 
+// ═════════════════════════════════════════════════════════════════
+// CONTEXTUAL REASONING
+// ═════════════════════════════════════════════════════════════════
+
+// Detect content context for anti-false-positive reasoning
+function detectContentContext(content, domain, url) {
+  // Search engine results pages — require much higher confidence
+  if (SEARCH_ENGINE_DOMAINS.some(d => domain.includes(d) || domain.endsWith(d))) {
+    return { type: CONTENT_CONTEXTS.SEARCH_RESULTS, multiplier: 0.25 };
+  }
+
+  // Educational / reference domains — reduce sensitivity
+  if (EDUCATIONAL_DOMAINS.some(d => domain.includes(d) || domain.endsWith(d))) {
+    return { type: CONTENT_CONTEXTS.EDUCATIONAL, multiplier: 0.40 };
+  }
+
+  // News sites (heuristic)
+  const newsIndicators = ['news', 'reuters', 'bbc', 'cnn', 'nytimes', 'associated press', 'guardian', 'washingtonpost'];
+  if (newsIndicators.some(n => domain.includes(n) || content.includes(n))) {
+    return { type: CONTENT_CONTEXTS.NEWS, multiplier: 0.50 };
+  }
+
+  // Academic content (heuristic)
+  const academicIndicators = ['study finds', 'research shows', 'published in', 'journal of', 'et al', 'abstract:', 'doi:'];
+  if (academicIndicators.some(a => content.includes(a))) {
+    return { type: CONTENT_CONTEXTS.ACADEMIC, multiplier: 0.45 };
+  }
+
+  // Promotional content (raises sensitivity)
+  const promotionalIndicators = ['sign up', 'join now', 'free trial', 'click here', 'buy now', 'limited time', 'special offer', 'download now'];
+  if (promotionalIndicators.filter(p => content.includes(p)).length >= 2) {
+    return { type: CONTENT_CONTEXTS.PROMOTIONAL, multiplier: 1.3 };
+  }
+
+  return { type: CONTENT_CONTEXTS.NEUTRAL, multiplier: 1.0 };
+}
+
 // Score content against ANY label using the unified TOPICS vocabulary.
-// Returns 0..1.
-function scoreContentForLabel(content, domain, url, label) {
+// Returns 0..1, modulated by contextual reasoning.
+// skipContextReduction: true when the rule explicitly targets this domain
+function scoreContentForLabel(content, domain, url, label, skipContextReduction = false) {
   let score = 0;
 
-  // 1. Domain reputation
+  // 1. Domain reputation (known harmful domains)
   const catDomains = CATEGORY_DOMAINS[label];
   if (catDomains && catDomains.some(d => domain.includes(d))) {
     score = Math.max(score, 0.95);
@@ -688,21 +863,36 @@ function scoreContentForLabel(content, domain, url, label) {
   const topic = TOPICS[label];
   if (topic) {
     let matchCount = 0;
+    const matchedKeywords = [];
     for (const kw of topic.keywords) {
-      if (content.includes(kw)) matchCount++;
+      if (content.includes(kw)) {
+        matchCount++;
+        matchedKeywords.push(kw);
+      }
     }
     if (matchCount > 0) {
-      score = Math.max(score, Math.min(0.95, 0.4 + matchCount * 0.12));
+      // Require multiple keyword matches for higher confidence
+      const baseScore = matchCount === 1 ? 0.35 : Math.min(0.90, 0.40 + matchCount * 0.12);
+      score = Math.max(score, baseScore);
     }
   }
 
   // 3. URL keyword signals
   if (topic) {
     for (const kw of topic.keywords) {
-      if (kw.length >= 4 && url.includes(kw)) {
+      if (kw.length >= 5 && url.includes(kw)) {
         score = Math.max(score, 0.7);
         break;
       }
+    }
+  }
+
+  // 4. Contextual reasoning: modulate score based on content context
+  // Skip reduction when the rule explicitly targets this domain
+  if (!skipContextReduction) {
+    const context = detectContentContext(content, domain, url);
+    if (score > 0 && score < 0.95) {
+      score = Math.min(1.0, score * context.multiplier);
     }
   }
 
@@ -733,6 +923,9 @@ function evaluateRule(rule, url, domain, pageContent) {
   const domainLower = domain.toLowerCase();
   const urlLower = (url || '').toLowerCase();
   const contentLower = (pageContent || '').toLowerCase();
+
+  // Store URL on rule for reason graph access
+  rule._evalUrl = urlLower;
 
   // ── BLOCK_DOMAIN ──────────────────────────────────────────────
   if (rule.action.type === RULE_ACTIONS.BLOCK_DOMAIN) {
@@ -787,7 +980,11 @@ function evaluateRule(rule, url, domain, pageContent) {
     }
 
     // Content condition check
-    const conditionResult = evaluateCondition(rule.condition, contentLower, domainLower, urlLower);
+    // If this rule explicitly targets this domain (user said "on wikipedia block X"),
+    // don't raise thresholds for educational/search contexts
+    const isExplicitlyScoped = allowlist.length > 0 &&
+      allowlist.some(d => domainLower.includes(d) || domainLower.endsWith(d));
+    const conditionResult = evaluateCondition(rule.condition, contentLower, domainLower, urlLower, isExplicitlyScoped);
 
     if (conditionResult.matched) {
       return {
@@ -816,15 +1013,30 @@ function evaluateRule(rule, url, domain, pageContent) {
   return { rule, matched: false, action: null, reason: 'unknown_action_type', scope: 'unknown' };
 }
 
-function evaluateCondition(condition, content, domain, url) {
+function evaluateCondition(condition, content, domain, url, isExplicitlyScoped = false) {
   // Unified classifier: { labels_any: [...], threshold: 0.6 }
   if (condition.classifier) {
-    const { labels_any, labels_all, labels_not, threshold = 0.6 } = condition.classifier;
+    const { labels_any, labels_all, labels_not } = condition.classifier;
+    let threshold = condition.classifier.threshold || 0.6;
+
+    // Contextual threshold: raise threshold for search/educational content
+    // BUT only for global/non-explicitly-scoped rules. If the user explicitly
+    // targeted this domain (e.g., "on wikipedia block X"), respect their intent.
+    if (!isExplicitlyScoped) {
+      const context = detectContentContext(content, domain, url);
+      if (context.type === CONTENT_CONTEXTS.SEARCH_RESULTS) {
+        threshold = Math.max(threshold, 0.80);
+      } else if (context.type === CONTENT_CONTEXTS.EDUCATIONAL || context.type === CONTENT_CONTEXTS.ACADEMIC) {
+        threshold = Math.max(threshold, 0.75);
+      } else if (context.type === CONTENT_CONTEXTS.NEWS) {
+        threshold = Math.max(threshold, 0.70);
+      }
+    }
 
     // labels_not: if ANY of these match, content is NOT flagged (exclusion)
     if (labels_not && labels_not.length > 0) {
       for (const label of labels_not) {
-        const score = scoreContentForLabel(content, domain, url, label);
+        const score = scoreContentForLabel(content, domain, url, label, isExplicitlyScoped);
         if (score >= threshold) {
           return { matched: false, uncertain: false, reason: `excluded_by:${label}:${score.toFixed(2)}`, confidence: score };
         }
@@ -837,7 +1049,7 @@ function evaluateCondition(condition, content, domain, url) {
       let minScore = 1.0;
       const matched_labels = [];
       for (const label of labels_all) {
-        const score = scoreContentForLabel(content, domain, url, label);
+        const score = scoreContentForLabel(content, domain, url, label, isExplicitlyScoped);
         if (score < threshold) { allMatch = false; break; }
         minScore = Math.min(minScore, score);
         matched_labels.push(label);
@@ -853,7 +1065,7 @@ function evaluateCondition(condition, content, domain, url) {
       let bestLabel = null;
       const matched_labels = [];
       for (const label of labels_any) {
-        const score = scoreContentForLabel(content, domain, url, label);
+        const score = scoreContentForLabel(content, domain, url, label, isExplicitlyScoped);
         if (score > bestScore) { bestScore = score; bestLabel = label; }
         if (score >= threshold) matched_labels.push(label);
       }
@@ -881,13 +1093,33 @@ function evaluateCondition(condition, content, domain, url) {
     return { matched: true, reason: `category:${condition.category_match.join(',')}`, confidence: 0.9 };
   }
 
-  // Raw text match
+  // Raw text match — with contextual reasoning
   if (condition.raw_text) {
-    const words = condition.raw_text.split(/\s+/).filter(w => w.length > 3);
+    // Filter out common action verbs that don't contribute to content matching
+    const stopWords = new Set([
+      'block', 'allow', 'warn', 'flag', 'restrict', 'limit', 'ban',
+      'content', 'site', 'sites', 'page', 'pages', 'videos', 'posts',
+      'only', 'just', 'about', 'from', 'that', 'this', 'with', 'dont',
+    ]);
+    const words = condition.raw_text.split(/\s+/)
+      .filter(w => w.length > 3 && !stopWords.has(w));
+    if (words.length === 0) {
+      return { matched: false, uncertain: false, reason: 'raw_text_no_semantic_words', confidence: 0 };
+    }
     const matchCount = words.filter(w => content.includes(w)).length;
     const ratio = matchCount / (words.length || 1);
-    if (ratio > 0.5) return { matched: true, reason: `raw_text_match:${ratio.toFixed(2)}`, confidence: ratio };
-    return { matched: false, uncertain: ratio > 0.25, reason: `raw_text_low:${ratio.toFixed(2)}`, confidence: ratio };
+    // Apply contextual threshold: require higher confidence on search/educational pages
+    // (but not for rules that explicitly target this domain)
+    let requiredRatio = 0.5;
+    if (!isExplicitlyScoped) {
+      const ctx = detectContentContext(content, domain, url);
+      requiredRatio = ctx.type === CONTENT_CONTEXTS.SEARCH_RESULTS ? 0.8
+        : ctx.type === CONTENT_CONTEXTS.EDUCATIONAL ? 0.7
+        : ctx.type === CONTENT_CONTEXTS.NEWS ? 0.7
+        : 0.5;
+    }
+    if (ratio >= requiredRatio) return { matched: true, reason: `raw_text_match:${ratio.toFixed(2)}`, confidence: ratio };
+    return { matched: false, uncertain: ratio > requiredRatio * 0.5, reason: `raw_text_low:${ratio.toFixed(2)}`, confidence: ratio };
   }
 
   // No conditions = always matches
@@ -895,67 +1127,174 @@ function evaluateCondition(condition, content, domain, url) {
 }
 
 // ═════════════════════════════════════════════════════════════════
-// RESULT RESOLUTION
+// SPECIFICITY SCORING (for conflict resolution)
+// ═════════════════════════════════════════════════════════════════
+
+function computeSpecificity(rule) {
+  let specificity = 0;
+
+  // Domain-scoped rules are more specific than global
+  if (rule.scope.domain_blocklist?.length > 0) specificity += 20;
+  if (rule.scope.domain_allowlist?.length > 0) specificity += 25;
+
+  // Path-scoped rules are more specific than domain-only
+  if (rule.scope.path_patterns?.length > 0 &&
+      !rule.scope.path_patterns.includes('*')) specificity += 15;
+
+  // Classifier-based conditions are more specific than raw text
+  if (rule.condition?.classifier) specificity += 10;
+  if (rule.condition?.classifier?.labels_not) specificity += 5;
+  if (rule.condition?.classifier?.labels_all) specificity += 5;
+
+  // Rules with explicit intent types are more specific
+  if (rule.parsed_intent_model?.user_intent_type) specificity += 5;
+
+  // Content-scoped rules are more specific than domain-level
+  if (rule.action?.type === RULE_ACTIONS.BLOCK_CONTENT ||
+      rule.action?.type === RULE_ACTIONS.WARN_CONTENT) specificity += 10;
+
+  return specificity;
+}
+
+// ═════════════════════════════════════════════════════════════════
+// REASON GRAPH (transparent decision trail)
+// ═════════════════════════════════════════════════════════════════
+
+function buildReasonGraph(results, domain, url, finalAction) {
+  const context = detectContentContext('', domain, url);
+  const graph = {
+    domain,
+    url,
+    content_context: context.type,
+    context_multiplier: context.multiplier,
+    rules_evaluated: results.length,
+    rules_matched: results.filter(r => r.matched).length,
+    final_action: finalAction,
+    decision_path: [],
+    conflict_resolutions: [],
+  };
+
+  for (const r of results) {
+    graph.decision_path.push({
+      rule_id: r.rule.id,
+      rule_text: r.rule.source_text,
+      intent_type: r.rule.parsed_intent_model?.user_intent_type || 'unknown',
+      action_type: r.rule.action.type,
+      matched: r.matched,
+      match_reason: r.reason,
+      confidence: r.confidence || null,
+      specificity: computeSpecificity(r.rule),
+      priority: r.rule.priority || 0,
+    });
+  }
+
+  return graph;
+}
+
+// ═════════════════════════════════════════════════════════════════
+// RESULT RESOLUTION (with hierarchy + conflict resolution)
 // ═════════════════════════════════════════════════════════════════
 
 function resolveResults(results, domain) {
   const matched = results.filter(r => r.matched);
+  const url = results[0]?.rule?._evalUrl || '';
 
   if (matched.length === 0) {
-    return { action: 'ALLOW', matchedRules: [], reason: 'no_rules_matched', debug: results };
+    const graph = buildReasonGraph(results, domain, url, 'ALLOW');
+    return { action: 'ALLOW', matchedRules: [], reason: 'no_rules_matched', reason_graph: graph, debug: results };
   }
 
   const domainLower = domain.toLowerCase();
 
+  // ── Hierarchy Resolution (per spec section 6) ──────────────────
+  // Priority order:
+  //   1. Explicit DOMAIN_BLOCK
+  //   2. Explicit DOMAIN_ALLOW (overrides implicit blocks)
+  //   3. Scoped CONTENT_BLOCK (domain-scoped > global)
+  //   4. Global TOPIC_BLOCK
+  //   5. Default ALLOW
+
+  // Sort all matched by specificity (more specific wins), then priority
+  const sorted = [...matched].sort((a, b) => {
+    const specA = computeSpecificity(a.rule);
+    const specB = computeSpecificity(b.rule);
+    if (specB !== specA) return specB - specA;
+    return (b.rule.priority || 0) - (a.rule.priority || 0);
+  });
+
   // Content-scoped allowlist = implicit domain allow
-  const hasContentScopedAllow = matched.some(r =>
+  const hasContentScopedAllow = sorted.some(r =>
     (r.action === RULE_ACTIONS.BLOCK_CONTENT || r.action === RULE_ACTIONS.WARN_CONTENT) &&
     r.rule.scope.domain_allowlist?.some(d => domainLower.includes(d))
   );
 
-  const domainBlocks = matched.filter(r => r.action === RULE_ACTIONS.BLOCK_DOMAIN);
+  const domainBlocks = sorted.filter(r => r.action === RULE_ACTIONS.BLOCK_DOMAIN);
 
-  // Content-scoped allowlist overrides lower-priority domain blocks
+  // Content-scoped allowlist overrides lower-specificity domain blocks
   if (hasContentScopedAllow && domainBlocks.length > 0) {
-    const highestContent = matched
-      .filter(r => r.action === RULE_ACTIONS.BLOCK_CONTENT || r.action === RULE_ACTIONS.WARN_CONTENT)
-      .sort((a, b) => (b.rule.priority || 0) - (a.rule.priority || 0))[0];
-    const highestDomainBlock = domainBlocks
-      .sort((a, b) => (b.rule.priority || 0) - (a.rule.priority || 0))[0];
+    const highestContent = sorted
+      .filter(r => r.action === RULE_ACTIONS.BLOCK_CONTENT || r.action === RULE_ACTIONS.WARN_CONTENT)[0];
+    const highestDomainBlock = domainBlocks[0];
 
-    if (highestContent && highestContent.rule.priority >= highestDomainBlock.rule.priority) {
+    const contentSpec = computeSpecificity(highestContent.rule);
+    const domainSpec = computeSpecificity(highestDomainBlock.rule);
+
+    if (contentSpec >= domainSpec || highestContent.rule.priority >= highestDomainBlock.rule.priority) {
+      const graph = buildReasonGraph(results, domain, url, highestContent.action);
+      graph.conflict_resolutions.push({
+        winner: highestContent.rule.id,
+        loser: highestDomainBlock.rule.id,
+        reason: 'content_scoped_allow_overrides_domain_block',
+        winner_specificity: contentSpec,
+        loser_specificity: domainSpec,
+      });
       return {
         action: highestContent.action,
         matchedRules: [highestContent],
         reason: `content_rule_overrides_domain_block:${highestContent.reason}`,
         confidence: highestContent.confidence,
+        reason_graph: graph,
         debug: results,
       };
     }
   }
 
-  // Domain blocks
+  // Domain blocks (highest precedence if no content-scoped override)
   if (domainBlocks.length > 0) {
-    const best = domainBlocks.sort((a, b) => (b.rule.priority || 0) - (a.rule.priority || 0))[0];
-    return { action: RULE_ACTIONS.BLOCK_DOMAIN, matchedRules: [best], reason: best.reason, debug: results };
+    const best = domainBlocks[0];
+    const graph = buildReasonGraph(results, domain, url, RULE_ACTIONS.BLOCK_DOMAIN);
+    return { action: RULE_ACTIONS.BLOCK_DOMAIN, matchedRules: [best], reason: best.reason, reason_graph: graph, debug: results };
   }
 
   // Content blocks
-  const contentBlocks = matched.filter(r => r.action === RULE_ACTIONS.BLOCK_CONTENT);
+  const contentBlocks = sorted.filter(r => r.action === RULE_ACTIONS.BLOCK_CONTENT);
   if (contentBlocks.length > 0) {
-    const best = contentBlocks.sort((a, b) => (b.rule.priority || 0) - (a.rule.priority || 0))[0];
-    return { action: RULE_ACTIONS.BLOCK_CONTENT, matchedRules: [best], reason: best.reason, confidence: best.confidence, debug: results };
+    const best = contentBlocks[0];
+    const graph = buildReasonGraph(results, domain, url, RULE_ACTIONS.BLOCK_CONTENT);
+    return { action: RULE_ACTIONS.BLOCK_CONTENT, matchedRules: [best], reason: best.reason, confidence: best.confidence, reason_graph: graph, debug: results };
   }
 
   // Content warns
-  const contentWarns = matched.filter(r => r.action === RULE_ACTIONS.WARN_CONTENT);
+  const contentWarns = sorted.filter(r => r.action === RULE_ACTIONS.WARN_CONTENT);
   if (contentWarns.length > 0) {
-    const best = contentWarns.sort((a, b) => (b.rule.priority || 0) - (a.rule.priority || 0))[0];
-    return { action: RULE_ACTIONS.WARN_CONTENT, matchedRules: [best], reason: best.reason, confidence: best.confidence, debug: results };
+    const best = contentWarns[0];
+    const graph = buildReasonGraph(results, domain, url, RULE_ACTIONS.WARN_CONTENT);
+    return { action: RULE_ACTIONS.WARN_CONTENT, matchedRules: [best], reason: best.reason, confidence: best.confidence, reason_graph: graph, debug: results };
   }
 
-  return { action: 'ALLOW', matchedRules: matched, reason: 'no_actionable_match', debug: results };
+  const graph = buildReasonGraph(results, domain, url, 'ALLOW');
+  return { action: 'ALLOW', matchedRules: matched, reason: 'no_actionable_match', reason_graph: graph, debug: results };
 }
+
+// ═════════════════════════════════════════════════════════════════
+// DNR PATTERN EXTRACTION (network-level, BLOCK_DOMAIN only)
+// ═════════════════════════════════════════════════════════════════
+
+// ═════════════════════════════════════════════════════════════════
+// EXPORTED: Content context detection (for use by background.js)
+// ═════════════════════════════════════════════════════════════════
+
+export { detectContentContext, CONTENT_CONTEXTS };
 
 // ═════════════════════════════════════════════════════════════════
 // DNR PATTERN EXTRACTION (network-level, BLOCK_DOMAIN only)

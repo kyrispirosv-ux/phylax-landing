@@ -194,6 +194,37 @@ function classifyIntent(text) {
     }
   }
 
+  // Educational intent (reduces harm score via context multiplier)
+  const educational = [
+    'learn about', 'what is', 'definition of', 'history of', 'research on',
+    'facts about', 'information about', 'explain', 'how does', 'why does',
+    'understanding', 'overview of', 'study of', 'analysis of', 'meaning of',
+    'wikipedia', 'encyclopedia', 'textbook', 'curriculum', 'lecture',
+    'lesson', 'course', 'education', 'academic',
+  ];
+  let eduCount = 0;
+  for (const kw of educational) {
+    if (text.includes(kw)) eduCount++;
+  }
+  if (eduCount > 0) {
+    intents.push({ label: 'educational', p: Math.min(0.9, 0.5 + eduCount * 0.1) });
+  }
+
+  // Promotional intent (raises sensitivity for harmful topics)
+  const promotional = [
+    'sign up', 'join now', 'free trial', 'click here', 'buy now',
+    'limited time', 'special offer', 'download now', 'act now',
+    'exclusive deal', 'win big', 'play now', 'bet now', 'start winning',
+    'guaranteed', 'risk free', 'no deposit', 'free spins', 'bonus',
+  ];
+  let promoCount = 0;
+  for (const kw of promotional) {
+    if (text.includes(kw)) promoCount++;
+  }
+  if (promoCount >= 2) {
+    intents.push({ label: 'promotional', p: Math.min(0.95, 0.5 + promoCount * 0.1) });
+  }
+
   // Transactional
   const transactional = ['buy', 'purchase', 'order', 'add to cart', 'checkout', 'payment'];
   for (const kw of transactional) {
