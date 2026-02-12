@@ -39,9 +39,7 @@ async function setRules(rules) {
   // Notify all tabs that rules changed
   const tabs = await chrome.tabs.query({});
   for (const tab of tabs) {
-    try {
-      chrome.tabs.sendMessage(tab.id, { type: 'PHYLAX_RULES_UPDATED', rules });
-    } catch (_) {}
+    chrome.tabs.sendMessage(tab.id, { type: 'PHYLAX_RULES_UPDATED', rules }).catch(() => {});
   }
 }
 
@@ -369,12 +367,10 @@ chrome.webNavigation.onCompleted.addListener(async (details) => {
 
   // If the decision requires enforcement, send to the tab
   if (decision && decision.action !== ACTIONS.ALLOW) {
-    try {
-      chrome.tabs.sendMessage(details.tabId, {
-        type: 'PHYLAX_ENFORCE_DECISION',
-        decision,
-      });
-    } catch (_) {}
+    chrome.tabs.sendMessage(details.tabId, {
+      type: 'PHYLAX_ENFORCE_DECISION',
+      decision,
+    }).catch(() => {});
   }
 });
 
