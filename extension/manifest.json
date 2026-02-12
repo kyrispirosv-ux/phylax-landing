@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Phylax SafeGuard",
-  "version": "2.8.0",
-  "description": "Content-level classification. Category rules block known domains + classify content globally. YouTube metadata extraction.",
+  "version": "3.0.0",
+  "description": "Deterministic classification pipeline. ContentObject extraction, weighted lexicon scoring, behavior intelligence, kids-only actions (ALLOW/BLOCK/LIMIT).",
 
   "permissions": [
     "storage",
