@@ -11,6 +11,9 @@
   if (host === 'phylax-landing.vercel.app' || host === 'localhost' || host === '127.0.0.1') return;
 
   let currentOverlay = null;
+  let blockedUrl = null;        // URL that triggered the current overlay
+  let mediaKillInterval = null; // interval that keeps killing media
+  let navCleanupFns = [];       // listeners to tear down on dismiss
 
   // ── Listen for decisions ────────────────────────────────────
 
@@ -46,7 +49,7 @@
   // ── Full-page block (replaces the page entirely) ────────────
 
   function showFullBlock() {
-    removeOverlay();
+    dismissOverlay();
     document.documentElement.innerHTML = `
       <head>
         <meta charset="utf-8">
@@ -99,7 +102,9 @@
   // ── Overlay block (floats over the page for content blocks) ─
 
   function showOverlayBlock() {
-    removeOverlay();
+    dismissOverlay();
+
+    blockedUrl = window.location.href;
 
     const overlay = document.createElement('div');
     overlay.id = 'phylax-overlay';
@@ -141,14 +146,79 @@
     safeAppendOverlay(overlay);
     currentOverlay = overlay;
 
-    // Pause all media (video/audio) so content stops playing behind the overlay
-    document.querySelectorAll('video, audio').forEach(el => {
-      try { el.pause(); } catch {}
-    });
+    // Aggressively kill all media — YouTube recreates video elements,
+    // so we poll every 300ms while the overlay is visible.
+    killAllMedia();
+    mediaKillInterval = setInterval(killAllMedia, 300);
 
+    // "Go Back" = dismiss overlay + navigate back so user stays on YouTube
     overlay.querySelector('#phylaxGoBack').addEventListener('click', () => {
+      dismissOverlay();
       history.back();
     });
+
+    // Auto-dismiss when the user navigates away from the blocked URL.
+    // YouTube is a SPA — it fires popstate + custom yt-navigate-finish events
+    // instead of full page loads.
+    watchForNavigation();
+  }
+
+  // ── Aggressive media killer ───────────────────────────────────
+  // YouTube's player restarts video elements after a simple pause().
+  // We pause, mute, and blank the src on every video/audio element.
+
+  function killAllMedia() {
+    document.querySelectorAll('video, audio').forEach(el => {
+      try {
+        el.pause();
+        el.muted = true;
+        el.volume = 0;
+        // Remove source so YouTube can't restart playback
+        if (el.src) {
+          el.removeAttribute('src');
+          el.load(); // forces the element to drop its media resource
+        }
+      } catch {}
+    });
+  }
+
+  // ── SPA navigation watcher ────────────────────────────────────
+  // Detects when the URL changes (YouTube SPA navigation) and
+  // auto-dismisses the overlay so the user can keep browsing.
+
+  function watchForNavigation() {
+    teardownNavWatchers();
+
+    const onNav = () => {
+      if (currentOverlay && window.location.href !== blockedUrl) {
+        dismissOverlay();
+      }
+    };
+
+    // YouTube fires this custom event on SPA navigation
+    window.addEventListener('yt-navigate-finish', onNav);
+    navCleanupFns.push(() => window.removeEventListener('yt-navigate-finish', onNav));
+
+    // Standard browser history navigation
+    window.addEventListener('popstate', onNav);
+    navCleanupFns.push(() => window.removeEventListener('popstate', onNav));
+
+    // Fallback: poll for URL changes every 500ms (covers pushState)
+    let lastHref = window.location.href;
+    const pollId = setInterval(() => {
+      if (window.location.href !== lastHref) {
+        lastHref = window.location.href;
+        onNav();
+      }
+      // Stop polling once overlay is gone
+      if (!currentOverlay) clearInterval(pollId);
+    }, 500);
+    navCleanupFns.push(() => clearInterval(pollId));
+  }
+
+  function teardownNavWatchers() {
+    navCleanupFns.forEach(fn => fn());
+    navCleanupFns = [];
   }
 
   // ── Helpers ─────────────────────────────────────────────────
@@ -164,7 +234,15 @@
     }
   }
 
-  function removeOverlay() {
+  function dismissOverlay() {
+    // Stop killing media
+    if (mediaKillInterval) {
+      clearInterval(mediaKillInterval);
+      mediaKillInterval = null;
+    }
+    teardownNavWatchers();
+    blockedUrl = null;
+
     if (currentOverlay) {
       currentOverlay.remove();
       currentOverlay = null;
