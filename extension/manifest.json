@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Phylax SafeGuard",
-  "version": "2.1.0",
-  "description": "Two-lane child protection engine with generalized NL rule compiler — any topic × any platform content-level enforcement.",
+  "version": "2.2.0",
+  "description": "Intent-aware two-lane child safety engine with contextual reasoning, reason graph, and specificity-based conflict resolution.",
 
   "permissions": [
     "storage",
