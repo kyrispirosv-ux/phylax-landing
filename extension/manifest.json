@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Phylax SafeGuard",
-  "version": "3.0.0",
+  "version": "2.7",
   "description": "12-step deterministic pipeline with weighted lexicon scoring, kids-only actions (ALLOW/BLOCK/LIMIT), behavior intelligence, and policy-versioned caching.",
 
   "permissions": [
