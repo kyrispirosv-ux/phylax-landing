@@ -673,8 +673,44 @@
   function onPageLoad() {
     if (shouldPauseEvents()) return;
     fullExtracted = true;
+
+    // Check if this is a blocked conversation (instant block, no scoring needed)
+    checkBlockedConversation();
+
     const content = extractContentObject();
     sendContentEvent(content, 'full');
+  }
+
+  /**
+   * Check if the current DM conversation has been previously blocked.
+   * If so, immediately fire a block decision without waiting for pipeline scoring.
+   */
+  function checkBlockedConversation() {
+    const domain = window.location.hostname;
+    const path = window.location.pathname;
+    if (!isChatContext(domain, path)) return;
+
+    try {
+      chrome.runtime.sendMessage({
+        type: 'PHYLAX_CHECK_CONVERSATION_BLOCKED',
+        domain: domain,
+        path: path,
+      }, (response) => {
+        if (response?.blocked) {
+          // This conversation was previously flagged — block immediately
+          window.dispatchEvent(new CustomEvent('phylax-decision', {
+            detail: {
+              decision: 'BLOCK',
+              action: 'BLOCK',
+              reason_code: 'BLOCKED_CONVERSATION',
+              confidence: 1.0,
+              evidence: ['This conversation was previously flagged for safety concerns.'],
+              enforcement: { layer: 'RENDER', technique: 'chat_block' },
+            },
+          }));
+        }
+      });
+    } catch { /* extension not ready */ }
   }
 
   function takeSnapshot() {

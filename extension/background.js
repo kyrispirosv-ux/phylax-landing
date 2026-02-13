@@ -284,6 +284,83 @@ async function handleParentAlert(alert) {
 }
 
 // ═════════════════════════════════════════════════════════════════
+// BLOCKED CONVERSATIONS — per-contact persistent DM blocking
+// ═════════════════════════════════════════════════════════════════
+
+// Once a specific conversation is flagged, it stays blocked until a
+// parent explicitly unblocks it. The child cannot dismiss or bypass.
+
+async function blockConversation(info) {
+  const { phylaxBlockedConversations } = await chrome.storage.local.get('phylaxBlockedConversations');
+  const blocked = phylaxBlockedConversations || [];
+
+  // Extract a stable conversation key from the URL path
+  const convKey = normalizeConversationKey(info.domain, info.path);
+  if (!convKey) return;
+
+  // Don't duplicate
+  if (blocked.some(b => b.key === convKey)) return;
+
+  blocked.push({
+    key: convKey,
+    domain: info.domain,
+    platform: info.platform,
+    path: info.path,
+    contact_name: info.contact_name || null,
+    reason_code: info.reason_code,
+    confidence: info.confidence,
+    blocked_at: Date.now(),
+    blocked_by: 'system',
+  });
+
+  await chrome.storage.local.set({ phylaxBlockedConversations: blocked });
+  console.log(`[Phylax] Conversation blocked: ${convKey} on ${info.platform}`);
+}
+
+async function isConversationBlocked(domain, path) {
+  const { phylaxBlockedConversations } = await chrome.storage.local.get('phylaxBlockedConversations');
+  const blocked = phylaxBlockedConversations || [];
+  const convKey = normalizeConversationKey(domain, path);
+  if (!convKey) return false;
+  return blocked.some(b => b.key === convKey);
+}
+
+/**
+ * Extract a stable conversation identifier from URL path.
+ * Instagram: /direct/t/THREAD_ID/ → "instagram:/direct/t/THREAD_ID"
+ * Discord:   /channels/@me/CHANNEL_ID → "discord:/channels/@me/CHANNEL_ID"
+ * WhatsApp:  always same URL, use contact header text
+ * Twitter:   /messages/CONVERSATION_ID → "twitter:/messages/CONVERSATION_ID"
+ */
+function normalizeConversationKey(domain, path) {
+  if (domain.includes('instagram.com')) {
+    // /direct/t/123456789/ → grab the thread segment
+    const match = path.match(/\/direct\/t\/([^/]+)/);
+    if (match) return `instagram:${match[0]}`;
+    return `instagram:${path}`;
+  }
+  if (domain.includes('discord.com')) {
+    // /channels/@me/123456 or /channels/GUILD/CHANNEL
+    const match = path.match(/\/channels\/(.+)/);
+    if (match) return `discord:${match[0]}`;
+    return null;
+  }
+  if (domain.includes('twitter.com') || domain.includes('x.com')) {
+    const match = path.match(/\/messages\/([^/]+)/);
+    if (match) return `twitter:${match[0]}`;
+    return null;
+  }
+  if (domain.includes('messenger.com')) {
+    // /t/THREAD_ID
+    const match = path.match(/\/t\/([^/]+)/);
+    if (match) return `messenger:${match[0]}`;
+    return null;
+  }
+  // Fallback: domain + path
+  return `${domain}:${path}`;
+}
+
+// ═════════════════════════════════════════════════════════════════
 // MESSAGE HANDLING
 // ═════════════════════════════════════════════════════════════════
 
@@ -311,7 +388,17 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   // Parent alert from enforcer (chat threat detected)
   if (message.type === 'PHYLAX_PARENT_ALERT') {
     handleParentAlert(message.alert);
+    // Persist this conversation as blocked
+    blockConversation(message.alert);
     sendResponse({ success: true });
+    return true;
+  }
+
+  // Check if a conversation is blocked (called by observer on DM page load)
+  if (message.type === 'PHYLAX_CHECK_CONVERSATION_BLOCKED') {
+    isConversationBlocked(message.domain, message.path).then(blocked => {
+      sendResponse({ blocked });
+    });
     return true;
   }
 
@@ -448,6 +535,21 @@ async function handleDashboardMessage(message, sendResponse) {
           await chrome.storage.local.set({ phylaxAlerts: allAlerts });
         }
         sendResponse({ success: true });
+        break;
+      }
+      case 'PHYLAX_GET_BLOCKED_CONVERSATIONS': {
+        const { phylaxBlockedConversations } = await chrome.storage.local.get('phylaxBlockedConversations');
+        sendResponse({ success: true, blocked: phylaxBlockedConversations || [] });
+        break;
+      }
+      case 'PHYLAX_UNBLOCK_CONVERSATION': {
+        // Parent-only action: remove a conversation from the blocked list
+        const { phylaxBlockedConversations } = await chrome.storage.local.get('phylaxBlockedConversations');
+        const blocked = phylaxBlockedConversations || [];
+        const updated = blocked.filter(b => b.key !== message.conversationKey);
+        await chrome.storage.local.set({ phylaxBlockedConversations: updated });
+        console.log(`[Phylax] Conversation unblocked: ${message.conversationKey}`);
+        sendResponse({ success: true, remaining: updated.length });
         break;
       }
       default:
