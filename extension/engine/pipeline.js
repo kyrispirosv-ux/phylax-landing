@@ -253,6 +253,10 @@ function selectEnforcement(decision, content, wasDomainGate) {
   if (decision.decision === 'BLOCK') {
     if (wasDomainGate) {
       decision.enforcement = { layer: 'NETWORK', technique: 'cancel_request' };
+    } else if (content.content_type === 'chat') {
+      // Chat/DM context: block the conversation area only, not the entire platform.
+      // Enforcer will cover just the chat pane and alert the parent.
+      decision.enforcement = { layer: 'RENDER', technique: 'chat_block' };
     } else if (content.content_type === 'feed') {
       decision.enforcement = { layer: 'RENDER', technique: 'blur' };
     } else {

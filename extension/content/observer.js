@@ -1,4 +1,4 @@
-// Phylax Engine — Content Observer v3.1 (Low-Latency ContentObject Extraction)
+// Phylax Engine — Content Observer v3.2 (Low-Latency ContentObject Extraction + Chat Sender Attribution)
 // Injected on ALL pages at document_start.
 // Three-phase extraction for sub-second blocking:
 //   Phase 1 (~100-300ms): <head> parsed → title + meta + OG + keywords → classify
@@ -98,8 +98,20 @@
       ui: detectUIPatterns(),
       platform: detectPlatform(),
       content_type: 'unknown',
+      chat: null,
     };
     co.content_type = inferContentType(co);
+
+    // If this is a chat context, extract sender-attributed messages
+    if (co.content_type === 'chat') {
+      co.chat = extractChatMessages();
+      // Override main_text with contact-only text for grooming detection.
+      // The pipeline should score the CONTACT's words, not the child's.
+      if (co.chat && co.chat.contact_text) {
+        co.main_text = co.chat.contact_text;
+      }
+    }
+
     return co;
   }
 
@@ -196,6 +208,325 @@
     return (main.innerText || '').slice(0, 2000);
   }
 
+  // ═════════════════════════════════════════════════════════════════
+  // CHAT MESSAGE EXTRACTION — sender-attributed DM/chat messages
+  // ═════════════════════════════════════════════════════════════════
+
+  // Platform-specific selectors for chat message containers.
+  // Each platform renders sent vs received messages differently.
+  // We detect sender via alignment, CSS classes, or data attributes.
+  const CHAT_PLATFORM_SELECTORS = {
+    'instagram.com': {
+      // Instagram web DMs: messages are in a scrollable thread container.
+      // Sent messages are right-aligned (child), received are left-aligned (contact).
+      messageContainer: '[role="listbox"], [role="grid"], [class*="x1n2onr6"] > div > div',
+      // Instagram uses flexbox alignment: sent = row-reverse/flex-end, received = row/flex-start
+      senderDetect: 'alignment',
+    },
+    'discord.com': {
+      // Discord: each message group has a data attribute or class with author info.
+      // The current user's messages can be identified by comparing author to the logged-in user.
+      messageContainer: '[class*="message-"]',
+      senderDetect: 'discord',
+    },
+    'web.whatsapp.com': {
+      // WhatsApp Web: message-in = received, message-out = sent
+      messageContainer: '.message-in, .message-out',
+      senderDetect: 'whatsapp',
+    },
+    'web.telegram.org': {
+      // Telegram Web: messages have .message class, own messages have a specific modifier
+      messageContainer: '.message',
+      senderDetect: 'alignment',
+    },
+    'messenger.com': {
+      // Messenger: similar to Instagram, uses alignment-based rendering
+      messageContainer: '[role="row"]',
+      senderDetect: 'alignment',
+    },
+    'twitter.com': {
+      messageContainer: '[data-testid="messageEntry"]',
+      senderDetect: 'alignment',
+    },
+    'x.com': {
+      messageContainer: '[data-testid="messageEntry"]',
+      senderDetect: 'alignment',
+    },
+  };
+
+  /**
+   * Extract chat messages with sender attribution.
+   * Returns { messages: [{sender, text}], contact_text, child_text } or null if not a chat page.
+   *
+   * sender = "CONTACT" | "CHILD" | "UNKNOWN"
+   *
+   * Detection strategies:
+   * 1. Platform-specific class/attribute selectors
+   * 2. Alignment heuristic: right-aligned = CHILD (sent), left-aligned = CONTACT (received)
+   * 3. WhatsApp-specific: .message-in / .message-out classes
+   */
+  function extractChatMessages() {
+    const domain = window.location.hostname;
+    const path = window.location.pathname;
+
+    // Only run on DM/chat paths
+    if (!isChatContext(domain, path)) return null;
+
+    // Find platform config
+    let config = null;
+    for (const [platformDomain, cfg] of Object.entries(CHAT_PLATFORM_SELECTORS)) {
+      if (domain.includes(platformDomain)) { config = cfg; break; }
+    }
+
+    const messages = [];
+    const MAX_MESSAGES = 100;
+    const MAX_CHAT_TEXT = 10000;
+    let totalTextLen = 0;
+
+    if (config) {
+      messages.push(...extractWithConfig(config, MAX_MESSAGES));
+    }
+
+    // Fallback: if platform-specific extraction found nothing, try generic approach
+    if (messages.length === 0) {
+      messages.push(...extractGenericChat(MAX_MESSAGES));
+    }
+
+    // Build separated text for contact vs child
+    let contactText = '';
+    let childText = '';
+    for (const msg of messages) {
+      if (totalTextLen >= MAX_CHAT_TEXT) break;
+      if (msg.sender === 'CONTACT') {
+        contactText += msg.text + ' ';
+      } else if (msg.sender === 'CHILD') {
+        childText += msg.text + ' ';
+      } else {
+        // UNKNOWN — include in contact text for safety (score it)
+        contactText += msg.text + ' ';
+      }
+      totalTextLen += msg.text.length;
+    }
+
+    return {
+      messages: messages.slice(0, MAX_MESSAGES),
+      contact_text: contactText.trim(),
+      child_text: childText.trim(),
+      message_count: messages.length,
+      contact_message_count: messages.filter(m => m.sender === 'CONTACT').length,
+      child_message_count: messages.filter(m => m.sender === 'CHILD').length,
+      unknown_message_count: messages.filter(m => m.sender === 'UNKNOWN').length,
+    };
+  }
+
+  /**
+   * Determine if the current page is a DM/chat context.
+   */
+  function isChatContext(domain, path) {
+    // Instagram DMs
+    if (domain.includes('instagram.com') && path.startsWith('/direct')) return true;
+    // Discord channels (DMs are at /channels/@me/)
+    if (domain.includes('discord.com') && path.includes('/channels/')) return true;
+    // WhatsApp Web (always chat)
+    if (domain.includes('web.whatsapp.com')) return true;
+    // Telegram Web
+    if (domain.includes('web.telegram.org')) return true;
+    // Messenger
+    if (domain.includes('messenger.com')) return true;
+    // Twitter/X DMs
+    if ((domain.includes('twitter.com') || domain.includes('x.com')) && path.includes('/messages')) return true;
+    return false;
+  }
+
+  /**
+   * Extract messages using platform-specific config.
+   */
+  function extractWithConfig(config, maxMessages) {
+    const messages = [];
+
+    if (config.senderDetect === 'whatsapp') {
+      // WhatsApp: explicit in/out classes
+      const incoming = document.querySelectorAll('.message-in');
+      const outgoing = document.querySelectorAll('.message-out');
+      const allMsgs = [];
+      incoming.forEach(el => {
+        const text = extractMessageText(el);
+        if (text) allMsgs.push({ el, sender: 'CONTACT', text });
+      });
+      outgoing.forEach(el => {
+        const text = extractMessageText(el);
+        if (text) allMsgs.push({ el, sender: 'CHILD', text });
+      });
+      // Sort by DOM order (vertical position)
+      allMsgs.sort((a, b) => a.el.getBoundingClientRect().top - b.el.getBoundingClientRect().top);
+      messages.push(...allMsgs.slice(-maxMessages));
+    } else if (config.senderDetect === 'discord') {
+      // Discord: check for data attributes that indicate the current user
+      const msgEls = document.querySelectorAll('[id^="chat-messages-"] > div');
+      for (const el of Array.from(msgEls).slice(-maxMessages)) {
+        const text = extractMessageText(el);
+        if (!text) continue;
+        // Discord marks the current user's messages with a specific class
+        const isOwn = el.querySelector('[class*="mentioned"]') !== null ||
+                      el.classList.toString().includes('backgroundFlash');
+        messages.push({ sender: isOwn ? 'CHILD' : 'CONTACT', text });
+      }
+      // If we couldn't reliably detect ownership, fall back to alignment
+      if (messages.length === 0) {
+        messages.push(...extractByAlignment(config.messageContainer, maxMessages));
+      }
+    } else {
+      // Default: alignment-based detection
+      messages.push(...extractByAlignment(config.messageContainer, maxMessages));
+    }
+
+    return messages;
+  }
+
+  /**
+   * Alignment-based sender detection.
+   * Most chat UIs render:
+   *   - Sent messages (CHILD): right-aligned, margin-left: auto, or flex-end
+   *   - Received messages (CONTACT): left-aligned, margin-right: auto, or flex-start
+   *
+   * Works for: Instagram, Telegram, Messenger, Twitter/X DMs
+   */
+  function extractByAlignment(containerSelector, maxMessages) {
+    const messages = [];
+
+    // Try to find the chat scroll container
+    const chatRoot = findChatScrollContainer();
+    if (!chatRoot) return messages;
+
+    // Walk through child divs looking for message-like elements
+    const candidates = chatRoot.querySelectorAll('div, span');
+    const seen = new Set();
+
+    for (const el of candidates) {
+      if (messages.length >= maxMessages) break;
+
+      const text = el.innerText?.trim();
+      if (!text || text.length < 2 || text.length > 2000) continue;
+
+      // Deduplicate: skip if this text is a parent of an already-seen message
+      if (seen.has(text)) continue;
+
+      // Heuristic: message elements are usually leaf-ish (not too many child elements)
+      const childDivCount = el.querySelectorAll('div').length;
+      if (childDivCount > 10) continue;
+
+      // Check if this looks like a discrete message bubble
+      const rect = el.getBoundingClientRect();
+      if (rect.width < 50 || rect.height < 15) continue;
+
+      // Determine sender via alignment
+      const sender = detectSenderByAlignment(el);
+      if (sender === null) continue; // not clearly a message
+
+      seen.add(text);
+      messages.push({ sender, text: text.slice(0, 500) });
+    }
+
+    return messages;
+  }
+
+  /**
+   * Detect sender by checking the horizontal alignment of the element.
+   * Returns "CHILD" (right-aligned/sent), "CONTACT" (left-aligned/received), or null.
+   */
+  function detectSenderByAlignment(el) {
+    try {
+      const style = window.getComputedStyle(el);
+      const parentStyle = el.parentElement ? window.getComputedStyle(el.parentElement) : null;
+
+      // Check direct margin-based alignment
+      const ml = style.marginLeft;
+      const mr = style.marginRight;
+      if (ml === 'auto' && mr !== 'auto') return 'CHILD';
+      if (mr === 'auto' && ml !== 'auto') return 'CONTACT';
+
+      // Check flex alignment on parent
+      if (parentStyle) {
+        const justify = parentStyle.justifyContent;
+        const direction = parentStyle.flexDirection;
+        if (justify === 'flex-end' || direction === 'row-reverse') return 'CHILD';
+        if (justify === 'flex-start' || direction === 'row') return 'CONTACT';
+      }
+
+      // Check text-align
+      if (style.textAlign === 'right') return 'CHILD';
+      if (style.textAlign === 'left') return 'CONTACT';
+
+      // Check position relative to viewport center
+      const rect = el.getBoundingClientRect();
+      const viewportCenter = window.innerWidth / 2;
+      const elCenter = rect.left + rect.width / 2;
+      if (rect.width < window.innerWidth * 0.7) {
+        if (elCenter > viewportCenter + 50) return 'CHILD';
+        if (elCenter < viewportCenter - 50) return 'CONTACT';
+      }
+    } catch { /* ignore */ }
+
+    return null; // can't determine
+  }
+
+  /**
+   * Find the scrollable chat container on the page.
+   * Chat UIs typically have one tall scrollable div containing messages.
+   */
+  function findChatScrollContainer() {
+    // Try known selectors first
+    const knownSelectors = [
+      '[role="listbox"]',                // Instagram DMs
+      '[role="log"]',                    // Accessibility-tagged chat logs
+      '[data-testid="conversation"]',    // Twitter/X
+      '.conversation-container',
+      '.chat-container',
+      '.message-list',
+    ];
+    for (const sel of knownSelectors) {
+      const el = document.querySelector(sel);
+      if (el && el.scrollHeight > el.clientHeight) return el;
+    }
+
+    // Fallback: find the largest scrollable container in the main area
+    const main = document.querySelector('main') || document.querySelector('[role="main"]') || document.body;
+    if (!main) return null;
+
+    let best = null;
+    let bestHeight = 0;
+    const divs = main.querySelectorAll('div');
+    for (const div of divs) {
+      if (div.scrollHeight > div.clientHeight + 100 &&
+          div.scrollHeight > bestHeight &&
+          div.childElementCount > 3) {
+        bestHeight = div.scrollHeight;
+        best = div;
+      }
+    }
+    return best || main;
+  }
+
+  /**
+   * Generic chat extraction fallback — no platform-specific logic.
+   * Finds message-like text blocks and uses alignment to attribute sender.
+   */
+  function extractGenericChat(maxMessages) {
+    return extractByAlignment(null, maxMessages);
+  }
+
+  /**
+   * Extract clean text content from a message element.
+   */
+  function extractMessageText(el) {
+    // Get text, stripping timestamps and UI chrome
+    let text = el.innerText?.trim() || '';
+    // Remove common timestamp patterns (HH:MM, HH:MM AM/PM)
+    text = text.replace(/\d{1,2}:\d{2}\s*(?:AM|PM|am|pm)?\s*$/gm, '').trim();
+    if (text.length < 2) return '';
+    return text.slice(0, 500);
+  }
+
   function detectMedia() {
     return {
       has_video: document.querySelectorAll('video').length > 0,
@@ -224,7 +555,7 @@
     const url = window.location.href;
     if (domain.includes('youtube.com') || domain.includes('youtu.be')) return extractYouTubePlatform(path, url);
     if (domain.includes('tiktok.com')) return { name: 'tiktok', object_kind: path.includes('/video') ? 'video' : path.startsWith('/@') ? 'profile' : 'post', channel_or_author: extractTikTokAuthor() };
-    if (domain.includes('instagram.com')) return { name: 'instagram', object_kind: path.includes('/reel') ? 'short' : path.includes('/p/') ? 'post' : 'profile' };
+    if (domain.includes('instagram.com')) return { name: 'instagram', object_kind: path.startsWith('/direct') ? 'dm' : path.includes('/reel') ? 'short' : path.includes('/p/') ? 'post' : 'profile' };
     if (domain.includes('reddit.com')) return { name: 'reddit', object_kind: path.includes('/comments/') ? 'comment_thread' : 'post' };
     if (domain.includes('twitter.com') || domain.includes('x.com')) return { name: 'x', object_kind: path.includes('/status/') ? 'post' : 'profile' };
     return { name: 'none' };
@@ -257,6 +588,7 @@
     if (['google.com', 'bing.com', 'duckduckgo.com', 'search.yahoo.com'].some(d => domain.includes(d)) && url.includes('q=')) return 'search';
     if (ui?.infinite_scroll && hasRepeatedCards(8)) return 'feed';
     if ((content.main_text || '').split(/\s+/).length > 250) return 'article';
+    if (platform?.name === 'instagram' && platform?.object_kind === 'dm') return 'chat';
     if (['discord.com', 'whatsapp.com', 'telegram.org', 'messenger.com'].some(d => domain.includes(d))) return 'chat';
     if (['reddit.com', 'stackexchange.com', 'stackoverflow.com'].some(d => domain.includes(d))) return 'forum';
     if (['amazon.com', 'ebay.com', 'shopify.com', 'etsy.com'].some(d => domain.includes(d))) return 'commerce';

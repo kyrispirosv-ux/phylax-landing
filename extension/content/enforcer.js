@@ -1,6 +1,7 @@
-// Phylax SafeGuard — Enforcer v3 (Kids-Only)
+// Phylax SafeGuard — Enforcer v3.1 (Kids-Only)
 // Action space: ALLOW / BLOCK / LIMIT (no WARN, no interstitials)
 // If harmful: BLOCK. If addiction pattern: LIMIT.
+// Chat-aware: DM threats block conversation area only, not entire platform.
 // Phylax quietly protects.
 
 (function () {
@@ -49,9 +50,12 @@
       const isDomainBlock = decision.hard_trigger === 'parent_rule' ||
         decision.reason_code === 'DOMAIN_BLOCK' ||
         decision.enforcement?.technique === 'cancel_request';
+      const isChatBlock = decision.enforcement?.technique === 'chat_block';
 
       if (isDomainBlock) {
         showFullBlock();
+      } else if (isChatBlock) {
+        showChatBlock(decision);
       } else {
         if (!isContentPage()) return;
         showOverlayBlock(decision);
@@ -184,6 +188,152 @@
     });
 
     watchForNavigation();
+  }
+
+  // ═════════════════════════════════════════════════════════════════
+  // BLOCK — Chat/DM specific (blocks conversation area, not platform)
+  // ═════════════════════════════════════════════════════════════════
+
+  function showChatBlock(decision) {
+    dismissOverlay();
+    blockedUrl = window.location.pathname + window.location.search.split('&t=')[0];
+
+    // Find the chat/conversation area to cover
+    const chatArea = findChatArea();
+
+    // Build the overlay — covers just the chat area, not the full page
+    const overlay = document.createElement('div');
+    overlay.id = 'phylax-overlay';
+
+    if (chatArea) {
+      // Position overlay exactly over the chat area
+      const rect = chatArea.getBoundingClientRect();
+      overlay.style.cssText = `
+        position: fixed;
+        top: ${rect.top}px; left: ${rect.left}px;
+        width: ${rect.width}px; height: ${rect.height}px;
+        background: rgba(5, 5, 10, 0.96); backdrop-filter: blur(16px);
+        z-index: 2147483647; display: flex; align-items: center;
+        justify-content: center; font-family: -apple-system, BlinkMacSystemFont,
+        "Segoe UI", Roboto, sans-serif; animation: phylaxFadeIn 0.3s ease;
+        border-radius: 12px;
+      `;
+    } else {
+      // Fallback: full-page overlay if we can't find the chat area
+      overlay.style.cssText = `
+        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(5, 5, 10, 0.95); backdrop-filter: blur(12px);
+        z-index: 2147483647; display: flex; align-items: center;
+        justify-content: center; font-family: -apple-system, BlinkMacSystemFont,
+        "Segoe UI", Roboto, sans-serif; animation: phylaxFadeIn 0.3s ease;
+      `;
+    }
+
+    const style = document.createElement('style');
+    style.textContent = `@keyframes phylaxFadeIn { from { opacity: 0; } to { opacity: 1; } }`;
+    overlay.appendChild(style);
+
+    const evidence = (decision.evidence || []).join(' ');
+
+    const card = document.createElement('div');
+    card.style.cssText = `
+      background: #0f1525; border: 1px solid rgba(255,80,80,0.35);
+      border-radius: 20px; padding: 32px; max-width: 360px; width: 90%;
+      text-align: center; box-shadow: 0 16px 48px rgba(0,0,0,0.5);
+    `;
+    card.innerHTML = `
+      <div style="width:56px;height:56px;border-radius:14px;background:linear-gradient(135deg,#FF5050,#FF8C42);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;box-shadow:0 8px 24px rgba(255,80,80,0.3);">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 9v4M12 17h.01M3 3H21V21H3V7H17V17H7V11H13V13"/>
+        </svg>
+      </div>
+      <h2 style="font-size:18px;font-weight:700;color:white;margin:0 0 8px;">This conversation was flagged</h2>
+      <p style="font-size:14px;color:rgba(255,255,255,0.5);line-height:1.6;margin:0 0 8px;">Phylax detected concerning messages in this chat.</p>
+      <p style="font-size:13px;color:rgba(255,80,80,0.7);line-height:1.5;margin:0 0 20px;">Your parent has been notified.</p>
+      <button id="phylaxChatGoBack" style="padding:10px 28px;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;border:none;background:linear-gradient(135deg,#7C5CFF,rgba(124,92,255,0.8));color:white;box-shadow:0 4px 16px rgba(124,92,255,0.3);font-family:inherit;">Close conversation</button>
+    `;
+
+    overlay.appendChild(card);
+    safeAppendOverlay(overlay);
+    currentOverlay = overlay;
+
+    overlay.querySelector('#phylaxChatGoBack').addEventListener('click', () => {
+      dismissOverlay();
+      // Navigate away from DMs, not off the platform entirely
+      const domain = window.location.hostname;
+      if (domain.includes('instagram.com')) {
+        window.location.href = 'https://www.instagram.com/';
+      } else if (domain.includes('discord.com')) {
+        window.location.href = 'https://discord.com/channels/@me';
+      } else {
+        history.back();
+      }
+    });
+
+    // Send parent alert via background script
+    notifyParent(decision);
+
+    watchForNavigation();
+  }
+
+  /**
+   * Find the chat/conversation area element on the page.
+   * Used to position the block overlay precisely over the DM area.
+   */
+  function findChatArea() {
+    // Instagram DMs: the main chat thread container
+    const igThread = document.querySelector('[role="listbox"]') ||
+                     document.querySelector('main section > div > div > div:last-child');
+    if (igThread && igThread.scrollHeight > 200) return igThread;
+
+    // WhatsApp: the message pane
+    const waPane = document.querySelector('#main .copyable-area') ||
+                   document.querySelector('#main');
+    if (waPane) return waPane;
+
+    // Discord: the chat area
+    const dcChat = document.querySelector('[class*="chatContent-"]') ||
+                   document.querySelector('[class*="chat-"]');
+    if (dcChat) return dcChat;
+
+    // Messenger
+    const msgArea = document.querySelector('[role="main"]');
+    if (msgArea) return msgArea;
+
+    // Generic: find scrollable message area
+    const main = document.querySelector('main') || document.body;
+    const scrollables = main.querySelectorAll('div');
+    let best = null;
+    let bestScore = 0;
+    for (const div of scrollables) {
+      if (div.scrollHeight > div.clientHeight + 100 && div.childElementCount > 5) {
+        const score = div.scrollHeight * div.childElementCount;
+        if (score > bestScore) { bestScore = score; best = div; }
+      }
+    }
+    return best;
+  }
+
+  /**
+   * Send a parent alert notification through the background script.
+   */
+  function notifyParent(decision) {
+    try {
+      chrome.runtime.sendMessage({
+        type: 'PHYLAX_PARENT_ALERT',
+        alert: {
+          alert_type: 'CHAT_THREAT',
+          url: window.location.href,
+          domain: window.location.hostname,
+          platform: window.location.hostname.replace('www.', '').split('.')[0],
+          reason_code: decision.reason_code || 'CHAT_GROOMING_SIGNAL',
+          confidence: decision.confidence || 0,
+          evidence: decision.evidence || [],
+          timestamp: Date.now(),
+          path: window.location.pathname,
+        },
+      });
+    } catch { /* background not ready */ }
   }
 
   // ═════════════════════════════════════════════════════════════════

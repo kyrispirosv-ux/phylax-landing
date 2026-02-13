@@ -251,6 +251,39 @@ function buildContentObject(rawEvent) {
 }
 
 // ═════════════════════════════════════════════════════════════════
+// PARENT ALERT SYSTEM — notifies parent of chat/DM threats
+// ═════════════════════════════════════════════════════════════════
+
+async function handleParentAlert(alert) {
+  if (!alert) return;
+
+  console.log(`[Phylax] PARENT ALERT: ${alert.alert_type} on ${alert.platform} — ${alert.reason_code} (confidence: ${alert.confidence})`);
+
+  // Store alert for parent dashboard retrieval
+  const { phylaxAlerts } = await chrome.storage.local.get('phylaxAlerts');
+  const alerts = phylaxAlerts || [];
+  alerts.push({
+    ...alert,
+    id: `alert_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+    read: false,
+  });
+  // Keep last 200 alerts
+  if (alerts.length > 200) alerts.splice(0, alerts.length - 200);
+  await chrome.storage.local.set({ phylaxAlerts: alerts });
+
+  // Log to decision logger as high-priority event
+  const logEvent = createEvent({
+    eventType: 'PARENT_ALERT',
+    tabId: null,
+    url: alert.url,
+    domain: alert.domain,
+    payload: alert,
+    profileId: profileTier,
+  });
+  eventBuffer.push(logEvent);
+}
+
+// ═════════════════════════════════════════════════════════════════
 // MESSAGE HANDLING
 // ═════════════════════════════════════════════════════════════════
 
@@ -272,6 +305,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse({ decision });
       }
     });
+    return true;
+  }
+
+  // Parent alert from enforcer (chat threat detected)
+  if (message.type === 'PHYLAX_PARENT_ALERT') {
+    handleParentAlert(message.alert);
+    sendResponse({ success: true });
     return true;
   }
 
@@ -393,6 +433,21 @@ async function handleDashboardMessage(message, sendResponse) {
       case 'PHYLAX_GET_DECISIONS': {
         const recent = logger.getRecent(50);
         sendResponse({ success: true, decisions: recent });
+        break;
+      }
+      case 'PHYLAX_GET_ALERTS': {
+        const { phylaxAlerts } = await chrome.storage.local.get('phylaxAlerts');
+        sendResponse({ success: true, alerts: phylaxAlerts || [] });
+        break;
+      }
+      case 'PHYLAX_MARK_ALERT_READ': {
+        const { phylaxAlerts: allAlerts } = await chrome.storage.local.get('phylaxAlerts');
+        if (allAlerts && message.alertId) {
+          const alert = allAlerts.find(a => a.id === message.alertId);
+          if (alert) alert.read = true;
+          await chrome.storage.local.set({ phylaxAlerts: allAlerts });
+        }
+        sendResponse({ success: true });
         break;
       }
       default:
