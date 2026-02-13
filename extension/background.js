@@ -29,7 +29,7 @@ let currentPolicy = null; // PolicyObject — the compiled pipeline input
 
 // ── Per-tab decision throttle ────────────────────────────────────
 const tabDecisionCache = new Map();
-const TAB_DECISION_THROTTLE_MS = 10000;
+const TAB_DECISION_THROTTLE_MS = 3000;
 
 // ── Rule Storage ─────────────────────────────────────────────────
 
@@ -490,6 +490,7 @@ chrome.webNavigation.onCommitted.addListener(async (details) => {
 });
 
 // Full analysis: onCompleted fires after page loads
+// Request REAL content from the tab's observer instead of sending empty strings
 chrome.webNavigation.onCompleted.addListener(async (details) => {
   if (details.frameId !== 0) return;
   const url = details.url;
@@ -501,11 +502,27 @@ chrome.webNavigation.onCompleted.addListener(async (details) => {
     if (['phylax-landing.vercel.app', 'localhost', '127.0.0.1'].includes(domain)) return;
   } catch { return; }
 
+  // Ask the content script for real content instead of sending empty payload
+  let payload = { title: '', text: '', content_type_hint: 'unknown' };
+  try {
+    const tabContent = await chrome.tabs.sendMessage(details.tabId, { type: 'PHYLAX_REQUEST_CONTENT' });
+    if (tabContent?.content_object) {
+      payload = {
+        content_object: tabContent.content_object,
+        title: tabContent.content_object.title || '',
+        text: (tabContent.content_object.title || '') + ' ' +
+              (tabContent.content_object.description || '') + ' ' +
+              (tabContent.content_object.main_text || '').slice(0, 3000),
+        content_type_hint: tabContent.content_object.content_type || 'unknown',
+      };
+    }
+  } catch { /* content script not ready — fall back to empty */ }
+
   const decision = await processEvent({
     event_type: 'PAGE_LOAD',
     url,
     domain,
-    payload: { title: '', text: '', content_type_hint: 'unknown' },
+    payload,
   }, details.tabId);
 
   if (decision && decision.action !== 'ALLOW') {

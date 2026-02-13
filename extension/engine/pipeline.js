@@ -391,15 +391,19 @@ export function compileToPolicyObject(compiledRules, profileTier) {
 
       // CRITICAL FIX: Category blocks must ALSO produce global topic rules.
       // This is what makes "block gambling" work on YouTube (not just gambling domains).
+      // Maps category names to lexicon topic keys (they may differ).
       if (rule.condition?.category_match) {
         for (const cat of rule.condition.category_match) {
-          if (!seenTopics.has(cat)) {
-            policy.topic_rules.push({
-              topic: cat,
-              action: 'block',
-              threshold: profile.topic_threshold_default,
-            });
-            seenTopics.add(cat);
+          const topics = CATEGORY_TO_TOPICS[cat] || [cat];
+          for (const topic of topics) {
+            if (!seenTopics.has(topic)) {
+              policy.topic_rules.push({
+                topic,
+                action: 'block',
+                threshold: profile.topic_threshold_default,
+              });
+              seenTopics.add(topic);
+            }
           }
         }
       }
@@ -408,8 +412,7 @@ export function compileToPolicyObject(compiledRules, profileTier) {
     // BLOCK_CONTENT rules with classifier → topic_rules
     if (rule.action?.type === 'BLOCK_CONTENT' && rule.condition?.classifier?.labels_any) {
       for (const label of rule.condition.classifier.labels_any) {
-        const topicKey = `${label}:${(rule.scope?.domain_allowlist || []).join(',')}`;
-        if (!seenTopics.has(topicKey)) {
+        if (!seenTopics.has(label)) {
           policy.topic_rules.push({
             topic: label,
             action: 'block',
@@ -417,21 +420,6 @@ export function compileToPolicyObject(compiledRules, profileTier) {
             scope: rule.scope?.domain_allowlist?.length
               ? { domains: rule.scope.domain_allowlist }
               : undefined,
-          });
-          seenTopics.add(topicKey);
-        }
-      }
-    }
-
-    // BLOCK_CONTENT with global scope (labels from inferred rules)
-    if (rule.action?.type === 'BLOCK_CONTENT' && rule.scope?.global &&
-        rule.condition?.classifier?.labels_any) {
-      for (const label of rule.condition.classifier.labels_any) {
-        if (!seenTopics.has(label)) {
-          policy.topic_rules.push({
-            topic: label,
-            action: 'block',
-            threshold: rule.condition.classifier.threshold || profile.topic_threshold_default,
           });
           seenTopics.add(label);
         }
@@ -466,6 +454,22 @@ export function compileToPolicyObject(compiledRules, profileTier) {
 
   return policy;
 }
+
+// ── Category → Lexicon Topic Mapping ─────────────────────────────
+// Category names from rule-compiler may differ from lexicon topic keys.
+// e.g., category "adult" → lexicon topic "pornography"
+const CATEGORY_TO_TOPICS = {
+  adult: ['pornography'],
+  gambling: ['gambling'],
+  weapons: ['weapons', 'violence'],
+  drugs: ['drugs'],
+  self_harm: ['self_harm'],
+  hate: ['hate'],
+  bullying: ['bullying'],
+  grooming: ['grooming'],
+  scams: ['scams'],
+  extremism: ['extremism'],
+};
 
 // ── Profile Defaults ──────────────────────────────────────────────
 

@@ -18,8 +18,8 @@
   let lastEnforceTime = 0;
   let limitOverlay = null; // LIMIT-specific overlay (scroll gate, time gate)
 
-  const DISMISS_COOLDOWN_MS = 60000;
-  const ENFORCE_DEDUP_MS = 2000;
+  const DISMISS_COOLDOWN_MS = 30000;
+  const ENFORCE_DEDUP_MS = 500;
 
   // ── Listen for decisions ────────────────────────────────────────
   window.addEventListener('phylax-decision', (e) => {
