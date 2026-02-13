@@ -583,13 +583,17 @@
     const ui = content.ui;
     const domain = content.domain;
     const url = content.url;
+    const path = content.url ? (new URL(content.url).pathname || '') : '';
     if (platform?.name === 'youtube') { return platform.object_kind === 'search' ? 'search' : platform.object_kind === 'channel' ? 'feed' : 'video'; }
     if (platform?.name === 'tiktok') return 'video';
     if (['google.com', 'bing.com', 'duckduckgo.com', 'search.yahoo.com'].some(d => domain.includes(d)) && url.includes('q=')) return 'search';
+    // Chat/DM detection MUST come before feed/article — DMs can look like feeds
+    if (platform?.name === 'instagram' && platform?.object_kind === 'dm') return 'chat';
+    if (domain.includes('instagram.com') && path.startsWith('/direct')) return 'chat';
+    if (['discord.com', 'whatsapp.com', 'web.whatsapp.com', 'telegram.org', 'web.telegram.org', 'messenger.com'].some(d => domain.includes(d))) return 'chat';
+    if ((domain.includes('twitter.com') || domain.includes('x.com')) && path.includes('/messages')) return 'chat';
     if (ui?.infinite_scroll && hasRepeatedCards(8)) return 'feed';
     if ((content.main_text || '').split(/\s+/).length > 250) return 'article';
-    if (platform?.name === 'instagram' && platform?.object_kind === 'dm') return 'chat';
-    if (['discord.com', 'whatsapp.com', 'telegram.org', 'messenger.com'].some(d => domain.includes(d))) return 'chat';
     if (['reddit.com', 'stackexchange.com', 'stackoverflow.com'].some(d => domain.includes(d))) return 'forum';
     if (['amazon.com', 'ebay.com', 'shopify.com', 'etsy.com'].some(d => domain.includes(d))) return 'commerce';
     return 'unknown';

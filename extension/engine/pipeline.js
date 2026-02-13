@@ -380,8 +380,32 @@ export function compileToPolicyObject(compiledRules, profileTier) {
     explainability: { mode: 'standard' },
   };
 
+  // ── Mandatory safety topics ──────────────────────────────────
+  // These are always-on child protections regardless of parent config.
+  // Parents can make rules stricter, but these cannot be removed.
+  const MANDATORY_SAFETY_TOPICS = [
+    { topic: 'grooming', threshold: 0.60 },
+    { topic: 'self_harm', threshold: 0.70 },
+    { topic: 'pornography', threshold: 0.65 },
+    { topic: 'violence', threshold: 0.80 },
+    { topic: 'weapons', threshold: 0.80 },
+    { topic: 'drugs', threshold: 0.80 },
+    { topic: 'extremism', threshold: 0.75 },
+    { topic: 'bullying', threshold: 0.75 },
+    { topic: 'eating_disorder', threshold: 0.75 },
+    { topic: 'scams', threshold: 0.75 },
+  ];
+
+  for (const mandatory of MANDATORY_SAFETY_TOPICS) {
+    policy.topic_rules.push({
+      topic: mandatory.topic,
+      action: 'block',
+      threshold: Math.min(mandatory.threshold, profile.topic_threshold_default),
+    });
+  }
+
   const seenDomains = new Set();
-  const seenTopics = new Set();
+  const seenTopics = new Set(MANDATORY_SAFETY_TOPICS.map(m => m.topic));
 
   for (const rule of compiledRules) {
     // BLOCK_DOMAIN rules → domain_rules.block_domains
