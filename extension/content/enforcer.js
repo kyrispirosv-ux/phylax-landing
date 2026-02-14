@@ -11,6 +11,23 @@
   const host = window.location.hostname;
   if (host === 'phylax-landing.vercel.app' || host === 'localhost' || host === '127.0.0.1') return;
 
+  // ── Exempt email / productivity domains ────────────────────────
+  // Email clients must never be blocked — scanning email content
+  // produces false positives from spam, phishing warnings, etc.
+  const EXEMPT_DOMAINS = [
+    'mail.google.com', 'inbox.google.com',
+    'outlook.live.com', 'outlook.office.com', 'outlook.office365.com',
+    'mail.yahoo.com',
+    'mail.proton.me', 'mail.protonmail.com',
+    'mail.zoho.com',
+    'mail.aol.com',
+    'fastmail.com',
+    'calendar.google.com', 'contacts.google.com',
+    'drive.google.com', 'docs.google.com',
+    'sheets.google.com', 'slides.google.com',
+  ];
+  if (EXEMPT_DOMAINS.some(d => host === d || host.endsWith('.' + d))) return;
+
   let currentOverlay = null;
   let blockedUrl = null;
   let mediaKillInterval = null;

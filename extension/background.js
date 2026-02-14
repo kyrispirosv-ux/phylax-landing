@@ -19,6 +19,26 @@ const PHYLAX_ORIGINS = [
   'http://127.0.0.1'
 ];
 
+// ── Exempt email / productivity domains ─────────────────────────
+// Email clients produce rampant false positives (spam summaries,
+// phishing warnings, marketing emails all contain scam/violence keywords).
+const EXEMPT_DOMAINS = [
+  'mail.google.com', 'inbox.google.com',
+  'outlook.live.com', 'outlook.office.com', 'outlook.office365.com',
+  'mail.yahoo.com',
+  'mail.proton.me', 'mail.protonmail.com',
+  'mail.zoho.com',
+  'mail.aol.com',
+  'fastmail.com',
+  'calendar.google.com', 'contacts.google.com',
+  'drive.google.com', 'docs.google.com',
+  'sheets.google.com', 'slides.google.com',
+];
+
+function isExemptDomain(domain) {
+  return EXEMPT_DOMAINS.some(d => domain === d || domain.endsWith('.' + d));
+}
+
 const eventBuffer = new EventBuffer(500, 3600000);
 const logger = new DecisionLogger();
 let sessionState = createSessionState();
@@ -56,6 +76,29 @@ function setGroomingState(conversationKey, state) {
     const oldest = groomingConversationStates.keys().next().value;
     groomingConversationStates.delete(oldest);
   }
+}
+
+// ── Service worker readiness ────────────────────────────────────
+// Chrome MV3 service workers can receive messages before top-level
+// async init completes. policyReady gates event processing so we
+// never evaluate against a null/empty policy.
+let policyReady = false;
+let policyReadyPromise = null;
+let policyReadyResolve = null;
+
+function resetPolicyReady() {
+  policyReady = false;
+  policyReadyPromise = new Promise(resolve => { policyReadyResolve = resolve; });
+}
+function markPolicyReady() {
+  policyReady = true;
+  if (policyReadyResolve) policyReadyResolve();
+}
+resetPolicyReady();
+
+async function waitForPolicy() {
+  if (policyReady) return;
+  await policyReadyPromise;
 }
 
 // ── Per-tab decision throttle ────────────────────────────────────
@@ -199,7 +242,8 @@ async function processEvent(rawEvent, tabId) {
   // 3. Build ContentObject from observer payload
   const contentObject = buildContentObject(rawEvent);
 
-  // 4. Ensure we have a policy
+  // 4. Ensure we have a policy (wait for service worker init if needed)
+  await waitForPolicy();
   if (!currentPolicy) {
     try {
       const rules = await getRules();
@@ -440,6 +484,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'PHYLAX_PROCESS_EVENT') {
     const tabId = sender.tab?.id;
     const eventUrl = message.event?.url || '';
+    const eventDomain = message.event?.domain || '';
+    if (isExemptDomain(eventDomain)) {
+      sendResponse({ decision: { action: 'ALLOW', decision: 'ALLOW', scores: { harm: 0, compulsion: 0 } } });
+      return true;
+    }
     processEvent(message.event, tabId).then(decision => {
       if (decision && decision.action !== 'ALLOW' &&
           shouldThrottleDecision(tabId, decision.action, eventUrl)) {
@@ -683,10 +732,12 @@ chrome.webNavigation.onCommitted.addListener(async (details) => {
   if (details.frameId !== 0) return;
   const url = details.url;
   if (url.startsWith('chrome://') || url.startsWith('chrome-extension://') || url.startsWith('about:')) return;
+  await waitForPolicy();
 
   try {
     const domain = new URL(url).hostname;
     if (['phylax-landing.vercel.app', 'localhost', '127.0.0.1'].includes(domain)) return;
+    if (isExemptDomain(domain)) return;
 
     // Quick domain gate check from the current policy
     if (currentPolicy) {
@@ -722,11 +773,13 @@ chrome.webNavigation.onCompleted.addListener(async (details) => {
   if (details.frameId !== 0) return;
   const url = details.url;
   if (url.startsWith('chrome://') || url.startsWith('chrome-extension://') || url.startsWith('about:')) return;
+  await waitForPolicy();
 
   let domain;
   try {
     domain = new URL(url).hostname;
     if (['phylax-landing.vercel.app', 'localhost', '127.0.0.1'].includes(domain)) return;
+    if (isExemptDomain(domain)) return;
   } catch { return; }
 
   // Ask the content script for real content instead of sending empty payload
@@ -780,9 +833,11 @@ chrome.runtime.onInstalled.addListener(async () => {
       // Build default policy even with no rules (for behavior rules)
       await rebuildPolicy([]);
     }
+    markPolicyReady();
   } catch (e) {
     console.error('[Phylax] onInstalled error:', e);
     currentPolicy = compileToPolicyObject([], profileTier);
+    markPolicyReady();
   }
 });
 
@@ -793,6 +848,7 @@ chrome.runtime.onInstalled.addListener(async () => {
     await logger.restore();
     const rules = await getRules();
     await rebuildPolicy(rules);
+    markPolicyReady();
     console.log('[Phylax] Service worker ready. Profile:', profileTier,
       '| Policy:', currentPolicy?.policy_version || 'none',
       '| Topic rules:', currentPolicy?.topic_rules?.length || 0,
@@ -801,6 +857,7 @@ chrome.runtime.onInstalled.addListener(async () => {
     console.error('[Phylax] Service worker init error:', e);
     // Build a minimal default policy so the extension still functions
     currentPolicy = compileToPolicyObject([], profileTier);
+    markPolicyReady();
   }
 })();
 
