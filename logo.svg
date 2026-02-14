@@ -1,23 +1,22 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 580" fill="none">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 600" fill="none">
   <defs>
-    <linearGradient id="shield-fill" x1="256" y1="36" x2="256" y2="468" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#1B365D"/>
-      <stop offset="1" stop-color="#0F2847"/>
+    <linearGradient id="bg" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#8B5CF6"/>
+      <stop offset="1" stop-color="#38BDF8"/>
     </linearGradient>
   </defs>
 
-  <!-- Shield -->
-  <path d="M256 36 L440 100 V252 Q440 404 256 468 Q72 404 72 252 V100 Z"
-        fill="url(#shield-fill)"/>
+  <!-- Squircle background -->
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
 
-  <!-- Greek Key / Meander Mark -->
-  <path d="M172 188 H340 V272 H172 V356 H340"
-        stroke="#3DD8C5" stroke-width="22"
-        stroke-linecap="square" stroke-linejoin="miter"/>
+  <!-- Rectangular spiral / Greek key labyrinth -->
+  <path d="M144 144 H368 V368 H184 V184 H328 V328 H224 V224 H288 V288"
+        stroke="white" stroke-width="12"
+        stroke-linecap="round" stroke-linejoin="round"/>
 
   <!-- Wordmark -->
-  <text x="256" y="545" text-anchor="middle"
+  <text x="256" y="575" text-anchor="middle"
         font-family="Inter, 'Helvetica Neue', Arial, sans-serif"
         font-weight="700" font-size="54" letter-spacing="8"
-        fill="#1B365D">PHYLAX</text>
+        fill="#6366F1">PHYLAX</text>
 </svg>
