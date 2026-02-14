@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="20 12 472 480" fill="none">
+  <defs>
+    <linearGradient id="shield-fill" x1="256" y1="36" x2="256" y2="468" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#1B365D"/>
+      <stop offset="1" stop-color="#0F2847"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Shield -->
+  <path d="M256 36 L440 100 V252 Q440 404 256 468 Q72 404 72 252 V100 Z"
+        fill="url(#shield-fill)"/>
+
+  <!-- Greek Key / Meander Mark -->
+  <path d="M172 188 H340 V272 H172 V356 H340"
+        stroke="#3DD8C5" stroke-width="22"
+        stroke-linecap="square" stroke-linejoin="miter"/>
+</svg>
