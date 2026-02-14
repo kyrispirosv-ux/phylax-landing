@@ -18,6 +18,7 @@
   // false positives (spam summaries, phishing warnings, marketing
   // emails all contain scam/violence/drug keywords).
   const EXEMPT_DOMAINS = [
+    // Email clients
     'mail.google.com', 'inbox.google.com',
     'outlook.live.com', 'outlook.office.com', 'outlook.office365.com',
     'mail.yahoo.com',
@@ -25,9 +26,18 @@
     'mail.zoho.com',
     'mail.aol.com',
     'fastmail.com',
+    // Google productivity
     'calendar.google.com', 'contacts.google.com',
     'drive.google.com', 'docs.google.com',
     'sheets.google.com', 'slides.google.com',
+    // AI assistants — content is user-generated and too varied for
+    // keyword scoring. These tools have their own safety filters.
+    'chat.openai.com', 'chatgpt.com',
+    'claude.ai',
+    'gemini.google.com',
+    'copilot.microsoft.com',
+    'poe.com',
+    'perplexity.ai',
   ];
   if (EXEMPT_DOMAINS.some(d => host === d || host.endsWith('.' + d))) return;
 

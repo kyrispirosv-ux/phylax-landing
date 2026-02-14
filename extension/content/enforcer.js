@@ -15,6 +15,7 @@
   // Email clients must never be blocked — scanning email content
   // produces false positives from spam, phishing warnings, etc.
   const EXEMPT_DOMAINS = [
+    // Email clients
     'mail.google.com', 'inbox.google.com',
     'outlook.live.com', 'outlook.office.com', 'outlook.office365.com',
     'mail.yahoo.com',
@@ -22,9 +23,17 @@
     'mail.zoho.com',
     'mail.aol.com',
     'fastmail.com',
+    // Google productivity
     'calendar.google.com', 'contacts.google.com',
     'drive.google.com', 'docs.google.com',
     'sheets.google.com', 'slides.google.com',
+    // AI assistants
+    'chat.openai.com', 'chatgpt.com',
+    'claude.ai',
+    'gemini.google.com',
+    'copilot.microsoft.com',
+    'poe.com',
+    'perplexity.ai',
   ];
   if (EXEMPT_DOMAINS.some(d => host === d || host.endsWith('.' + d))) return;
 
