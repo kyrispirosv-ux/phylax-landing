@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Phylax SafeGuard",
-  "version": "4.0",
-  "description": "Intelligent child safety with grooming detection, content filtering, behavior analysis, and parent dashboard integration.",
+  "version": "5.0",
+  "description": "Intelligent child safety with semantic video blocking, grooming pattern detection, predictive risk intelligence, and parent dashboard integration.",
 
   "permissions": [
     "storage",
@@ -44,6 +44,15 @@
       "matches": ["<all_urls>"],
       "js": ["content/observer.js", "content/enforcer.js"],
       "run_at": "document_start"
+    },
+    {
+      "matches": [
+        "https://www.youtube.com/*",
+        "https://youtube.com/*",
+        "https://m.youtube.com/*"
+      ],
+      "js": ["content/youtube-scanner.js"],
+      "run_at": "document_idle"
     }
   ],
 

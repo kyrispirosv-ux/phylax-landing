@@ -10,6 +10,7 @@ import { evaluate, compileToPolicyObject } from './engine/pipeline.js';
 import { createSessionState, updateSessionState } from './engine/behavior.js';
 import { cacheClear, cacheStats } from './engine/decision-cache.js';
 import { createConversationState } from './engine/grooming-detector.js';
+import { classify_video_risk, analyze_message_risk, predict_conversation_risk } from './engine/risk-classifier.js';
 
 // ── State ───────────────────────────────────────────────────────
 
@@ -528,6 +529,84 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     isConversationBlocked(message.domain, message.path).then(blocked => {
       sendResponse({ blocked });
     });
+    return true;
+  }
+
+  // ── TASK 1: YouTube element-level video classification ─────────
+  // Receives per-video metadata from youtube-scanner.js and returns
+  // a structured classification using the risk-classifier pipeline.
+  if (message.type === 'PHYLAX_CLASSIFY_VIDEO') {
+    const video = message.video;
+    if (!video) {
+      sendResponse({ classification: null });
+      return true;
+    }
+
+    // Ensure policy is ready (thresholds depend on profile tier)
+    waitForPolicy().then(() => {
+      const classification = classify_video_risk(
+        video.contentText || '',
+        {
+          title: video.title,
+          channel: video.channel,
+          description: video.description,
+          tags: video.badges || [],
+        }
+      );
+
+      console.log(`[Phylax] Video classify: "${(video.title || '').slice(0, 50)}" → ${classification.decision} (${classification.category}, risk: ${classification.risk_score})`);
+
+      // Log blocked/warned videos
+      if (classification.decision !== 'allow') {
+        const logEvent = createEvent({
+          eventType: 'VIDEO_CLASSIFIED',
+          tabId: sender.tab?.id,
+          url: `https://youtube.com/watch?v=${video.videoId}`,
+          domain: 'youtube.com',
+          payload: {
+            videoId: video.videoId,
+            title: video.title,
+            classification,
+            searchQuery: message.searchQuery,
+          },
+          profileId: profileTier,
+        });
+        eventBuffer.push(logEvent);
+      }
+
+      sendResponse({ classification });
+    });
+    return true;
+  }
+
+  // ── TASK 2: Grooming/manipulation message analysis ────────────
+  // Direct API for analyze_message_risk — used for demo testing.
+  if (message.type === 'PHYLAX_ANALYZE_MESSAGE') {
+    const result = analyze_message_risk(
+      message.messageText || '',
+      message.conversationHistory || null,
+    );
+    sendResponse({ result });
+    return true;
+  }
+
+  // ── TASK 3: Predictive conversation risk analysis ─────────────
+  // Direct API for predict_conversation_risk — used for demo testing.
+  if (message.type === 'PHYLAX_PREDICT_RISK') {
+    const result = predict_conversation_risk(message.messages || []);
+    sendResponse({ result });
+
+    // If elevated or higher, send predictive warning to the tab
+    if (result.risk_level === 'elevated' || result.risk_level === 'high' || result.risk_level === 'critical') {
+      const tabId = sender.tab?.id;
+      if (tabId) {
+        chrome.tabs.sendMessage(tabId, {
+          type: 'PHYLAX_PREDICTIVE_WARNING',
+          decision: result,
+        }).catch(() => {});
+      }
+    }
+
     return true;
   }
 
