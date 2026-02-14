@@ -577,9 +577,5 @@ const PROFILE_DEFAULTS = {
 
 // ── Default Behavior Rules ────────────────────────────────────────
 
-const DEFAULT_BEHAVIOR_RULES = [
-  { pattern: 'infinite_scroll_binge', action: 'limit', budget_minutes: 30 },
-  { pattern: 'rapid_hop', action: 'limit' },
-  { pattern: 'short_binge', action: 'limit' },
-  { pattern: 'late_night', action: 'limit' },
-];
+// Behavior rules disabled for now — re-enable when ready for user testing.
+const DEFAULT_BEHAVIOR_RULES = [];
