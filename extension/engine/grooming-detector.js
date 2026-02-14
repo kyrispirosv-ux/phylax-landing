@@ -384,8 +384,9 @@ const TACTIC_DETECTORS = {
           /\b(?:you|u)(?:'re|r|\s+are)\s+(?:stressing|upsetting|hurting|worrying)\s+me/,
           /\bwhy\s+(?:are|r)\s+(?:you|u)\s+(?:being\s+)?like\s+this/,
           /\bi\s+guess\s+i\s+was\s+wrong\s+about\s+(?:you|u)/,
-          /\bif\s+(?:you|u)\s+(?:really\s+)?(?:cared|loved|liked)\s+me/,
+          /\bif\s+(?:you|u)\s+(?:really\s+)?(?:cared|loved|liked)(?:\s+about)?\s+me/,
           /\bdon'?t\s+(?:you|u)\s+(?:trust|love|care\s+about)\s+me/,
+          /\b(?:you|u)\s+wouldn'?t\s+(?:be|act|do)\s+(?:like\s+)?this\s+if\s+(?:you|u)\s+(?:cared|loved)/,
         ],
       },
     ],
@@ -952,28 +953,37 @@ function computeRiskScore(signals, hardNeg, conversationAnalysis) {
   // ── Signal-level scoring ──────────────────────────────────────
 
   // Sum of weighted signals (saturating curve to prevent single-signal domination)
+  // Steepness 1.2: a single 0.55-weight signal → 0.48 score.
+  // Two signals (0.55 + 0.50 = 1.05) → 0.72 score. Scales well.
   const signalSum = signals.reduce((sum, s) => sum + s.weight, 0);
-  const signalScore = 1 - Math.exp(-signalSum * 0.6);
+  const signalScore = 1 - Math.exp(-signalSum * 1.2);
 
   // Co-occurrence boost: signals from different stages are more concerning
   const uniqueStages = new Set(signals.map(s => s.stage));
-  const stageBoost = uniqueStages.size >= 3 ? 0.15 : uniqueStages.size >= 2 ? 0.08 : 0;
+  const stageBoost = uniqueStages.size >= 3 ? 0.20
+    : uniqueStages.size >= 2 ? 0.12 : 0;
 
   // High-severity signal boost (threats, image requests, explicit coercion)
   const highSeveritySignals = signals.filter(s => s.weight >= 0.55);
   const severityBoost = highSeveritySignals.length > 0
-    ? Math.min(0.2, highSeveritySignals.length * 0.08) : 0;
+    ? Math.min(0.25, highSeveritySignals.length * 0.10) : 0;
 
   // ── Context suppression ───────────────────────────────────────
   const suppression = hardNeg.suppression;
 
   // ── Conversation trajectory ───────────────────────────────────
   const trajectoryScore = conversationAnalysis?.trajectory_score || 0;
+  const hasConversation = conversationAnalysis && trajectoryScore > 0;
 
   // ── Fusion ────────────────────────────────────────────────────
-  // Combine signal score + conversation trajectory
+  // When conversation context exists, blend signals + trajectory.
+  // When single-message only, signals get full weight (no trajectory penalty).
+  const signalComponent = signalScore + stageBoost + severityBoost;
+  const rawScore = hasConversation
+    ? Math.min(1.0, signalComponent * 0.55 + trajectoryScore * 0.45)
+    : Math.min(1.0, signalComponent * 0.92);
+
   // Apply context suppression as a multiplier (1 - suppression)
-  const rawScore = Math.min(1.0, (signalScore + stageBoost + severityBoost) * 0.65 + trajectoryScore * 0.35);
   const finalScore = rawScore * (1 - suppression);
 
   return Math.round(finalScore * 1000) / 1000;
