@@ -144,8 +144,7 @@ function shouldThrottleDecision(tabId, action, url) {
   if (!cached) return false;
 
   const now = Date.now();
-  let urlPath = '';
-  try { urlPath = new URL(url).pathname; } catch { urlPath = url; }
+  const urlPath = extractThrottlePath(url);
 
   if (cached.action === action && cached.path === urlPath &&
       (now - cached.timestamp) < TAB_DECISION_THROTTLE_MS) {
@@ -156,9 +155,25 @@ function shouldThrottleDecision(tabId, action, url) {
 
 function recordTabDecision(tabId, action, url) {
   if (!tabId || action === 'ALLOW') return;
-  let urlPath = '';
-  try { urlPath = new URL(url).pathname; } catch { urlPath = url; }
+  const urlPath = extractThrottlePath(url);
   tabDecisionCache.set(tabId, { action, path: urlPath, timestamp: Date.now() });
+}
+
+/**
+ * Extract a throttle-safe path from a URL.
+ * For YouTube, includes the video ID (?v=...) so different videos on /watch
+ * don't share the same throttle key — which caused decisions for one video
+ * to incorrectly throttle decisions for a different video.
+ */
+function extractThrottlePath(url) {
+  try {
+    const u = new URL(url);
+    let path = u.pathname;
+    // YouTube: all videos share /watch — differentiate by video ID
+    const videoId = u.searchParams.get('v');
+    if (videoId) path += '?v=' + videoId;
+    return path;
+  } catch { return url; }
 }
 
 // ═════════════════════════════════════════════════════════════════

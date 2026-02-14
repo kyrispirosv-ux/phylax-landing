@@ -33,6 +33,11 @@
   let headExtracted = false;
   let fullExtracted = false;
 
+  // YouTube SPA navigation tracking
+  let lastYouTubeVideoId = null;
+  let lastYouTubeDescription = '';
+  let youtubeContentUpdateTimer = null;
+
   // ── Context validity ────────────────────────────────────────────
   function isContextValid() {
     try { return !!(chrome.runtime && chrome.runtime.id); } catch { return false; }
@@ -101,6 +106,18 @@
       chat: null,
     };
     co.content_type = inferContentType(co);
+
+    // YouTube video: use targeted extraction to avoid stale sidebar/recommendation content.
+    // The generic extractMainText() walks the entire <main> element which on YouTube includes
+    // the recommendation sidebar (#secondary) and comments — these contain text from OTHER
+    // videos and cause false positives (e.g., gambling recs bleeding into a music video's score).
+    if (co.platform?.name === 'youtube' &&
+        (co.content_type === 'video' || co.platform?.object_kind === 'video' || co.platform?.object_kind === 'short')) {
+      const ytText = extractYouTubeMainText();
+      if (ytText.length > 0) {
+        co.main_text = ytText;
+      }
+    }
 
     // If this is a chat context, extract sender-attributed messages
     if (co.content_type === 'chat') {
@@ -755,6 +772,88 @@
   // YOUTUBE SPA — immediate title-change detection
   // ═════════════════════════════════════════════════════════════════
 
+  function extractYouTubeVideoId() {
+    try {
+      return new URLSearchParams(window.location.search).get('v') || null;
+    } catch { return null; }
+  }
+
+  /**
+   * YouTube-specific main text extraction.
+   * Only extracts the actual video content (title, description, channel name).
+   * Excludes sidebar recommendations, comments, and other unrelated content
+   * that can cause false positives when stale from SPA navigation.
+   */
+  function extractYouTubeMainText() {
+    const parts = [];
+
+    // Video title (from YouTube's own element, not document.title)
+    const titleEl = document.querySelector(
+      'ytd-watch-metadata h1 yt-formatted-string, ' +
+      'h1.ytd-video-primary-info-renderer yt-formatted-string, ' +
+      '#title h1 yt-formatted-string'
+    );
+    if (titleEl?.textContent) parts.push(titleEl.textContent.trim());
+
+    // Video description
+    const descEl = document.querySelector(
+      'ytd-text-inline-expander#description-inline-expander, ' +
+      'ytd-expander.ytd-video-secondary-info-renderer #description, ' +
+      '#description-inner'
+    );
+    if (descEl?.innerText) parts.push(descEl.innerText.trim().slice(0, 3000));
+
+    // Channel name
+    const channelEl = document.querySelector(
+      '#channel-name a, ytd-channel-name a, #owner-name a'
+    );
+    if (channelEl?.textContent) parts.push(channelEl.textContent.trim());
+
+    // EXCLUDED: #secondary (sidebar/recommendations), #comments, ytd-compact-video-renderer
+    // These contain content from OTHER videos and cause false positives
+
+    return parts.join(' ').slice(0, MAX_TEXT_LENGTH);
+  }
+
+  /**
+   * Wait for YouTube's DOM to actually update after SPA navigation.
+   * YouTube takes 500-2000ms to update video description after client-side nav.
+   * We poll for the description element to change before doing full extraction.
+   * This prevents extracting stale content from the previous video.
+   */
+  function waitForYouTubeContentUpdate(callback) {
+    if (youtubeContentUpdateTimer) {
+      clearTimeout(youtubeContentUpdateTimer);
+      youtubeContentUpdateTimer = null;
+    }
+
+    const maxWait = 2000;
+    const checkInterval = 250;
+    const startTime = Date.now();
+    const prevDescription = lastYouTubeDescription;
+
+    function check() {
+      const descEl = document.querySelector(
+        'ytd-text-inline-expander#description-inline-expander, ' +
+        'ytd-expander.ytd-video-secondary-info-renderer #description, ' +
+        '#description-inner'
+      );
+      const currentDesc = (descEl?.innerText || '').trim().slice(0, 200);
+      const elapsed = Date.now() - startTime;
+
+      // Description changed from previous video, or timeout reached
+      if (elapsed >= maxWait || (currentDesc.length > 0 && currentDesc !== prevDescription)) {
+        lastYouTubeDescription = currentDesc;
+        callback();
+      } else {
+        youtubeContentUpdateTimer = setTimeout(check, checkInterval);
+      }
+    }
+
+    // Start checking after 300ms (give YouTube minimal time to start updating)
+    youtubeContentUpdateTimer = setTimeout(check, 300);
+  }
+
   let lastObservedTitle = document.title;
   function setupYouTubeTitleObserver() {
     if (!host.includes('youtube.com') && !host.includes('youtu.be')) return;
@@ -768,10 +867,14 @@
         lastBlockDecisionPath = null;
         headExtracted = false;
         fullExtracted = false;
-        // Classify with title immediately (no delay)
+        lastYouTubeVideoId = extractYouTubeVideoId();
+        // Classify with title + meta immediately (fast path for obvious blocks)
         onHeadReady();
-        // Full extraction after minimal DOM settle (150ms)
-        setTimeout(() => onPageLoad(), 150);
+        // Wait for YouTube DOM to actually update before full extraction.
+        // YouTube takes 500-2000ms to update description/sidebar after SPA nav.
+        // A static 150ms delay caused stale content from the previous video
+        // to be extracted, leading to false positives and false negatives.
+        waitForYouTubeContentUpdate(() => onPageLoad());
       }
     });
     titleObserver.observe(titleEl, { childList: true, characterData: true, subtree: true });
