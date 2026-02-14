@@ -18,9 +18,7 @@
   "externally_connectable": {
     "matches": [
       "https://phylax-landing.vercel.app/*",
-      "https://app.phylax.ai/*",
-      "http://localhost:*/*",
-      "http://127.0.0.1:*/*"
+      "https://app.phylax.ai/*"
     ]
   },
 
@@ -33,9 +31,7 @@
     {
       "matches": [
         "https://phylax-landing.vercel.app/*",
-        "https://app.phylax.ai/*",
-        "http://localhost:*/*",
-        "http://127.0.0.1:*/*"
+        "https://app.phylax.ai/*"
       ],
       "js": ["bridge.js"],
       "run_at": "document_idle"
