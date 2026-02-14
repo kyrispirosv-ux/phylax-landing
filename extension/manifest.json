@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Phylax SafeGuard",
-  "version": "3.0",
+  "version": "3.1",
   "description": "Intelligent grooming detection with multi-signal conversation analysis, obfuscation resistance, 9-stage tactic classification, and hard-negative context suppression. 12-step deterministic pipeline, kids-only actions (ALLOW/BLOCK/LIMIT), behavior intelligence, and chat-aware DM protection.",
 
   "permissions": [
