@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Phylax SafeGuard",
   "version": "5.0",
-  "description": "Intelligent child safety with semantic video blocking, grooming pattern detection, predictive risk intelligence, and parent dashboard integration.",
+  "description": "Child safety with video blocking, grooming detection, risk scoring, and parent dashboard.",
 
   "permissions": [
     "storage",
