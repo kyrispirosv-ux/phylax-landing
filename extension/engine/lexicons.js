@@ -257,12 +257,12 @@ export const LEXICONS = {
 // ── Scoring Functions ─────────────────────────────────────────────
 
 /**
- * Score a single topic against text using the saturating curve.
+ * Score a single topic against pre-lowercased text using the saturating curve.
  * score = 1 - exp(-Σ weight_i * hit_i)
  */
 export function localTopicScore(text, topicKey) {
   const lex = LEXICONS[topicKey];
-  if (!lex) return 0;
+  if (!lex || lex.length === 0) return 0;
 
   let sum = 0;
   for (const kw of lex) {
@@ -274,11 +274,15 @@ export function localTopicScore(text, topicKey) {
 
 /**
  * Score all topics against text. Returns Record<string, number>.
+ * Lowercases text once up front to avoid redundant per-topic lowering.
+ * Skips scoring if text is too short to contain meaningful phrases.
  */
 export function localScoreAllTopics(text) {
+  if (!text || text.length < 3) return {};
+  const lower = text.toLowerCase();
   const scores = {};
   for (const topic of Object.keys(LEXICONS)) {
-    const s = localTopicScore(text, topic);
+    const s = localTopicScore(lower, topic);
     if (s > 0) scores[topic] = s;
   }
   return scores;

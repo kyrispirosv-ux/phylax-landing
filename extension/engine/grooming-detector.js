@@ -63,7 +63,8 @@ export function normalizeText(text) {
   t = t.replace(/[\u200B\u200C\u200D\u200E\u200F\uFEFF\u00AD\u034F\u2060\u2061\u2062\u2063\u2064]/g, '');
 
   // 3. Homoglyph resolution (Cyrillic/Greek → Latin)
-  t = t.split('').map(c => HOMOGLYPH_MAP[c] || c).join('');
+  // Use regex replace instead of split/map/join to avoid allocating an array per character
+  t = t.replace(/[\u0430\u0435\u043e\u0440\u0441\u0443\u0445\u0456\u0458\u0455\u04bb\u0501\u051b\u0391\u0392\u0395\u0397\u0399\u039a\u039c\u039d\u039f\u03a1\u03a4\u03a5\u03a7\u0396]/g, c => HOMOGLYPH_MAP[c] || c);
 
   // 4. Emoji → semantic text
   for (const [emoji, semantic] of Object.entries(EMOJI_SEMANTIC_MAP)) {
@@ -726,17 +727,28 @@ function computeStageProbabilities(state) {
  * Each signal represents a grooming TACTIC detection, not a keyword hit.
  */
 function extractSignals(normalizedText) {
-  const signals = [];
+  if (!normalizedText || normalizedText.length < 10) return [];
 
-  for (const [tacticKey, tactic] of Object.entries(TACTIC_DETECTORS)) {
+  const signals = [];
+  // Check high-severity tactics first (threats, escalation, coercion)
+  // so we can short-circuit once we have enough signal confidence.
+  const HIGH_SEVERITY = ['threats', 'escalation', 'coercion', 'meeting_logistics'];
+
+  // Prioritized order: high-severity first, then remaining
+  const tacticEntries = Object.entries(TACTIC_DETECTORS);
+  tacticEntries.sort((a, b) => {
+    const aHigh = HIGH_SEVERITY.includes(a[0]) ? 0 : 1;
+    const bHigh = HIGH_SEVERITY.includes(b[0]) ? 0 : 1;
+    return aHigh - bHigh;
+  });
+
+  for (const [tacticKey, tactic] of tacticEntries) {
     for (const signalDef of tactic.signals) {
       let matched = false;
-      let matchedPattern = null;
 
       for (const regex of signalDef.regexes) {
         if (regex.test(normalizedText)) {
           matched = true;
-          matchedPattern = regex.source;
           break;
         }
       }
@@ -751,6 +763,8 @@ function extractSignals(normalizedText) {
           weight: signalDef.weight,
           pattern_type: 'semantic',
         });
+        // Early exit: if we already have high-confidence signals, skip remaining
+        if (signals.length >= 5) return signals;
       }
     }
   }
@@ -1113,6 +1127,18 @@ export function triageText(text) {
  * @returns {GroomingDetectionResult}
  */
 export function detectGrooming(text, chatMessages, conversationState) {
+  // ── Fast path: skip expensive analysis for short/empty text ───
+  if (!text || text.length < 15) {
+    return {
+      risk_score: 0, stage: null, tactic: null,
+      explanation: 'No grooming patterns detected.',
+      signals: [], signal_count: 0,
+      hard_negatives: [], suppressed: false, suppression_factor: 0,
+      conversation: null,
+      updated_conversation_state: conversationState || null,
+    };
+  }
+
   // ── Tier 1: Signal extraction from current text ───────────────
   const normalized = normalizeText(text);
   const signals = extractSignals(normalized);

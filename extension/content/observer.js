@@ -17,7 +17,7 @@
   const SNAPSHOT_INTERVAL = 5000;
   const SCROLL_DEBOUNCE = 2000;
   const MAX_TEXT_LENGTH = 8000;
-  const MUTATION_DEBOUNCE_MS = 800;
+  const MUTATION_DEBOUNCE_MS = 400;
   const MIN_SNAPSHOT_INTERVAL = 3000;
   const BLOCKED_PAUSE_MS = 5000;
 
@@ -193,18 +193,44 @@
     if (!root) root = document.body;
     if (!root) return '';
 
+    // Cache visibility per element to avoid repeated getComputedStyle calls.
+    // getComputedStyle forces layout recalculation — on large pages (1000+ text nodes)
+    // this is the single biggest latency hotspot (50-200ms).
+    const SKIP_TAGS = new Set(['script', 'style', 'noscript', 'svg', 'path', 'nav', 'footer', 'header']);
+    const visibilityCache = new WeakMap();
+
+    function isVisible(el) {
+      if (visibilityCache.has(el)) return visibilityCache.get(el);
+      // Walk up the tree — if any ancestor is hidden, all descendants are hidden
+      let node = el;
+      let visible = true;
+      const uncached = [];
+      while (node && node !== root) {
+        if (visibilityCache.has(node)) {
+          visible = visibilityCache.get(node);
+          break;
+        }
+        uncached.push(node);
+        if (SKIP_TAGS.has(node.tagName?.toLowerCase())) { visible = false; break; }
+        try {
+          const s = window.getComputedStyle(node);
+          if (s.display === 'none' || s.visibility === 'hidden') { visible = false; break; }
+        } catch { /* ignore */ }
+        node = node.parentElement;
+      }
+      // Cache the result for all nodes we traversed
+      for (const n of uncached) visibilityCache.set(n, visible);
+      return visible;
+    }
+
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
       acceptNode: (node) => {
         const parent = node.parentElement;
         if (!parent) return NodeFilter.FILTER_REJECT;
-        const tag = parent.tagName?.toLowerCase();
-        if (['script', 'style', 'noscript', 'svg', 'path', 'nav', 'footer', 'header'].includes(tag)) return NodeFilter.FILTER_REJECT;
-        try {
-          const style = window.getComputedStyle(parent);
-          if (style.display === 'none' || style.visibility === 'hidden') return NodeFilter.FILTER_REJECT;
-        } catch { /* ignore */ }
+        if (SKIP_TAGS.has(parent.tagName?.toLowerCase())) return NodeFilter.FILTER_REJECT;
         const text = node.textContent?.trim();
         if (!text || text.length < 2) return NodeFilter.FILTER_REJECT;
+        if (!isVisible(parent)) return NodeFilter.FILTER_REJECT;
         return NodeFilter.FILTER_ACCEPT;
       },
     });
@@ -415,30 +441,33 @@
     const chatRoot = findChatScrollContainer();
     if (!chatRoot) return messages;
 
-    // Walk through child divs looking for message-like elements
-    const candidates = chatRoot.querySelectorAll('div, span');
-    const seen = new Set();
+    // Use direct children first (faster), fall back to shallow query.
+    // Avoids querySelectorAll('div, span') which returns thousands of elements.
+    let candidates = chatRoot.children;
+    if (candidates.length < 3) {
+      // If container has few direct children, go one level deeper
+      candidates = chatRoot.querySelectorAll(':scope > * > *');
+    }
 
-    for (const el of candidates) {
-      if (messages.length >= maxMessages) break;
+    const seen = new Set();
+    const viewportCenter = window.innerWidth / 2; // compute once
+    const maxWidth = window.innerWidth * 0.7;     // compute once
+    const alignCache = new WeakMap();              // cache getComputedStyle results
+
+    for (let i = 0; i < candidates.length && messages.length < maxMessages; i++) {
+      const el = candidates[i];
 
       const text = el.innerText?.trim();
       if (!text || text.length < 2 || text.length > 2000) continue;
-
-      // Deduplicate: skip if this text is a parent of an already-seen message
       if (seen.has(text)) continue;
 
-      // Heuristic: message elements are usually leaf-ish (not too many child elements)
-      const childDivCount = el.querySelectorAll('div').length;
-      if (childDivCount > 10) continue;
+      // Heuristic: message elements are leaf-ish — check childElementCount (O(1))
+      // instead of querySelectorAll('div').length (O(n))
+      if (el.childElementCount > 10) continue;
 
-      // Check if this looks like a discrete message bubble
-      const rect = el.getBoundingClientRect();
-      if (rect.width < 50 || rect.height < 15) continue;
-
-      // Determine sender via alignment
-      const sender = detectSenderByAlignment(el);
-      if (sender === null) continue; // not clearly a message
+      // Determine sender via alignment (uses cached computed styles)
+      const sender = detectSenderByAlignment(el, viewportCenter, maxWidth, alignCache);
+      if (sender === null) continue;
 
       seen.add(text);
       messages.push({ sender, text: text.slice(0, 500) });
@@ -450,11 +479,16 @@
   /**
    * Detect sender by checking the horizontal alignment of the element.
    * Returns "CHILD" (right-aligned/sent), "CONTACT" (left-aligned/received), or null.
+   * Caches getComputedStyle results per element via alignCache.
    */
-  function detectSenderByAlignment(el) {
+  function detectSenderByAlignment(el, viewportCenter, maxWidth, alignCache) {
     try {
-      const style = window.getComputedStyle(el);
-      const parentStyle = el.parentElement ? window.getComputedStyle(el.parentElement) : null;
+      // Get or cache computed style for this element
+      let style = alignCache?.get(el);
+      if (!style) {
+        style = window.getComputedStyle(el);
+        if (alignCache) alignCache.set(el, style);
+      }
 
       // Check direct margin-based alignment
       const ml = style.marginLeft;
@@ -463,7 +497,13 @@
       if (mr === 'auto' && ml !== 'auto') return 'CONTACT';
 
       // Check flex alignment on parent
-      if (parentStyle) {
+      const parent = el.parentElement;
+      if (parent) {
+        let parentStyle = alignCache?.get(parent);
+        if (!parentStyle) {
+          parentStyle = window.getComputedStyle(parent);
+          if (alignCache) alignCache.set(parent, parentStyle);
+        }
         const justify = parentStyle.justifyContent;
         const direction = parentStyle.flexDirection;
         if (justify === 'flex-end' || direction === 'row-reverse') return 'CHILD';
@@ -474,11 +514,10 @@
       if (style.textAlign === 'right') return 'CHILD';
       if (style.textAlign === 'left') return 'CONTACT';
 
-      // Check position relative to viewport center
+      // Check position relative to viewport center (uses pre-computed values)
       const rect = el.getBoundingClientRect();
-      const viewportCenter = window.innerWidth / 2;
-      const elCenter = rect.left + rect.width / 2;
-      if (rect.width < window.innerWidth * 0.7) {
+      if (rect.width < maxWidth) {
+        const elCenter = rect.left + rect.width / 2;
         if (elCenter > viewportCenter + 50) return 'CHILD';
         if (elCenter < viewportCenter - 50) return 'CONTACT';
       }

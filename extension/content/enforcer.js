@@ -344,9 +344,10 @@
     // ── Generic fallback (conservative) ───────────────────────────
     // Find the most likely chat scroll container. Penalize full-width
     // elements since chat threads are typically in a narrow column.
-    const main = document.querySelector('main') || document.body;
+    // Limit search to shallow descendants to avoid scanning every div on the page.
+    const main = document.querySelector('main') || document.querySelector('[role="main"]') || document.body;
     if (!main) return null;
-    const scrollables = main.querySelectorAll('div');
+    const scrollables = main.querySelectorAll(':scope > div, :scope > div > div, :scope > div > div > div');
     let best = null;
     let bestScore = 0;
     for (const div of scrollables) {
@@ -373,25 +374,27 @@
     if (thread && thread.scrollHeight > 200) return thread;
 
     // Strategy 2: Layout-based detection
-    // Find the conversation column by scanning for tall, right-positioned panels
+    // Find the conversation column by scanning for tall, right-positioned panels.
+    // Limit to shallow descendants (3 levels deep) to avoid scanning thousands of divs.
     const main = document.querySelector('[role="main"]') || document.querySelector('main');
     if (!main) return null;
 
-    const allDivs = main.querySelectorAll('div, section');
+    const panels = main.querySelectorAll(':scope > div, :scope > div > div, :scope > section, :scope > div > section, :scope > div > div > div');
     let bestPanel = null;
     let bestScore = 0;
+    const vw = window.innerWidth;
 
-    for (const el of allDivs) {
+    for (const el of panels) {
       const rect = el.getBoundingClientRect();
       // Candidate must be: tall (>400px), reasonable width (250-75% viewport),
       // and positioned in the right portion of the screen (left > 25% viewport)
       if (rect.height > 400 && rect.width > 250 &&
-          rect.width < window.innerWidth * 0.75 &&
-          rect.left > window.innerWidth * 0.25) {
+          rect.width < vw * 0.75 &&
+          rect.left > vw * 0.25) {
         // Prefer scrollable panels (message threads scroll)
         const scrollBonus = el.scrollHeight > el.clientHeight + 50 ? 3 : 1;
         // Prefer panels further right (conversation is rightmost column)
-        const posBonus = rect.left / window.innerWidth;
+        const posBonus = rect.left / vw;
         const score = rect.height * scrollBonus * (1 + posBonus);
         if (score > bestScore) {
           bestScore = score;
