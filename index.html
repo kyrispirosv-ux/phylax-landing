@@ -1493,6 +1493,108 @@
   </div>
 
   <script>
+    // ── Phylax Extension Communication Layer ──────────────────────
+    // This bridges the web app to the Phylax SafeGuard Chrome extension.
+    // Communication uses window.postMessage -> bridge.js content script -> background.js
+
+    const PhylaxExtension = {
+      connected: false,
+      version: null,
+
+      // Send a message to the extension via postMessage (bridge.js picks it up)
+      send(message) {
+        window.postMessage(message, '*');
+        console.log('[Phylax Web] Sent to extension:', message.type);
+      },
+
+      // Sync all current rules to the extension
+      syncRules() {
+        const rules = JSON.parse(localStorage.getItem('phylaxRules') || '[]');
+        this.send({ type: 'PHYLAX_SYNC_RULES', rules: rules });
+      },
+
+      // Notify extension that a new rule was added
+      addRule(ruleText) {
+        this.send({ type: 'PHYLAX_ADD_RULE', rule: ruleText });
+      },
+
+      // Notify extension that a rule was toggled
+      toggleRule(index) {
+        this.send({ type: 'PHYLAX_TOGGLE_RULE', index: index });
+      },
+
+      // Notify extension that all rules were cleared
+      clearRules() {
+        this.send({ type: 'PHYLAX_CLEAR_RULES' });
+      },
+
+      // Check if extension is installed
+      ping() {
+        this.send({ type: 'PHYLAX_PING' });
+      },
+
+      // Update the UI status indicator
+      updateStatus(connected, version) {
+        this.connected = connected;
+        this.version = version;
+        const dot = document.getElementById('extensionStatusDot');
+        const text = document.getElementById('extensionStatusText');
+        if (dot && text) {
+          if (connected) {
+            dot.style.background = 'var(--accent3)';
+            dot.style.boxShadow = '0 0 8px rgba(52, 211, 153, 0.4)';
+            text.textContent = 'Extension Connected (v' + version + ')';
+            text.style.color = 'var(--accent3)';
+          } else {
+            dot.style.background = 'var(--bad)';
+            dot.style.boxShadow = '0 0 8px rgba(251, 113, 133, 0.4)';
+            text.textContent = 'Extension Not Detected';
+            text.style.color = 'var(--bad)';
+          }
+        }
+      }
+    };
+
+    // Listen for extension responses
+    window.addEventListener('message', (event) => {
+      if (event.source !== window) return;
+      if (!event.data || !event.data.type) return;
+
+      // Extension ready signal from bridge.js
+      if (event.data.type === 'PHYLAX_EXTENSION_READY') {
+        console.log('[Phylax Web] Extension detected! Version:', event.data.version);
+        PhylaxExtension.updateStatus(true, event.data.version);
+        // Sync all rules (categories + custom) to extension
+        syncAllRules();
+      }
+
+      // Response to our ping
+      if (event.data.type === 'PHYLAX_PING_RESPONSE' && event.data.success) {
+        PhylaxExtension.updateStatus(true, event.data.version);
+      }
+
+      // Log sync responses
+      if (event.data.type === 'PHYLAX_SYNC_RULES_RESPONSE') {
+        console.log('[Phylax Web] Rules synced to extension:', event.data);
+      }
+    });
+
+    // Check for extension on page load
+    setTimeout(() => {
+      if (!PhylaxExtension.connected) {
+        // Also check via DOM attribute (set by bridge.js)
+        if (document.documentElement.hasAttribute('data-phylax-extension')) {
+          PhylaxExtension.updateStatus(true, '?');
+          syncAllRules();
+        } else {
+          PhylaxExtension.updateStatus(false);
+          console.log('[Phylax Web] Extension not detected. Install the Phylax SafeGuard extension from the /extension folder.');
+        }
+      }
+    }, 1500);
+
+    // ── Original App Code ─────────────────────────────────────────
+
     function openModal() {
       document.getElementById('accessModal').classList.add('open');
     }
@@ -1510,7 +1612,9 @@
     // Demo functions
     function openDemo() {
       document.getElementById('demoOverlay').classList.add('active');
-      switchTab('dashboard'); // Set initial tab to dashboard
+      switchTab('dashboard');
+      loadRules();
+      initCategoryToggles(); // Sync category + custom rules to extension
     }
     function closeDemo() {
       document.getElementById('demoOverlay').classList.remove('active');
@@ -1562,6 +1666,9 @@
       rules.push({ text: ruleText, active: true });
       localStorage.setItem('phylaxRules', JSON.stringify(rules));
       loadRules();
+
+      // Sync all rules (categories + custom) to the extension
+      syncAllRules();
     }
 
     function toggleCustomRule(index) {
@@ -1569,7 +1676,8 @@
       if (rules[index]) {
         rules[index].active = !rules[index].active;
         localStorage.setItem('phylaxRules', JSON.stringify(rules));
-        loadRules(); // Re-render
+        loadRules();
+        syncAllRules();
       }
     }
 
@@ -1577,6 +1685,7 @@
       if (confirm('Clear all custom rules?')) {
         localStorage.removeItem('phylaxRules');
         loadRules();
+        syncAllRules(); // Still keeps category rules active
       }
     }
 
@@ -1599,9 +1708,55 @@
       }
     }
 
-    // Interactive Toggles
+    // ── Content Category Toggles (create real rules) ──
+    const CATEGORY_RULES = {
+      'adult':    'Block adult content and pornography',
+      'gambling': 'Block gambling sites and gambling content',
+      'weapons':  'Block weapons and graphic violence',
+    };
+
+    function initCategoryToggles() {
+      const saved = JSON.parse(localStorage.getItem('phylaxCategories') || '{"adult":true,"gambling":true,"weapons":false}');
+      document.querySelectorAll('[data-category]').forEach(el => {
+        const cat = el.getAttribute('data-category');
+        if (saved[cat]) {
+          el.classList.add('active');
+        } else {
+          el.classList.remove('active');
+        }
+      });
+      syncAllRules();
+    }
+
     function toggleSwitch(el) {
       el.classList.toggle('active');
+      const cat = el.getAttribute('data-category');
+      if (cat) {
+        const saved = JSON.parse(localStorage.getItem('phylaxCategories') || '{}');
+        saved[cat] = el.classList.contains('active');
+        localStorage.setItem('phylaxCategories', JSON.stringify(saved));
+        syncAllRules();
+      }
+    }
+
+    // Merge category rules + custom rules into a single rules array and sync to extension
+    function syncAllRules() {
+      const categories = JSON.parse(localStorage.getItem('phylaxCategories') || '{"adult":true,"gambling":true,"weapons":false}');
+      const customRules = JSON.parse(localStorage.getItem('phylaxRules') || '[]');
+
+      const allRules = [];
+      // Add category rules for active toggles
+      for (const [cat, ruleText] of Object.entries(CATEGORY_RULES)) {
+        if (categories[cat]) {
+          allRules.push({ text: ruleText, active: true, _source: 'category' });
+        }
+      }
+      // Add custom rules from chat
+      for (const r of customRules) {
+        allRules.push({ ...r, _source: 'custom' });
+      }
+
+      PhylaxExtension.send({ type: 'PHYLAX_SYNC_RULES', rules: allRules });
     }
 
     // --- Real Gemini Integration ---
@@ -1833,6 +1988,10 @@ User: ${userText}`
           <div style="font-size: 13px; color: var(--muted2); display: flex; align-items: center; gap: 6px;">
             <div style="width: 6px; height: 6px; background: var(--accent3); border-radius: 50%;"></div>
             Cloud Sync: OK
+          </div>
+          <div style="font-size: 13px; display: flex; align-items: center; gap: 6px; margin-top: 2px;">
+            <div id="extensionStatusDot" style="width: 6px; height: 6px; background: var(--bad); border-radius: 50%; box-shadow: 0 0 8px rgba(251, 113, 133, 0.4);"></div>
+            <span id="extensionStatusText" style="color: var(--bad);">Extension Not Detected</span>
           </div>
         </div>
       </div>
@@ -2077,7 +2236,7 @@ User: ${userText}`
                   <div style="font-weight: 500;">Adult & Pornography</div>
                   <div style="font-size: 12px; color: var(--muted2);">Explicit vision & text detection</div>
                 </div>
-                <div class="demo-toggle active" onclick="toggleSwitch(this)">
+                <div class="demo-toggle active" data-category="adult" onclick="toggleSwitch(this)">
                   <div class="demo-toggle-thumb"></div>
                 </div>
               </div>
@@ -2088,7 +2247,7 @@ User: ${userText}`
                   <div style="font-weight: 500;">Gambling / High Risk</div>
                   <div style="font-size: 12px; color: var(--muted2);">Poker, betting, crypto scams</div>
                 </div>
-                <div class="demo-toggle active" onclick="toggleSwitch(this)">
+                <div class="demo-toggle active" data-category="gambling" onclick="toggleSwitch(this)">
                   <div class="demo-toggle-thumb"></div>
                 </div>
               </div>
@@ -2098,7 +2257,7 @@ User: ${userText}`
                   <div style="font-weight: 500;">Weapons / Violence</div>
                   <div style="font-size: 12px; color: var(--muted2);">Graphic imagery & shopping</div>
                 </div>
-                <div class="demo-toggle" onclick="toggleSwitch(this)">
+                <div class="demo-toggle" data-category="weapons" onclick="toggleSwitch(this)">
                   <div class="demo-toggle-thumb"></div>
                 </div>
               </div>
