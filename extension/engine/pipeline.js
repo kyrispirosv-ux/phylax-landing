@@ -7,6 +7,7 @@ import { localScoreAllTopics } from './lexicons.js';
 import { cacheGet, cacheSet } from './decision-cache.js';
 import { behaviorScores, evalBehaviorRules } from './behavior.js';
 import { detectGrooming, groomingResultToTopicScore, buildGroomingEvidence } from './grooming-detector.js';
+import { classifyIntent, isProtectiveIntent, intentThresholdModifier } from './intent-classifier.js';
 
 // ── Helpers ───────────────────────────────────────────────────────
 
@@ -76,12 +77,43 @@ function canonicalText(content) {
     `DESC: ${content.description || content.og?.desc || ''}`,
   ];
 
+  // OG title can differ from page title and carry topic signals
+  if (content.og?.title && content.og.title !== content.title) {
+    parts.push(`OG_TITLE: ${content.og.title}`);
+  }
+
   if (content.headings && content.headings.length > 0) {
     parts.push(`HEADINGS: ${content.headings.join(' | ')}`);
   }
+
+  // Keywords from <meta name="keywords"> — often topic-relevant
+  if (content.keywords && content.keywords.length > 0) {
+    parts.push(`KEYWORDS: ${content.keywords.join(',')}`);
+  }
+
+  // URL path often contains topic signals (e.g., /best-online-casinos/)
+  if (content.url) {
+    try {
+      const urlPath = new URL(content.url).pathname.replace(/[-_/]/g, ' ').trim();
+      if (urlPath.length > 2) {
+        parts.push(`URL_PATH: ${urlPath}`);
+      }
+    } catch { /* ignore invalid URLs */ }
+  }
+
   if (content.main_text) {
     parts.push(`MAIN: ${content.main_text}`);
   }
+
+  // CRITICAL: Fall back to visible_text_sample when main_text is empty.
+  // extractMainText() uses getComputedStyle() which can fail on JS-heavy/SPA pages
+  // that haven't finished rendering. visible_text_sample uses innerText which is
+  // simpler and more reliable. Without this fallback, JS-heavy article pages
+  // score 0 on all topics and silently pass through.
+  if (!content.main_text && content.visible_text_sample) {
+    parts.push(`MAIN: ${content.visible_text_sample}`);
+  }
+
   if (content.platform?.transcript) {
     parts.push(`TRANSCRIPT: ${content.platform.transcript}`);
   }
@@ -93,6 +125,46 @@ function canonicalText(content) {
   }
 
   return parts.join('\n').slice(0, 12000);
+}
+
+// ═════════════════════════════════════════════════════════════════
+// STEP 3b — URL-based topic boosting
+// ═════════════════════════════════════════════════════════════════
+// URL paths like /best-online-casinos/ carry strong topic signals.
+// This runs AFTER lexicon scoring and boosts scores for topics that
+// appear in the URL. Without this, pages with short body text but
+// topical URLs can slip through (common on affiliate/landing pages).
+
+const URL_TOPIC_KEYWORDS = {
+  gambling: ['casino', 'casinos', 'gambling', 'poker', 'betting', 'bet', 'slots', 'sportsbook', 'baccarat', 'roulette', 'blackjack', 'wager'],
+  pornography: ['porn', 'xxx', 'nsfw', 'adult', 'nude', 'sex', 'hentai', 'erotic'],
+  drugs: ['drugs', 'cocaine', 'heroin', 'meth', 'fentanyl', 'weed', 'marijuana', 'cannabis'],
+  weapons: ['weapons', 'guns', 'firearms', 'ammo', 'ammunition', 'rifles', 'explosives'],
+  self_harm: ['suicide', 'self-harm', 'selfharm'],
+  violence: ['gore', 'execution', 'beheading', 'murder', 'torture'],
+  hate: ['white-power', 'white-supremacy', 'nazi', 'hate'],
+  scams: ['scam', 'fraud', 'phishing'],
+  extremism: ['jihad', 'isis', 'caliphate', 'extremism'],
+  eating_disorder: ['pro-ana', 'pro-mia', 'thinspo', 'thinspiration'],
+};
+
+function urlTopicBoost(url, localScores) {
+  try {
+    const path = new URL(url).pathname.toLowerCase().replace(/[-_]/g, ' ');
+    const host = new URL(url).hostname.toLowerCase();
+
+    for (const [topic, keywords] of Object.entries(URL_TOPIC_KEYWORDS)) {
+      for (const kw of keywords) {
+        if (kw.length >= 4 && (path.includes(kw) || host.includes(kw))) {
+          const current = localScores[topic] || 0;
+          // URL signal provides a floor of 0.40 — meaningful but not enough alone.
+          // Combined with even a single lexicon match, pushes score above most thresholds.
+          localScores[topic] = Math.max(current, 0.40, current + 0.15);
+          break; // One URL match per topic is enough
+        }
+      }
+    }
+  } catch { /* ignore invalid URLs */ }
 }
 
 // ═════════════════════════════════════════════════════════════════
@@ -171,6 +243,12 @@ function evalTopicPolicy(content, scores, intent, policy) {
   const blockRules = (policy.topic_rules || []).filter(r => r.action === 'block');
   const sorted = sortBlockRules(blockRules, scores);
 
+  // Intent-based threshold modifier:
+  // Promotional/how_to content → lower threshold (easier to block)
+  // News/education → higher threshold (harder to block, not impossible)
+  // Recovery support → generally allow (harm reduction is good)
+  const thresholdMod = intent ? intentThresholdModifier(intent) : 1.0;
+
   for (const rule of sorted) {
     // Scope check
     if (rule.scope?.domains && !rule.scope.domains.some(d =>
@@ -178,9 +256,29 @@ function evalTopicPolicy(content, scores, intent, policy) {
     if (rule.scope?.content_types && !rule.scope.content_types.includes(contentType)) continue;
 
     const s = scores[rule.topic] || 0;
-    if (s < rule.threshold) continue;
 
-    // Exception check (intent-based allow)
+    // Apply intent-based threshold modulation.
+    // e.g., gambling threshold 0.75 × 0.80 (promotional) = 0.60 effective
+    // e.g., gambling threshold 0.75 × 1.25 (news) = 0.9375 effective
+    const effectiveThreshold = clamp01(rule.threshold * thresholdMod);
+    if (s < effectiveThreshold) continue;
+
+    // Recovery/support content override: if the page is about harm reduction
+    // or recovery support for the matched topic, allow it through.
+    // e.g., "how to quit gambling" should not be blocked for gambling topic.
+    if (intent && isProtectiveIntent(intent)) {
+      return {
+        decision: 'ALLOW',
+        reason_code: `RECOVERY_ALLOW_${rule.topic}`,
+        confidence: clamp01((s + intent.confidence) / 2),
+        evidence: [
+          `Matched ${rule.topic} but recovery/support intent detected (${intent.label}, ${intent.confidence.toFixed(2)}).`,
+        ],
+        enforcement: { layer: 'RENDER', technique: 'overlay' },
+      };
+    }
+
+    // Exception check (intent-based allow from rule config)
     if (rule.exceptions?.length && intent) {
       for (const ex of rule.exceptions) {
         const need = ex.threshold || 0.70;
@@ -320,6 +418,12 @@ export function evaluate(content, policy, sessionState) {
   const text = canonicalText(content).toLowerCase();
   const localScores = localScoreAllTopics(text);
 
+  // Step 4a: URL-based topic boosting
+  // URL paths like /best-online-casinos/ carry strong topic signals.
+  // Boosts scores for topics found in the URL — critical for landing
+  // pages, affiliate sites, and SPA pages with minimal body text.
+  urlTopicBoost(content.url, localScores);
+
   // Step 4b: Intelligent Grooming Detection
   // Replaces static keyword matching with multi-signal, conversation-aware,
   // obfuscation-resistant grooming pattern detection.
@@ -348,12 +452,20 @@ export function evaluate(content, policy, sessionState) {
   // Step 6: Merge scores
   const scores = mergeScores(localScores, remoteScores);
 
-  // Step 7: Intent disambiguation (stub — no LLM yet)
-  // Called only when scores are in ambiguous band
+  // Step 7: Intent classification (heuristic — no LLM needed)
+  // Classifies page intent using title, headings, URL, and text signals.
+  // Used to modulate blocking thresholds:
+  //   promotional/how_to → easier to block (lower threshold)
+  //   news/education → harder to block (higher threshold)
+  //   recovery_support → generally allow (harm reduction)
   let intent = null;
-  // if (needsIntent(scores, policy)) {
-  //   intent = await intentClassify(text, topTopics(scores));
-  // }
+  const hasTopicScores = Object.values(scores).some(s => s > 0.1);
+  if (hasTopicScores) {
+    // Only classify intent when we actually have topic matches.
+    // No point running intent on pages with zero topic signal.
+    intent = classifyIntent(content);
+    if (intent.label === 'unknown') intent = null;
+  }
 
   // Step 8: Topic policy evaluation → BLOCK or null
   const topicDecision = evalTopicPolicy(content, scores, intent, policy);
@@ -385,6 +497,8 @@ export function evaluate(content, policy, sessionState) {
   // Step 12: Attach debug + cache
   final.debug = {
     topic_scores: scores,
+    content_type: content.content_type || 'unknown',
+    text_length: (content.main_text || '').length + (content.visible_text_sample || '').length,
     intent: intent ? { label: intent.label, confidence: intent.confidence } : undefined,
     behavior: { pattern_scores: bScores },
     grooming: groomingResult ? {

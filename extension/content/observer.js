@@ -246,9 +246,26 @@
   }
 
   function extractVisibleTextSample() {
-    const main = document.querySelector('main') || document.querySelector('article') || document.body;
-    if (!main) return '';
-    return (main.innerText || '').slice(0, 2000);
+    // Try semantic elements first, then broader containers.
+    // innerText is simpler than TreeWalker and works reliably on JS-rendered pages.
+    const candidates = [
+      document.querySelector('main'),
+      document.querySelector('article'),
+      document.querySelector('[role="main"]'),
+      document.querySelector('.content'),
+      document.querySelector('#content'),
+      document.querySelector('#main-content'),
+      document.querySelector('.post-content'),
+      document.querySelector('.article-body'),
+      document.querySelector('.entry-content'),
+      document.body,
+    ];
+    for (const el of candidates) {
+      if (!el) continue;
+      const text = (el.innerText || '').trim();
+      if (text.length > 100) return text.slice(0, 3000);
+    }
+    return '';
   }
 
   // ═════════════════════════════════════════════════════════════════
@@ -739,6 +756,43 @@
 
     const content = extractContentObject();
     sendContentEvent(content, 'full');
+
+    // Phase 2b: Deferred re-extraction for JS-heavy/SPA pages.
+    // Many modern article sites (React, Vue, Next.js) render content AFTER
+    // DOMContentLoaded. The initial extraction may get empty or minimal text.
+    // Schedule a follow-up extraction after JavaScript has had time to render.
+    // Only fires if the initial extraction got insufficient text.
+    const mainLen = (content.main_text || '').length;
+    const visLen = (content.visible_text_sample || '').length;
+    const totalText = mainLen + visLen;
+
+    if (totalText < 200 && !isPlatformPage()) {
+      // Insufficient text on a non-platform page — likely JS-rendered.
+      // Re-extract after a delay to catch client-side rendered content.
+      setTimeout(() => {
+        if (shouldPauseEvents()) return;
+        const deferred = extractContentObject();
+        const deferredLen = (deferred.main_text || '').length + (deferred.visible_text_sample || '').length;
+        // Only send if we got substantially more text
+        if (deferredLen > totalText + 100) {
+          sendContentEvent(deferred, 'deferred');
+        }
+      }, 1500);
+    }
+  }
+
+  /**
+   * Check if the current page is a known platform (YouTube, Instagram, etc.).
+   * Platform pages have their own extraction timing (e.g., YouTube SPA watcher).
+   * Deferred re-extraction is only needed for generic web pages.
+   */
+  function isPlatformPage() {
+    const d = host;
+    return d.includes('youtube.com') || d.includes('youtu.be') ||
+           d.includes('tiktok.com') || d.includes('instagram.com') ||
+           d.includes('twitter.com') || d.includes('x.com') ||
+           d.includes('reddit.com') || d.includes('discord.com') ||
+           d.includes('facebook.com') || d.includes('twitch.tv');
   }
 
   /**
