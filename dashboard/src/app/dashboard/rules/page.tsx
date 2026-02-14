@@ -7,6 +7,8 @@ import { getParentInfo, getMutationClient } from "@/lib/supabase/helpers";
 type Rule = {
   id: string;
   text: string;
+  scope: "site" | "content";
+  target: string | null;
   active: boolean;
   created_at: string;
 };
@@ -16,6 +18,8 @@ export default function RulesPage() {
   const [rules, setRules] = useState<Rule[]>([]);
   const [loading, setLoading] = useState(true);
   const [newRule, setNewRule] = useState("");
+  const [newScope, setNewScope] = useState<"site" | "content">("content");
+  const [newTarget, setNewTarget] = useState("");
   const [familyId, setFamilyId] = useState<string>("");
   const [parentId, setParentId] = useState<string>("");
 
@@ -45,10 +49,13 @@ export default function RulesPage() {
     await getMutationClient(supabase).from("rules").insert({
       family_id: familyId,
       text: newRule.trim(),
+      scope: newScope,
+      target: newTarget.trim() || null,
       created_by: parentId,
     });
 
     setNewRule("");
+    setNewTarget("");
     loadRules();
   }
 
@@ -78,19 +85,36 @@ export default function RulesPage() {
       <div className="mb-8">
         <h1 className="text-2xl font-bold">Safety Rules</h1>
         <p className="text-white/40 text-sm mt-1">
-          Write rules in plain English. Phylax&apos;s AI engine compiles them into protection policies.
+          Write rules in plain English. Choose scope: <strong className="text-white/60">Site</strong> blocks entire domains, <strong className="text-white/60">Content</strong> blocks specific topics within allowed sites.
         </p>
       </div>
 
       {/* Add rule */}
       <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-5 mb-6">
+        <div className="flex gap-3 mb-3">
+          <select
+            value={newScope}
+            onChange={(e) => setNewScope(e.target.value as "site" | "content")}
+            className="bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-[#7C5CFF]/50"
+          >
+            <option value="content">Content (topic filter)</option>
+            <option value="site">Site (block domain)</option>
+          </select>
+          <input
+            type="text"
+            value={newTarget}
+            onChange={(e) => setNewTarget(e.target.value)}
+            placeholder={newScope === "site" ? "e.g. pornhub.com" : "e.g. gambling (optional)"}
+            className="w-48 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white text-sm placeholder-white/20 focus:outline-none focus:border-[#7C5CFF]/50"
+          />
+        </div>
         <div className="flex gap-3">
           <input
             type="text"
             value={newRule}
             onChange={(e) => setNewRule(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder='e.g. "Block gambling sites" or "Limit YouTube to 1 hour"'
+            placeholder={newScope === "site" ? 'e.g. "Block gambling sites"' : 'e.g. "Block violent content on YouTube"'}
             className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white text-sm placeholder-white/20 focus:outline-none focus:border-[#7C5CFF]/50"
           />
           <button
@@ -120,9 +144,21 @@ export default function RulesPage() {
                 </svg>
               )}
             </button>
-            <p className={`flex-1 text-sm ${rule.active ? "text-white/80" : "text-white/30 line-through"}`}>
-              {rule.text}
-            </p>
+            <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium shrink-0 ${
+              rule.scope === "site" ? "bg-red-500/20 text-red-400" : "bg-blue-500/20 text-blue-400"
+            }`}>
+              {rule.scope}
+            </span>
+            <div className="flex-1 min-w-0">
+              <p className={`text-sm ${rule.active ? "text-white/80" : "text-white/30 line-through"}`}>
+                {rule.text}
+              </p>
+              {rule.target && (
+                <p className="text-xs text-white/30 mt-0.5">
+                  Target: {rule.target}
+                </p>
+              )}
+            </div>
             <button
               onClick={() => deleteRule(rule.id)}
               className="text-white/0 group-hover:text-white/20 hover:!text-red-400 text-xs transition"
