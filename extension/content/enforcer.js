@@ -44,6 +44,7 @@
   const dismissedPaths = {};
   let lastEnforceTime = 0;
   let limitOverlay = null; // LIMIT-specific overlay (scroll gate, time gate)
+  let overlayGuardObserver = null; // MutationObserver re-attach guard
 
   const DISMISS_COOLDOWN_MS = 30000;
   const ENFORCE_DEDUP_MS = 500;
@@ -65,11 +66,22 @@
     const path = window.location.pathname + window.location.search.split('&t=')[0];
     const now = Date.now();
 
-    if (now - lastEnforceTime < ENFORCE_DEDUP_MS) return;
-    if (currentOverlay && blockedUrl === path) return;
+    if (now - lastEnforceTime < ENFORCE_DEDUP_MS) {
+      console.log('[Phylax Enforcer] Deduped (too fast)', action, path);
+      return;
+    }
+    if (currentOverlay && blockedUrl === path) {
+      console.log('[Phylax Enforcer] Already blocked', path);
+      return;
+    }
 
     const dismissedAt = dismissedPaths[path];
-    if (dismissedAt && now - dismissedAt < DISMISS_COOLDOWN_MS) return;
+    if (dismissedAt && now - dismissedAt < DISMISS_COOLDOWN_MS) {
+      console.log('[Phylax Enforcer] Path dismissed recently', path, 'cooldown remaining:', Math.round((DISMISS_COOLDOWN_MS - (now - dismissedAt)) / 1000) + 's');
+      return;
+    }
+
+    console.log(`[Phylax Enforcer] Enforcing ${action} on ${path} (${decision.reason_code}, technique=${decision.enforcement?.technique})`);
 
     if (action === 'BLOCK') {
       lastEnforceTime = now;
@@ -704,7 +716,7 @@
     const onNav = () => {
       const currentPath = window.location.pathname + window.location.search.split('&t=')[0];
       if (currentOverlay && currentPath !== blockedUrl) {
-        dismissOverlay();
+        dismissOverlay(true);
       }
     };
 
@@ -744,15 +756,49 @@
         (document.body || document.documentElement).appendChild(overlay);
       }, { once: true });
     }
+    // Start guard: re-attach if page framework removes our overlay
+    startOverlayGuard(overlay);
   }
 
-  function dismissOverlay() {
+  // ── Overlay persistence guard ────────────────────────────────────
+  // Page frameworks (YouTube Polymer, React, Vue) can remove elements
+  // they don't own during re-renders. This watches for our overlay
+  // being removed and re-attaches it.
+  function startOverlayGuard(overlay) {
+    stopOverlayGuard();
+    overlayGuardObserver = new MutationObserver((mutations) => {
+      for (const m of mutations) {
+        for (const removed of m.removedNodes) {
+          if (removed === overlay || removed.id === 'phylax-overlay') {
+            // Re-attach only if we still consider this path blocked
+            if (currentOverlay === overlay && blockedUrl) {
+              const target = document.body || document.documentElement;
+              if (target) target.appendChild(overlay);
+            }
+            return;
+          }
+        }
+      }
+    });
+    const target = document.body || document.documentElement;
+    if (target) {
+      overlayGuardObserver.observe(target, { childList: true });
+    }
+  }
+
+  function stopOverlayGuard() {
+    if (overlayGuardObserver) {
+      overlayGuardObserver.disconnect();
+      overlayGuardObserver = null;
+    }
+  }
+
+  function dismissOverlay(isNavigation) {
+    // Only add the BLOCKED path to dismissed — never the new destination.
+    // Bug fix: previously, navigating from blocked-A to harmful-B would
+    // add B to dismissedPaths, preventing its overlay from ever showing.
     if (blockedUrl) {
       dismissedPaths[blockedUrl] = Date.now();
-    }
-    const currentPath = window.location.pathname + window.location.search.split('&t=')[0];
-    if (currentPath !== blockedUrl) {
-      dismissedPaths[currentPath] = Date.now();
     }
 
     if (mediaKillInterval) {
@@ -760,6 +806,7 @@
       mediaKillInterval = null;
     }
     teardownNavWatchers();
+    stopOverlayGuard();
     blockedUrl = null;
 
     if (currentOverlay) {

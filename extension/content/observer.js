@@ -712,14 +712,28 @@
   // ═════════════════════════════════════════════════════════════════
 
   async function sendEvent(eventType, payload = {}) {
-    if (!isContextValid()) return;
+    if (!isContextValid()) {
+      console.warn('[Phylax] sendEvent skipped — extension context invalid');
+      return;
+    }
     try {
       const response = await chrome.runtime.sendMessage({
         type: 'PHYLAX_PROCESS_EVENT',
         event: { event_type: eventType, url: window.location.href, domain: window.location.hostname, payload },
       });
-      if (response?.decision) handleDecision(response.decision);
-    } catch { /* Extension might not be ready */ }
+      if (response?.decision) {
+        const d = response.decision;
+        const action = d.decision || d.action;
+        if (action !== 'ALLOW') {
+          console.log(`[Phylax] ${eventType}: ${action} (${d.reason_code}) — forwarding to enforcer`);
+        }
+        handleDecision(d);
+      } else {
+        console.warn('[Phylax] sendEvent got empty response for', eventType, '— service worker may not be ready');
+      }
+    } catch (err) {
+      console.warn('[Phylax] sendEvent failed:', err.message || err);
+    }
   }
 
   function handleDecision(decision) {
