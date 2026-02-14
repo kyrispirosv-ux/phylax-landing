@@ -252,13 +252,20 @@ function aggregate(topicDecision, behaviorDecision) {
 // ═════════════════════════════════════════════════════════════════
 
 function selectEnforcement(decision, content, wasDomainGate) {
+  // Core invariant: Platform ≠ Content.
+  // Blocking content must NOT block the platform.
+  // Always select the minimum-necessary restriction for the detected scope.
   if (decision.decision === 'BLOCK') {
     if (wasDomainGate) {
       decision.enforcement = { layer: 'NETWORK', technique: 'cancel_request' };
     } else if (content.content_type === 'chat') {
-      // Chat/DM context: block the conversation area only, not the entire platform.
-      // Enforcer will cover just the chat pane and alert the parent.
+      // Chat/DM context: block the conversation pane only, not the entire platform.
+      // Enforcer will cover just the chat thread and alert the parent.
       decision.enforcement = { layer: 'RENDER', technique: 'chat_block' };
+    } else if (content.content_type === 'video') {
+      // Video page: block just the player area, not the entire page.
+      // User can still navigate away via sidebar, search bar, etc.
+      decision.enforcement = { layer: 'RENDER', technique: 'player_block' };
     } else if (content.content_type === 'feed') {
       decision.enforcement = { layer: 'RENDER', technique: 'blur' };
     } else {

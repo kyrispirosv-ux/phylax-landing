@@ -50,12 +50,14 @@
       const isDomainBlock = decision.hard_trigger === 'parent_rule' ||
         decision.reason_code === 'DOMAIN_BLOCK' ||
         decision.enforcement?.technique === 'cancel_request';
-      const isChatBlock = decision.enforcement?.technique === 'chat_block';
+      const technique = decision.enforcement?.technique;
 
       if (isDomainBlock) {
         showFullBlock();
-      } else if (isChatBlock) {
+      } else if (technique === 'chat_block') {
         showChatBlock(decision);
+      } else if (technique === 'player_block') {
+        showPlayerBlock(decision);
       } else {
         if (!isContentPage()) return;
         showOverlayBlock(decision);
@@ -219,10 +221,25 @@
         border-radius: 12px;
       `;
     } else {
-      // Fallback: full-page overlay if we can't find the chat area
+      // Fallback: cover only the estimated conversation pane, NOT the full page.
+      // DM/chat UIs use multi-column layouts — the conversation thread is
+      // typically on the right side. Cover just that area so the user
+      // can still see the conversation list and navigate away.
+      const domain = window.location.hostname;
+      let leftPct = '30%';
+      let widthPct = '70%';
+      if (domain.includes('instagram.com')) {
+        // Instagram DMs: conversation list ~33% left, thread ~67% right
+        leftPct = '33%'; widthPct = '67%';
+      } else if (domain.includes('twitter.com') || domain.includes('x.com')) {
+        leftPct = '35%'; widthPct = '65%';
+      } else if (domain.includes('messenger.com')) {
+        leftPct = '30%'; widthPct = '70%';
+      }
       overlay.style.cssText = `
-        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-        background: rgba(5, 5, 10, 0.95); backdrop-filter: blur(12px);
+        position: fixed; top: 0; left: ${leftPct};
+        width: ${widthPct}; height: 100%;
+        background: rgba(5, 5, 10, 0.96); backdrop-filter: blur(16px);
         z-index: 2147483647; display: flex; align-items: center;
         justify-content: center; font-family: -apple-system, BlinkMacSystemFont,
         "Segoe UI", Roboto, sans-serif; animation: phylaxFadeIn 0.3s ease;
@@ -279,39 +296,236 @@
   /**
    * Find the chat/conversation area element on the page.
    * Used to position the block overlay precisely over the DM area.
+   *
+   * Platform-specific detection: each platform has its own DOM structure.
+   * Returns null if no chat area found — the caller must handle fallback.
+   * NEVER returns a full-page element like [role="main"] to avoid
+   * violating the "Platform ≠ Content" invariant.
    */
   function findChatArea() {
-    // Instagram DMs: the main chat thread container
-    const igThread = document.querySelector('[role="listbox"]') ||
-                     document.querySelector('main section > div > div > div:last-child');
-    if (igThread && igThread.scrollHeight > 200) return igThread;
+    const domain = window.location.hostname;
+    const path = window.location.pathname;
 
-    // WhatsApp: the message pane
-    const waPane = document.querySelector('#main .copyable-area') ||
-                   document.querySelector('#main');
-    if (waPane) return waPane;
+    // ── Instagram DMs ─────────────────────────────────────────────
+    if (domain.includes('instagram.com') && path.includes('/direct')) {
+      return findInstagramChatPane();
+    }
 
-    // Discord: the chat area
-    const dcChat = document.querySelector('[class*="chatContent-"]') ||
-                   document.querySelector('[class*="chat-"]');
-    if (dcChat) return dcChat;
+    // ── WhatsApp Web ──────────────────────────────────────────────
+    if (domain.includes('whatsapp.com')) {
+      const waPane = document.querySelector('#main .copyable-area') ||
+                     document.querySelector('#main');
+      if (waPane) return waPane;
+    }
 
-    // Messenger
-    const msgArea = document.querySelector('[role="main"]');
-    if (msgArea) return msgArea;
+    // ── Discord ───────────────────────────────────────────────────
+    if (domain.includes('discord.com')) {
+      const dcChat = document.querySelector('[class*="chatContent-"]') ||
+                     document.querySelector('[class*="chat-"]');
+      if (dcChat) return dcChat;
+    }
 
-    // Generic: find scrollable message area
+    // ── Messenger ─────────────────────────────────────────────────
+    if (domain.includes('messenger.com')) {
+      // Target the message thread, not the entire [role="main"] wrapper
+      const msgThread = document.querySelector('[data-scope="messages_table"]') ||
+                        document.querySelector('[role="main"] [role="grid"]');
+      if (msgThread) return msgThread;
+    }
+
+    // ── Twitter/X DMs ─────────────────────────────────────────────
+    if (domain.includes('twitter.com') || domain.includes('x.com')) {
+      const dmArea = document.querySelector('[data-testid="DmActivityViewport"]') ||
+                     document.querySelector('[data-testid="DMConversation"]') ||
+                     document.querySelector('[data-testid="DmScrollerContainer"]');
+      if (dmArea) return dmArea;
+    }
+
+    // ── Generic fallback (conservative) ───────────────────────────
+    // Find the most likely chat scroll container. Penalize full-width
+    // elements since chat threads are typically in a narrow column.
     const main = document.querySelector('main') || document.body;
+    if (!main) return null;
     const scrollables = main.querySelectorAll('div');
     let best = null;
     let bestScore = 0;
     for (const div of scrollables) {
       if (div.scrollHeight > div.clientHeight + 100 && div.childElementCount > 5) {
-        const score = div.scrollHeight * div.childElementCount;
+        const rect = div.getBoundingClientRect();
+        // Full-width containers are page wrappers, not chat panes
+        const widthPenalty = rect.width > window.innerWidth * 0.9 ? 0.2 : 1;
+        const score = div.scrollHeight * div.childElementCount * widthPenalty;
         if (score > bestScore) { bestScore = score; best = div; }
       }
     }
     return best;
+  }
+
+  /**
+   * Instagram-specific: find the conversation thread panel.
+   * Instagram DMs have a multi-column layout: sidebar | conversation-list | thread.
+   * We want the rightmost sizable panel that contains the actual messages.
+   */
+  function findInstagramChatPane() {
+    // Strategy 1: Known semantic selectors
+    const thread = document.querySelector('[role="listbox"]') ||
+                   document.querySelector('[role="grid"]');
+    if (thread && thread.scrollHeight > 200) return thread;
+
+    // Strategy 2: Layout-based detection
+    // Find the conversation column by scanning for tall, right-positioned panels
+    const main = document.querySelector('[role="main"]') || document.querySelector('main');
+    if (!main) return null;
+
+    const allDivs = main.querySelectorAll('div, section');
+    let bestPanel = null;
+    let bestScore = 0;
+
+    for (const el of allDivs) {
+      const rect = el.getBoundingClientRect();
+      // Candidate must be: tall (>400px), reasonable width (250-75% viewport),
+      // and positioned in the right portion of the screen (left > 25% viewport)
+      if (rect.height > 400 && rect.width > 250 &&
+          rect.width < window.innerWidth * 0.75 &&
+          rect.left > window.innerWidth * 0.25) {
+        // Prefer scrollable panels (message threads scroll)
+        const scrollBonus = el.scrollHeight > el.clientHeight + 50 ? 3 : 1;
+        // Prefer panels further right (conversation is rightmost column)
+        const posBonus = rect.left / window.innerWidth;
+        const score = rect.height * scrollBonus * (1 + posBonus);
+        if (score > bestScore) {
+          bestScore = score;
+          bestPanel = el;
+        }
+      }
+    }
+
+    return bestPanel; // null if nothing found — caller handles fallback
+  }
+
+  // ═════════════════════════════════════════════════════════════════
+  // BLOCK — Video/Player specific (blocks player area, not entire page)
+  // ═════════════════════════════════════════════════════════════════
+
+  function showPlayerBlock(decision) {
+    dismissOverlay();
+    blockedUrl = window.location.pathname + window.location.search.split('&t=')[0];
+
+    const playerArea = findVideoPlayer();
+
+    const overlay = document.createElement('div');
+    overlay.id = 'phylax-overlay';
+
+    if (playerArea) {
+      // Position overlay exactly over the video player
+      const rect = playerArea.getBoundingClientRect();
+      overlay.style.cssText = `
+        position: fixed;
+        top: ${rect.top}px; left: ${rect.left}px;
+        width: ${rect.width}px; height: ${rect.height}px;
+        background: rgba(5, 5, 10, 0.96); backdrop-filter: blur(16px);
+        z-index: 2147483647; display: flex; align-items: center;
+        justify-content: center; font-family: -apple-system, BlinkMacSystemFont,
+        "Segoe UI", Roboto, sans-serif; animation: phylaxFadeIn 0.3s ease;
+        border-radius: 12px;
+      `;
+    } else {
+      // Fallback: cover the primary content area but leave nav accessible.
+      // On most video sites the player occupies the top-left ~70% of the viewport.
+      // Leave sidebar and navigation visible so the user can navigate away.
+      overlay.style.cssText = `
+        position: fixed; top: 56px; left: 0;
+        width: 72%; height: calc(100% - 56px);
+        background: rgba(5, 5, 10, 0.96); backdrop-filter: blur(16px);
+        z-index: 2147483647; display: flex; align-items: center;
+        justify-content: center; font-family: -apple-system, BlinkMacSystemFont,
+        "Segoe UI", Roboto, sans-serif; animation: phylaxFadeIn 0.3s ease;
+      `;
+    }
+
+    const style = document.createElement('style');
+    style.textContent = `@keyframes phylaxFadeIn { from { opacity: 0; } to { opacity: 1; } }`;
+    overlay.appendChild(style);
+
+    const card = document.createElement('div');
+    card.style.cssText = `
+      background: #0f1525; border: 1px solid rgba(124,92,255,0.25);
+      border-radius: 20px; padding: 32px; max-width: 360px; width: 90%;
+      text-align: center; box-shadow: 0 16px 48px rgba(0,0,0,0.5);
+    `;
+    card.innerHTML = `
+      <div style="width:56px;height:56px;border-radius:14px;background:linear-gradient(135deg,#7C5CFF,#22D3EE);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;box-shadow:0 8px 24px rgba(0,0,0,0.3);">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter">
+          <path d="M3 3H21V21H3V7H17V17H7V11H13V13"/>
+        </svg>
+      </div>
+      <h2 style="font-size:18px;font-weight:700;color:white;margin:0 0 8px;">Phylax is here to help</h2>
+      <p style="font-size:14px;color:rgba(255,255,255,0.5);line-height:1.6;margin:0 0 20px;">This video isn't allowed by your family's safety settings.</p>
+      <button id="phylaxPlayerGoBack" style="padding:10px 28px;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;border:none;background:linear-gradient(135deg,#7C5CFF,rgba(124,92,255,0.8));color:white;box-shadow:0 4px 16px rgba(124,92,255,0.3);font-family:inherit;">Go Back</button>
+    `;
+
+    overlay.appendChild(card);
+    safeAppendOverlay(overlay);
+    currentOverlay = overlay;
+
+    killAllMedia();
+    mediaKillInterval = setInterval(killAllMedia, 300);
+
+    overlay.querySelector('#phylaxPlayerGoBack').addEventListener('click', () => {
+      dismissOverlay();
+      history.back();
+    });
+
+    watchForNavigation();
+  }
+
+  /**
+   * Find the video player element on the current page.
+   * Returns the player container for precise overlay positioning.
+   */
+  function findVideoPlayer() {
+    const domain = window.location.hostname;
+
+    // ── YouTube ───────────────────────────────────────────────────
+    if (domain.includes('youtube.com') || domain.includes('youtu.be')) {
+      // Shorts: the reel renderer is the player
+      if (window.location.pathname.startsWith('/shorts')) {
+        const shortsPlayer = document.querySelector('ytd-reel-video-renderer[is-active]') ||
+                             document.querySelector('ytd-reel-video-renderer');
+        if (shortsPlayer) return shortsPlayer;
+      }
+      // Regular video: find the player container
+      const player = document.querySelector('#movie_player') ||
+                     document.querySelector('ytd-player#ytd-player') ||
+                     document.querySelector('#player-container-inner') ||
+                     document.querySelector('#player-container') ||
+                     document.querySelector('#player');
+      if (player) {
+        const rect = player.getBoundingClientRect();
+        if (rect.width > 200 && rect.height > 150) return player;
+      }
+    }
+
+    // ── TikTok ────────────────────────────────────────────────────
+    if (domain.includes('tiktok.com')) {
+      const player = document.querySelector('[class*="DivVideoContainer"]') ||
+                     document.querySelector('[class*="VideoPlayer"]');
+      if (player) return player;
+    }
+
+    // ── Generic: find the largest video element's container ───────
+    const video = document.querySelector('video');
+    if (video) {
+      let container = video.parentElement;
+      for (let i = 0; i < 5 && container && container !== document.body; i++) {
+        const rect = container.getBoundingClientRect();
+        if (rect.width > 300 && rect.height > 200) return container;
+        container = container.parentElement;
+      }
+      return video.parentElement;
+    }
+
+    return null;
   }
 
   /**
