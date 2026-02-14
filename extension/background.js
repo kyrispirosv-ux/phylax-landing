@@ -9,6 +9,7 @@ import { compileRules, extractDNRPatterns, getDebugLog, clearDebugLog } from './
 import { evaluate, compileToPolicyObject } from './engine/pipeline.js';
 import { createSessionState, updateSessionState } from './engine/behavior.js';
 import { cacheClear, cacheStats } from './engine/decision-cache.js';
+import { createConversationState } from './engine/grooming-detector.js';
 
 // ── State ───────────────────────────────────────────────────────
 
@@ -26,6 +27,36 @@ let profileTier = 'tween_13';
 // ── Policy state ─────────────────────────────────────────────────
 let compiledRulesCache = [];
 let currentPolicy = null; // PolicyObject — the compiled pipeline input
+
+// ── Per-conversation grooming state (multi-turn analysis) ────────
+// Maps conversation key → persistent grooming detection state.
+// The grooming detector uses this to track stage progression,
+// escalation speed, and behavioral patterns across turns.
+const groomingConversationStates = new Map();
+const MAX_GROOMING_STATES = 500;
+const GROOMING_STATE_TTL_MS = 72 * 60 * 60 * 1000; // 72 hours
+
+function getGroomingState(conversationKey) {
+  if (!conversationKey) return null;
+  const entry = groomingConversationStates.get(conversationKey);
+  if (!entry) return null;
+  // Expire stale states
+  if (Date.now() - entry.updated_at > GROOMING_STATE_TTL_MS) {
+    groomingConversationStates.delete(conversationKey);
+    return null;
+  }
+  return entry;
+}
+
+function setGroomingState(conversationKey, state) {
+  if (!conversationKey || !state) return;
+  groomingConversationStates.set(conversationKey, state);
+  // Evict oldest if over limit
+  if (groomingConversationStates.size > MAX_GROOMING_STATES) {
+    const oldest = groomingConversationStates.keys().next().value;
+    groomingConversationStates.delete(oldest);
+  }
+}
 
 // ── Per-tab decision throttle ────────────────────────────────────
 const tabDecisionCache = new Map();
@@ -167,6 +198,11 @@ async function processEvent(rawEvent, tabId) {
   // 5. Run the 12-step pipeline
   const decision = evaluate(contentObject, currentPolicy, sessionState);
 
+  // 5b. Persist updated grooming conversation state (for multi-turn tracking)
+  if (contentObject._grooming_conversation_key && contentObject._grooming_conversation_state) {
+    setGroomingState(contentObject._grooming_conversation_key, contentObject._grooming_conversation_state);
+  }
+
   // 6. Normalize decision for backward compat
   // The pipeline returns { decision: "ALLOW"|"BLOCK"|"LIMIT", ... }
   // The enforcer/observer support both 'decision' and 'action' fields
@@ -190,6 +226,8 @@ async function processEvent(rawEvent, tabId) {
     enforcement: decision.enforcement,
     evidence: decision.evidence,
     reason_code: decision.reason_code,
+    // Grooming-specific analysis (for parent alerts with stage/tactic info)
+    grooming_analysis: decision._grooming_analysis || null,
   };
 
   // 7. Log
@@ -208,46 +246,63 @@ async function processEvent(rawEvent, tabId) {
  * Build a ContentObject from the raw event payload.
  * The observer sends content_object in the payload when available.
  * Falls back to legacy title/text fields.
+ *
+ * For chat contexts, injects the per-conversation grooming detection
+ * state so the intelligent detector can track multi-turn patterns.
  */
 function buildContentObject(rawEvent) {
   const payload = rawEvent.payload || {};
+  let contentObject;
 
   // If observer sent a full content_object, use it
   if (payload.content_object) {
-    return {
+    contentObject = {
       ...payload.content_object,
       url: rawEvent.url || payload.content_object.url,
       domain: rawEvent.domain || payload.content_object.domain,
       ts_ms: Date.now(),
     };
+  } else {
+    // Legacy fallback: build minimal ContentObject from old fields
+    contentObject = {
+      url: rawEvent.url || '',
+      domain: rawEvent.domain || '',
+      ts_ms: Date.now(),
+      content_type: payload.content_type_hint || 'unknown',
+      spa_route_key: rawEvent.url || '',
+      title: payload.title || '',
+      description: '',
+      headings: [],
+      main_text: payload.text || '',
+      visible_text_sample: '',
+      og: {},
+      schema_org: null,
+      keywords: [],
+      language: payload.lang || 'unknown',
+      media: { has_video: false, has_audio: false, image_count: 0 },
+      ui: {
+        infinite_scroll: false,
+        autoplay: false,
+        short_form: false,
+        has_recommendation_rail: false,
+        requires_login: false,
+      },
+      platform: { name: 'none' },
+    };
   }
 
-  // Legacy fallback: build minimal ContentObject from old fields
-  return {
-    url: rawEvent.url || '',
-    domain: rawEvent.domain || '',
-    ts_ms: Date.now(),
-    content_type: payload.content_type_hint || 'unknown',
-    spa_route_key: rawEvent.url || '',
-    title: payload.title || '',
-    description: '',
-    headings: [],
-    main_text: payload.text || '',
-    visible_text_sample: '',
-    og: {},
-    schema_org: null,
-    keywords: [],
-    language: payload.lang || 'unknown',
-    media: { has_video: false, has_audio: false, image_count: 0 },
-    ui: {
-      infinite_scroll: false,
-      autoplay: false,
-      short_form: false,
-      has_recommendation_rail: false,
-      requires_login: false,
-    },
-    platform: { name: 'none' },
-  };
+  // Inject per-conversation grooming state for multi-turn detection
+  if (contentObject.content_type === 'chat') {
+    const domain = contentObject.domain || '';
+    const path = contentObject.spa_route_key || contentObject.url || '';
+    const convKey = normalizeConversationKey(domain, path);
+    if (convKey) {
+      contentObject._grooming_conversation_state = getGroomingState(convKey) || createConversationState();
+      contentObject._grooming_conversation_key = convKey;
+    }
+  }
+
+  return contentObject;
 }
 
 // ═════════════════════════════════════════════════════════════════

@@ -5,6 +5,7 @@
 import { localScoreAllTopics } from './lexicons.js';
 import { cacheGet, cacheSet } from './decision-cache.js';
 import { behaviorScores, evalBehaviorRules } from './behavior.js';
+import { detectGrooming, groomingResultToTopicScore, buildGroomingEvidence } from './grooming-detector.js';
 
 // ── Helpers ───────────────────────────────────────────────────────
 
@@ -306,8 +307,29 @@ export function evaluate(content, policy, sessionState) {
   }
 
   // Step 4: Local prefilter (weighted lexicon scoring)
+  // NOTE: Grooming is NOT scored here. The grooming lexicon is empty;
+  // intelligent grooming detection happens in Step 4b below.
   const text = canonicalText(content).toLowerCase();
   const localScores = localScoreAllTopics(text);
+
+  // Step 4b: Intelligent Grooming Detection
+  // Replaces static keyword matching with multi-signal, conversation-aware,
+  // obfuscation-resistant grooming pattern detection.
+  // Uses the grooming detector (grooming-detector.js) instead of the lexicon.
+  const groomingResult = detectGrooming(
+    text,
+    content.chat?.messages || null,
+    content._grooming_conversation_state || null,
+  );
+  const groomingScore = groomingResultToTopicScore(groomingResult);
+  if (groomingScore > 0) {
+    localScores.grooming = groomingScore;
+  }
+  // Persist updated conversation state back on content for the caller
+  if (groomingResult.updated_conversation_state) {
+    content._grooming_conversation_state = groomingResult.updated_conversation_state;
+    content._grooming_result = groomingResult;
+  }
 
   // Step 5: Remote semantic scoring (stub — no backend yet)
   // In the future, this calls an embedding service for topic vector scoring
@@ -328,6 +350,20 @@ export function evaluate(content, policy, sessionState) {
   // Step 8: Topic policy evaluation → BLOCK or null
   const topicDecision = evalTopicPolicy(content, scores, intent, policy);
 
+  // Step 8b: Enrich grooming decisions with intelligent evidence
+  // Replace generic "Matched topic grooming" with behavioral explanation.
+  if (topicDecision && topicDecision.reason_code === 'TOPIC_BLOCK_grooming' && groomingResult) {
+    topicDecision.evidence = buildGroomingEvidence(groomingResult);
+    // Attach grooming analysis metadata for parent alerts
+    topicDecision._grooming_analysis = {
+      stage: groomingResult.stage,
+      tactic: groomingResult.tactic,
+      risk_score: groomingResult.risk_score,
+      explanation: groomingResult.explanation,
+      conversation: groomingResult.conversation,
+    };
+  }
+
   // Step 9: Behavior evaluation → LIMIT or null
   const bScores = behaviorScores(sessionState, content.ui || {});
   const behaviorDecision = evalBehaviorRules(bScores, policy.behavior_rules || []);
@@ -343,6 +379,18 @@ export function evaluate(content, policy, sessionState) {
     topic_scores: scores,
     intent: intent ? { label: intent.label, confidence: intent.confidence } : undefined,
     behavior: { pattern_scores: bScores },
+    grooming: groomingResult ? {
+      risk_score: groomingResult.risk_score,
+      stage: groomingResult.stage,
+      tactic: groomingResult.tactic,
+      signal_count: groomingResult.signal_count,
+      suppressed: groomingResult.suppressed,
+      conversation: groomingResult.conversation ? {
+        trajectory_score: groomingResult.conversation.trajectory_score,
+        stages_active: groomingResult.conversation.stages_active,
+        highest_stage: groomingResult.conversation.highest_stage,
+      } : undefined,
+    } : undefined,
     cache_hit: false,
   };
 

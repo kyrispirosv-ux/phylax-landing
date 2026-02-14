@@ -314,31 +314,55 @@ function classifyExplicitness(text, domain) {
 function detectCoercion(text) {
   const signals = [];
 
+  // Enhanced coercion detection using regex patterns for flexible matching.
+  // Works alongside the grooming detector's tactic-level analysis.
   const patterns = {
     secrecy_demand: [
-      'don\'t tell', 'dont tell', 'our secret', 'keep this between',
-      'no one has to know', 'just between us',
+      /\b(?:don'?t|do\s+not|never)\s+tell\b/,
+      /\b(?:our|this\s+is\s+(?:our|a))\s+(?:little\s+)?secret\b/,
+      /\b(?:keep|kept)\s+(?:this|it)\s+(?:between\s+us|private|secret|quiet)\b/,
+      /\bno\s+one\s+(?:has\s+to|needs?\s+to|will|should)\s+know\b/,
+      /\bjust\s+between\s+(?:us|you\s+and\s+me)\b/,
     ],
     isolation: [
-      'are you alone', 'are your parents home', 'nobody understands you',
-      'only i understand', 'your friends don\'t care',
+      /\b(?:are|is)\s+(?:you|u)\s+(?:home\s+)?alone\b/,
+      /\b(?:are|is)\s+(?:your|ur)\s+(?:parents?|mom|dad)\s+(?:home|there|around)\b/,
+      /\bnobody\s+(?:else\s+)?(?:understands?|cares?)\b/,
+      /\bonly\s+(?:i|me)\s+(?:understand|get|care)\b/,
+      /\b(?:your|ur)\s+friends?\s+(?:don'?t|doesn'?t)\s+(?:really\s+)?care\b/,
     ],
     authority_abuse: [
-      'you have to', 'do as i say', 'i\'m in charge', 'obey',
+      /\b(?:you|u)\s+have\s+to\b/,
+      /\bdo\s+(?:as|what)\s+i\s+(?:say|tell|want)\b/,
+      /\bi(?:'m|\s+am)\s+in\s+charge\b/,
+      /\bobey\s+me\b/,
     ],
     guilt_shame: [
-      'you owe me', 'after everything i\'ve done', 'don\'t you trust me',
-      'if you loved me', 'prove it',
+      /\b(?:you|u)\s+owe\s+me\b/,
+      /\bafter\s+everything\s+(?:i(?:'ve)?\s+done|we(?:'ve)?\s+(?:shared|been\s+through))\b/,
+      /\bdon'?t\s+(?:you|u)\s+trust\s+me\b/,
+      /\bif\s+(?:you|u)\s+(?:really\s+)?(?:loved|cared|liked)\s+me\b/,
+      /\bprove\s+(?:it|(?:you|u)\s+(?:care|love|trust))\b/,
     ],
     urgency: [
-      'right now', 'don\'t wait', 'hurry', 'before anyone finds out',
-      'last chance', 'time is running out',
+      /\bright\s+now\b/,
+      /\bdon'?t\s+wait\b/,
+      /\bhurry\s+(?:up)?\b/,
+      /\bbefore\s+(?:anyone|someone|they)\s+find(?:s)?\s+out\b/,
+      /\blast\s+chance\b/,
+      /\btime\s+is\s+running\s+out\b/,
+    ],
+    emotional_leverage: [
+      /\bi(?:'ll|\s+will)\s+(?:feel\s+)?(?:bad|terrible|hurt)\b/,
+      /\bi\s+(?:thought|guess)\s+(?:you|u)\s+(?:were|was)\s+(?:different|special|better)\b/,
+      /\b(?:you|u)(?:'re|r|\s+are)\s+(?:disappointing|hurting|stressing)\s+me\b/,
+      /\bwhy\s+(?:are|r)\s+(?:you|u)\s+(?:being\s+)?like\s+this\b/,
     ],
   };
 
-  for (const [signal, keywords] of Object.entries(patterns)) {
-    for (const kw of keywords) {
-      if (text.includes(kw)) {
+  for (const [signal, regexes] of Object.entries(patterns)) {
+    for (const regex of regexes) {
+      if (regex.test(text)) {
         signals.push({ label: signal, p: 0.7 });
         break;
       }

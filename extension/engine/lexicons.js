@@ -176,50 +176,21 @@ export const LEXICONS = {
     { phrase: 'ugly', weight: 0.2 },
   ],
 
-  grooming: [
-    { phrase: 'send me a pic', weight: 2.5 },
-    { phrase: 'send a pic', weight: 2.0 },
-    { phrase: 'send nudes', weight: 3.0 },
-    { phrase: 'send me a photo', weight: 2.0 },
-    { phrase: 'our secret', weight: 2.0 },
-    { phrase: 'dont tell your parents', weight: 2.5 },
-    { phrase: "don't tell your parents", weight: 2.5 },
-    { phrase: 'dont tell your mom', weight: 2.5 },
-    { phrase: "don't tell your mom", weight: 2.5 },
-    { phrase: 'dont tell your dad', weight: 2.5 },
-    { phrase: "don't tell your dad", weight: 2.5 },
-    { phrase: 'dont tell anyone', weight: 1.5 },
-    { phrase: "don't tell anyone", weight: 1.5 },
-    { phrase: 'are you alone', weight: 1.5 },
-    { phrase: 'home alone', weight: 1.0 },
-    { phrase: 'how old are you', weight: 1.0 },
-    { phrase: 'special relationship', weight: 1.5 },
-    { phrase: 'just between us', weight: 2.0 },
-    { phrase: 'mature for your age', weight: 2.5 },
-    { phrase: 'grooming', weight: 1.5 },
-    { phrase: 'predator', weight: 1.0 },
-    { phrase: 'meet in person', weight: 1.0 },
-    { phrase: 'can we meet', weight: 1.5 },
-    { phrase: 'meet up', weight: 1.0 },
-    { phrase: 'come meet me', weight: 2.0 },
-    { phrase: 'want to meet', weight: 1.0 },
-    { phrase: 'keep it secret', weight: 1.5 },
-    { phrase: 'you are hot', weight: 1.5 },
-    { phrase: 'you are very hot', weight: 2.0 },
-    { phrase: 'you are sexy', weight: 2.0 },
-    { phrase: 'youre hot', weight: 1.5 },
-    { phrase: "you're hot", weight: 1.5 },
-    { phrase: 'youre sexy', weight: 2.0 },
-    { phrase: "you're sexy", weight: 2.0 },
-    { phrase: 'you look hot', weight: 1.5 },
-    { phrase: 'you look sexy', weight: 2.0 },
-    { phrase: 'have a boyfriend', weight: 0.5 },
-    { phrase: 'have a girlfriend', weight: 0.5 },
-    { phrase: 'send me your number', weight: 1.0 },
-    { phrase: 'what are you wearing', weight: 1.5 },
-    { phrase: 'video call me', weight: 0.8 },
-    { phrase: 'i have to tell you something', weight: 0.5 },
-  ],
+  // ──────────────────────────────────────────────────────────────
+  // GROOMING: Handled by grooming-detector.js (intelligent model).
+  // The grooming topic is NO LONGER scored via keyword matching.
+  // See engine/grooming-detector.js for the multi-signal, conversation-
+  // aware, obfuscation-resistant grooming detection system.
+  //
+  // The old static lexicon has been retired. The seed phrases are now
+  // embedded as semantic pattern clusters in the grooming detector,
+  // organized by grooming stage/tactic, matched flexibly via regex
+  // templates — not literal string comparison.
+  //
+  // localScoreAllTopics() skips 'grooming' entirely; the pipeline
+  // calls detectGrooming() separately for intelligent scoring.
+  // ──────────────────────────────────────────────────────────────
+  grooming: [],  // Empty: scored by grooming-detector.js, not lexicon
 
   scams: [
     { phrase: 'nigerian prince', weight: 2.5 },
