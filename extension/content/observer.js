@@ -1,4 +1,4 @@
-// Phylax Engine — Content Observer v3.2 (Low-Latency ContentObject Extraction + Chat Sender Attribution)
+// Phylax Engine — Content Observer v3.0 (Low-Latency ContentObject Extraction + Chat Sender Attribution)
 // Injected on ALL pages at document_start.
 // Three-phase extraction for sub-second blocking:
 //   Phase 1 (~100-300ms): <head> parsed → title + meta + OG + keywords → classify
@@ -851,7 +851,7 @@
     if (document.body) domObserver.observe(document.body, { childList: true, subtree: true });
     else document.addEventListener('DOMContentLoaded', () => { domObserver.observe(document.body, { childList: true, subtree: true }); });
 
-    console.log('[Phylax Observer v3.1] Active on:', host);
+    console.log('[Phylax Observer v3.0] Active on:', host);
   }
 
   init();

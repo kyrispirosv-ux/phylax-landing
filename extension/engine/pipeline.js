@@ -1,6 +1,7 @@
-// Phylax Engine — 12-Step Deterministic Pipeline (Kids-Only)
+// Phylax Engine v3.0 — 12-Step Deterministic Pipeline (Kids-Only)
 // Action space: ALLOW | BLOCK | LIMIT (no WARN)
 // Main invariant: decisions are reproducible given the same ContentObject + PolicyObject.
+// Grooming detection: intelligent multi-signal detector (grooming-detector.js), not lexicon matching.
 
 import { localScoreAllTopics } from './lexicons.js';
 import { cacheGet, cacheSet } from './decision-cache.js';

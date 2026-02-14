@@ -1,4 +1,4 @@
-// Phylax SafeGuard — Background Service Worker v3
+// Phylax SafeGuard — Background Service Worker v3.0
 // 12-step deterministic pipeline: ContentObject + PolicyObject → DecisionObject
 // Kids-only action space: ALLOW | BLOCK | LIMIT (no WARN)
 // Communicates with parent dashboard via bridge.js + externally_connectable
@@ -754,7 +754,7 @@ chrome.webNavigation.onCompleted.addListener(async (details) => {
 
 chrome.runtime.onInstalled.addListener(async () => {
   try {
-    console.log('[Phylax] Engine installed — Pipeline v3 (Kids-Only)');
+    console.log('[Phylax] Engine installed — Pipeline v3.0 (Intelligent Grooming Detection)');
     profileTier = await getProfileTier();
     await logger.restore();
     const rules = await getRules();

@@ -1,4 +1,4 @@
-// Phylax SafeGuard — Enforcer v3.1 (Kids-Only)
+// Phylax SafeGuard — Enforcer v3.0 (Kids-Only)
 // Action space: ALLOW / BLOCK / LIMIT (no WARN, no interstitials)
 // If harmful: BLOCK. If addiction pattern: LIMIT.
 // Chat-aware: DM threats block conversation area only, not entire platform.
