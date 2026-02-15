@@ -1,0 +1,48 @@
+@import "tailwindcss";
+
+:root {
+  --background: #070A12;
+  --foreground: #ffffff;
+  
+  /* Brand Colors from original */
+  --accent-1: #7C5CFF;
+  --accent-2: #22D3EE;
+  --accent-3: #34D399;
+  
+  /* Semantic Colors */
+  --card: rgba(255, 255, 255, 0.06);
+  --card-hover: rgba(255, 255, 255, 0.085);
+  --stroke: rgba(255, 255, 255, 0.10);
+  --stroke-strong: rgba(255, 255, 255, 0.16);
+  --muted: rgba(255, 255, 255, 0.70);
+  --muted-dim: rgba(255, 255, 255, 0.55);
+}
+
+body {
+  color: var(--foreground);
+  background: 
+    radial-gradient(1200px 700px at 20% 10%, rgba(124, 92, 255, 0.15), transparent 60%),
+    radial-gradient(1000px 650px at 85% 15%, rgba(34, 211, 238, 0.12), transparent 58%),
+    radial-gradient(900px 600px at 55% 90%, rgba(52, 211, 153, 0.08), transparent 58%),
+    linear-gradient(180deg, #070A12, #0A1022);
+  min-height: 100vh;
+  font-family: Arial, Helvetica, sans-serif;
+  overflow-x: hidden;
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+  
+  .glass-card {
+    background: var(--card);
+    border: 1px solid var(--stroke);
+    backdrop-filter: blur(12px);
+  }
+  
+  .glass-card:hover {
+    background: var(--card-hover);
+    border-color: var(--stroke-strong);
+  }
+}

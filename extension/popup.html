@@ -37,16 +37,36 @@
   </style>
 </head>
 <body>
-  <div class="logo">
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter">
-      <path d="M3 3H21V21H3V7H17V17H7V11H13V13"/>
-    </svg>
+  <div id="main-view">
+    <div class="logo">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter">
+        <path d="M3 3H21V21H3V7H17V17H7V11H13V13"/>
+      </svg>
+    </div>
+    <div class="title">Phylax SafeGuard</div>
+    
+    <div id="status-container" class="status">
+      <div id="status-icon" class="dot" style="background: #FBBF24; box-shadow: 0 0 8px rgba(251,191,36,0.4);"></div>
+      <span id="status-text">Not Connected</span>
+    </div>
+
+    <div id="pairing-section" style="margin-top: 20px;">
+      <input type="text" id="pairing-code" placeholder="Enter Pairing Code" 
+        style="width: 100%; padding: 8px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.05); color: white; margin-bottom: 8px; text-align: center; text-transform: uppercase;">
+      <button id="connect-btn" 
+        style="width: 100%; padding: 8px; border-radius: 8px; border: none; background: #7C5CFF; color: white; font-weight: 600; cursor: pointer;">
+        Connect Device
+      </button>
+    </div>
+
+    <div id="connected-section" style="display: none; margin-top: 20px;">
+       <div style="font-size: 12px; opacity: 0.6; margin-bottom: 4px;">Linked to Parent Account</div>
+       <div style="font-size: 14px; font-weight: 600; color: #22D3EE;">Active & Monitoring</div>
+    </div>
   </div>
-  <div class="title">Phylax SafeGuard</div>
-  <div class="status">
-    <div class="dot"></div>
-    <span>Protection Active</span>
-  </div>
+  
   <div class="footer">Managed by your parent or guardian</div>
+
+  <script src="popup.js"></script>
 </body>
 </html>

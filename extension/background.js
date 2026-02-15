@@ -134,7 +134,7 @@ async function setRules(rules) {
   // Notify all tabs
   const tabs = await chrome.tabs.query({});
   for (const tab of tabs) {
-    chrome.tabs.sendMessage(tab.id, { type: 'PHYLAX_RULES_UPDATED', rules }).catch(() => {});
+    chrome.tabs.sendMessage(tab.id, { type: 'PHYLAX_RULES_UPDATED', rules }).catch(() => { });
   }
 }
 
@@ -201,7 +201,7 @@ function shouldThrottleDecision(tabId, action, url) {
   const urlPath = extractThrottlePath(url);
 
   if (cached.action === action && cached.path === urlPath &&
-      (now - cached.timestamp) < TAB_DECISION_THROTTLE_MS) {
+    (now - cached.timestamp) < TAB_DECISION_THROTTLE_MS) {
     return true;
   }
   return false;
@@ -287,8 +287,8 @@ async function processEvent(rawEvent, tabId) {
     message_child: decision.decision === 'BLOCK'
       ? "This isn't allowed by your family's safety settings."
       : decision.decision === 'LIMIT'
-      ? 'Time for a break!'
-      : '',
+        ? 'Time for a break!'
+        : '',
     message_parent: decision.evidence?.join(' ') || decision.reason_code,
     timestamp: Date.now(),
     // Pass through enforcement and evidence
@@ -502,7 +502,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
     processEvent(message.event, tabId).then(decision => {
       if (decision && decision.action !== 'ALLOW' &&
-          shouldThrottleDecision(tabId, decision.action, eventUrl)) {
+        shouldThrottleDecision(tabId, decision.action, eventUrl)) {
         console.log(`[Phylax] Throttled ${decision.action} for tab ${tabId}`);
         sendResponse({ decision: { action: 'ALLOW', decision: 'ALLOW', scores: decision.scores, throttled: true } });
       } else {
@@ -685,6 +685,14 @@ async function handleDashboardMessage(message, sendResponse) {
         sendResponse({ success: true, rulesCount: current.length });
         break;
       }
+      case 'PHYLAX_PAIR_DEVICE': {
+        console.log('[Phylax] Device paired with code:', message.code);
+        // In a real app, we would exchange this code for an auth token here.
+        // For local demo, we just acknowledge it and trigger a rule fetch.
+        await rebuildPolicy([]); // Refresh with default rules or fetch from "server"
+        sendResponse({ success: true });
+        break;
+      }
       case 'PHYLAX_TOGGLE_RULE': {
         const rules = await getRules();
         if (rules[message.index]) {
@@ -849,7 +857,7 @@ chrome.webNavigation.onCommitted.addListener(async (details) => {
           chrome.tabs.sendMessage(details.tabId, {
             type: 'PHYLAX_ENFORCE_DECISION',
             decision: blockDecision,
-          }).catch(() => {});
+          }).catch(() => { });
         }
       }
     }
@@ -880,8 +888,8 @@ chrome.webNavigation.onCompleted.addListener(async (details) => {
         content_object: tabContent.content_object,
         title: tabContent.content_object.title || '',
         text: (tabContent.content_object.title || '') + ' ' +
-              (tabContent.content_object.description || '') + ' ' +
-              (tabContent.content_object.main_text || '').slice(0, 3000),
+          (tabContent.content_object.description || '') + ' ' +
+          (tabContent.content_object.main_text || '').slice(0, 3000),
         content_type_hint: tabContent.content_object.content_type || 'unknown',
       };
     }
@@ -900,7 +908,7 @@ chrome.webNavigation.onCompleted.addListener(async (details) => {
       chrome.tabs.sendMessage(details.tabId, {
         type: 'PHYLAX_ENFORCE_DECISION',
         decision,
-      }).catch(() => {});
+      }).catch(() => { });
     }
   }
 });

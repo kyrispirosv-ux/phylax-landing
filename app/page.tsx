@@ -1,0 +1,210 @@
+import Link from "next/link";
+import { Shield, Lock, Eye, Check, ArrowRight, PlayCircle, Menu } from "lucide-react";
+
+export default function Home() {
+  return (
+    <div className="min-h-screen flex flex-col">
+      {/* Navigation */}
+      <nav className="sticky top-0 z-50 backdrop-blur-md bg-[#070A12]/80 border-b border-white/10">
+        <div className="max-w-7xl mx-auto px-6 h-18 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#7C5CFF]/90 to-[#22D3EE]/75 flex items-center justify-center shadow-lg shadow-[#7C5CFF]/25 relative overflow-hidden group">
+               <div className="absolute inset-[-40%] bg-[conic-gradient(from_180deg,transparent,rgba(255,255,255,0.3),transparent)] animate-[spin_6s_linear_infinite] opacity-40" />
+               <Shield className="w-5 h-5 text-white relative z-10" />
+            </div>
+            <div>
+              <h1 className="font-bold text-white text-base leading-none">Phylax</h1>
+              <p className="text-white/70 text-xs">SafeGuard</p>
+            </div>
+          </div>
+          
+          <div className="hidden md:flex items-center gap-8 text-sm font-medium text-white/70">
+            <Link href="#how-it-works" className="hover:text-white transition-colors">How it Works</Link>
+            <Link href="#pricing" className="hover:text-white transition-colors">Pricing</Link>
+            <Link href="#faq" className="hover:text-white transition-colors">FAQ</Link>
+          </div>
+
+          <div className="flex items-center gap-4">
+             <Link href="/login" className="hidden md:block text-sm font-medium text-white/70 hover:text-white">Log In</Link>
+             <Link 
+               href="/signup" 
+               className="bg-white/10 hover:bg-white/15 text-white border border-white/10 rounded-xl px-5 py-2.5 text-sm font-medium transition-all hover:-translate-y-0.5 shadow-lg shadow-black/20"
+             >
+               Get Started
+             </Link>
+          </div>
+        </div>
+      </nav>
+
+      <main className="flex-grow">
+        {/* Hero Section */}
+        <section className="relative pt-32 pb-20 px-6 text-center max-w-4xl mx-auto">
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-white/10 bg-white/5 text-sm text-white/70 mb-8 backdrop-blur-sm">
+            <span className="w-2 h-2 rounded-full bg-[#22D3EE] animate-pulse shadow-[0_0_10px_rgba(34,211,238,0.5)]" />
+            <span>Phylax v1.0 is now available</span>
+          </div>
+          
+          <h1 className="text-5xl md:text-7xl font-bold tracking-tight mb-8 bg-gradient-to-b from-white to-white/70 bg-clip-text text-transparent pb-2">
+            Protect your child online without blocking the web.
+          </h1>
+          
+          <p className="text-xl text-white/70 max-w-2xl mx-auto mb-10 leading-relaxed">
+            Advanced AI that detects grooming, bullying, and harmful content in real-time. 
+            Parents stay in control with a simple, privacy-focused dashboard.
+          </p>
+          
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+            <Link 
+              href="/signup" 
+              className="w-full sm:w-auto px-8 py-4 rounded-2xl bg-gradient-to-br from-[#7C5CFF] to-[#7C5CFF]/80 text-white font-semibold shadow-lg shadow-[#7C5CFF]/30 hover:shadow-[#7C5CFF]/50 border border-white/20 transition-all hover:-translate-y-1 flex items-center justify-center gap-2"
+            >
+              Start Free Trial <ArrowRight className="w-5 h-5" />
+            </Link>
+            <button className="w-full sm:w-auto px-8 py-4 rounded-2xl bg-white/5 border border-white/10 text-white font-medium hover:bg-white/10 transition-all flex items-center justify-center gap-2">
+              <PlayCircle className="w-5 h-5" /> Watch Demo
+            </button>
+          </div>
+          
+          <p className="mt-8 text-white/40 text-sm">Works on Chrome, Edge, and Brave. No credit card required.</p>
+        </section>
+
+        {/* Feature Grid */}
+        <section className="max-w-7xl mx-auto px-6 mb-32">
+          <div className="grid md:grid-cols-3 gap-6">
+            {[
+              { 
+                title: "YouTube Protection", 
+                desc: "Blocks specific harmful videos (gambling, violence) while keeping the site open.",
+                icon: <PlayCircle className="w-6 h-6 text-[#FF0000]" />
+              },
+              { 
+                title: "Instagram Safety", 
+                desc: "Analyzes DMs for grooming patterns and bullying behavior in real-time.",
+                icon: <div className="w-6 h-6 rounded bg-gradient-to-tr from-yellow-400 via-red-500 to-purple-500" />
+              },
+              { 
+                title: "Self-Harm Detection", 
+                desc: "Identifies and intervenes on content promoting self-harm or suicide.",
+                icon: <Shield className="w-6 h-6 text-[#34D399]" />
+              }
+            ].map((f, i) => (
+              <div key={i} className="glass-card p-8 rounded-[24px] group">
+                <div className="w-12 h-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                  {f.icon}
+                </div>
+                <h3 className="text-xl font-semibold text-white mb-3">{f.title}</h3>
+                <p className="text-white/70 leading-relaxed">{f.desc}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* How it Works / Trust */}
+        <section id="how-it-works" className="border-t border-white/10 py-24 bg-white/[0.02]">
+          <div className="max-w-7xl mx-auto px-6">
+            <div className="text-center mb-16">
+              <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">How Phylax Works</h2>
+              <p className="text-white/60">Three simple steps to peace of mind.</p>
+            </div>
+
+            <div className="grid md:grid-cols-3 gap-12 relative">
+               {/* Connecting Line (Desktop) */}
+               <div className="hidden md:block absolute top-12 left-[16%] right-[16%] h-0.5 bg-gradient-to-r from-transparent via-white/20 to-transparent dashed-line" />
+               
+               {[
+                 { step: "01", title: "Create Account", text: "Sign up and get your unique pairing code." },
+                 { step: "02", title: "Install Extension", text: "Add Phylax to your child's browser." },
+                 { step: "03", title: "Enter Code", text: "Link the device and controls activate instantly." }
+               ].map((s, i) => (
+                 <div key={i} className="relative flex flex-col items-center text-center">
+                   <div className="w-24 h-24 rounded-full bg-[#070A12] border border-white/10 flex items-center justify-center mb-6 z-10 shadow-xl shadow-black/50">
+                     <span className="text-2xl font-bold bg-gradient-to-br from-white to-white/50 bg-clip-text text-transparent">{s.step}</span>
+                   </div>
+                   <h3 className="text-xl font-semibold text-white mb-2">{s.title}</h3>
+                   <p className="text-white/60 max-w-xs">{s.text}</p>
+                 </div>
+               ))}
+            </div>
+          </div>
+        </section>
+        
+        {/* Pricing */}
+        <section id="pricing" className="py-24 px-6 max-w-7xl mx-auto">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">Simple, Transparent Pricing</h2>
+            <p className="text-white/60">Start protecting your family today.</p>
+          </div>
+          
+          <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto items-center">
+            {/* Free Tier */}
+            <div className="glass-card p-8 rounded-3xl h-full flex flex-col">
+              <h3 className="text-xl font-bold text-white mb-2">Basic</h3>
+              <p className="text-white/50 text-sm mb-6">Essential protection</p>
+              <div className="mb-6">
+                <span className="text-4xl font-bold text-white">$0</span>
+                <span className="text-white/50">/mo</span>
+              </div>
+              <ul className="space-y-4 mb-8 flex-1">
+                {['1 Device', 'Basic Blocking', 'Daily Reports'].map(item => (
+                  <li key={item} className="flex gap-3 text-sm text-white/70">
+                    <Check className="w-5 h-5 text-[#34D399]" /> {item}
+                  </li>
+                ))}
+              </ul>
+              <button className="w-full py-3 rounded-xl bg-white/5 border border-white/10 text-white font-medium hover:bg-white/10 transition-colors">
+                Get Started
+              </button>
+            </div>
+
+            {/* Pro Tier */}
+            <div className="relative glass-card p-8 rounded-3xl border-[#22D3EE]/30 bg-gradient-to-b from-[#22D3EE]/5 to-transparent transform md:scale-105 shadow-2xl shadow-[#22D3EE]/10 z-10 flex flex-col h-full">
+              <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-[#22D3EE] text-black text-xs font-bold px-4 py-1 rounded-full uppercase tracking-wide">
+                Most Popular
+              </div>
+              <h3 className="text-xl font-bold text-white mb-2">Guardian</h3>
+              <p className="text-[#22D3EE] text-sm mb-6">Complete peace of mind</p>
+              <div className="mb-6">
+                <span className="text-4xl font-bold text-white">$12</span>
+                <span className="text-white/50">/mo</span>
+              </div>
+              <ul className="space-y-4 mb-8 flex-1">
+                {['5 Devices', 'Advanced AI Analysis', 'Real-time Alerts', 'Grooming Detection', 'Priority Support'].map(item => (
+                  <li key={item} className="flex gap-3 text-sm text-white/80">
+                    <Check className="w-5 h-5 text-[#22D3EE]" /> {item}
+                  </li>
+                ))}
+              </ul>
+              <button className="w-full py-3 rounded-xl bg-[#22D3EE] text-black font-bold hover:bg-[#22D3EE]/90 transition-colors shadow-lg shadow-[#22D3EE]/25">
+                Start Free Trial
+              </button>
+            </div>
+
+             {/* Family Tier */}
+             <div className="glass-card p-8 rounded-3xl h-full flex flex-col">
+              <h3 className="text-xl font-bold text-white mb-2">Family</h3>
+              <p className="text-white/50 text-sm mb-6">For larger households</p>
+              <div className="mb-6">
+                <span className="text-4xl font-bold text-white">$20</span>
+                <span className="text-white/50">/mo</span>
+              </div>
+              <ul className="space-y-4 mb-8 flex-1">
+                {['Unlimited Devices', 'Everything in Guardian', 'Detailed Weekly Reports', 'Account Manager'].map(item => (
+                  <li key={item} className="flex gap-3 text-sm text-white/70">
+                    <Check className="w-5 h-5 text-[#34D399]" /> {item}
+                  </li>
+                ))}
+              </ul>
+              <button className="w-full py-3 rounded-xl bg-white/5 border border-white/10 text-white font-medium hover:bg-white/10 transition-colors">
+                Contact Sales
+              </button>
+            </div>
+          </div>
+        </section>
+      </main>
+      
+      <footer className="border-t border-white/10 py-12 text-center text-white/40 text-sm">
+        <p>&copy; {new Date().getFullYear()} Phylax Inc. All rights reserved.</p>
+      </footer>
+    </div>
+  );
+}
