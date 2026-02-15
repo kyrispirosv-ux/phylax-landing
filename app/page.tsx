@@ -197,7 +197,12 @@ export default function Home() {
       </main>
 
       <footer className="border-t border-white/10 py-12 text-center text-white/40 text-sm">
-        <p>&copy; {new Date().getFullYear()} Phylax Inc. All rights reserved.</p>
+        <div className="flex flex-col items-center gap-4">
+          <Link href="/safety-stance" className="hover:text-white transition-colors">
+            Read our Safety Stance
+          </Link>
+          <p>&copy; {new Date().getFullYear()} Phylax Inc. All rights reserved.</p>
+        </div>
       </footer>
     </div>
   );
