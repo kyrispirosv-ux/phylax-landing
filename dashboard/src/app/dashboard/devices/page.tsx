@@ -56,6 +56,24 @@ export default function DevicesPage() {
     setLoading(false);
   }
 
+  // Poll for newly paired devices when a pairing token is active
+  useEffect(() => {
+    if (!pairingToken) return;
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch("/api/devices");
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.devices && data.devices.length > devices.length) {
+          // New device detected — refresh the device list and clear the pairing token
+          setPairingToken(null);
+          load();
+        }
+      } catch { /* retry on next tick */ }
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [pairingToken, devices.length]);
+
   async function generateToken() {
     if (!selectedChild) return;
     setGenerating(true);

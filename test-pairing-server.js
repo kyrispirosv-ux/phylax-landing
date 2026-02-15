@@ -22,6 +22,7 @@ import crypto from 'node:crypto';
 
 const activeCodes = new Map();  // short_code → { child_id, family_id, expires_at }
 let currentCode = null;
+let lastPairedDevice = null;  // set when a code is consumed
 
 function generateCode() {
   const code = String(crypto.randomInt(100000, 999999));
@@ -142,6 +143,15 @@ const server = http.createServer(async (req, res) => {
     console.log(`   Rules sent: ${response.policy_pack.rules.length}`);
     console.log(`   Extension is now synced and protected.\n`);
 
+    // Track the paired device so the test page can detect success
+    lastPairedDevice = {
+      device_id: deviceId,
+      child_id: tokenData.child_id,
+      family_id: tokenData.family_id,
+      device_name: body.device_name || 'Chrome Browser',
+      paired_at: new Date().toISOString(),
+    };
+
     // Generate a new code for next test
     generateCode();
 
@@ -182,6 +192,19 @@ const server = http.createServer(async (req, res) => {
   if (url.pathname === '/api/new-code' && req.method === 'GET') {
     const result = generateCode();
     json(res, { code: result.code });
+    return;
+  }
+
+  // ── GET /api/devices — Check if any device has been paired (for dashboard polling) ──
+  if (url.pathname === '/api/devices' && req.method === 'GET') {
+    const devices = lastPairedDevice ? [lastPairedDevice] : [];
+    json(res, { devices });
+    return;
+  }
+
+  // ── GET /api/pairing/status — Check if the current code has been consumed ──
+  if (url.pathname === '/api/pairing/status' && req.method === 'GET') {
+    json(res, { paired: !!lastPairedDevice, device: lastPairedDevice });
     return;
   }
 
@@ -262,31 +285,52 @@ function getTestPageHTML() {
     }
     .status-badge .dot { width: 6px; height: 6px; border-radius: 50%; background: #22D3EE; animation: pulse 2s infinite; }
     @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+    .success-card {
+      display: none; background: rgba(52, 211, 153, 0.08); border: 1px solid rgba(52, 211, 153, 0.3);
+      border-radius: 20px; padding: 40px; text-align: center; max-width: 500px; margin-top: 24px;
+    }
+    .success-card.visible { display: block; }
+    .success-card h2 { color: #34D399; font-size: 24px; margin-bottom: 8px; }
+    .success-card p { color: rgba(255,255,255,0.5); font-size: 14px; line-height: 1.6; }
+    .success-icon { width: 64px; height: 64px; border-radius: 50%; background: rgba(52,211,153,0.2);
+      display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; font-size: 32px; }
+    .pairing-content { }
+    .pairing-content.hidden { display: none; }
   </style>
 </head>
 <body>
   <div class="status-badge"><span class="dot"></span> Test Server Running on :3000</div>
-  <h1>Parent Pairing Code</h1>
-  <p class="subtitle">Enter this code in the Phylax extension</p>
-  <div class="code-display" id="code-display"></div>
-  <p class="hint">Code expires in 10 minutes</p>
-  <button class="new-code-btn" onclick="newCode()">Generate New Code</button>
 
-  <div class="steps">
-    <h3>How to test:</h3>
-    <ol>
-      <li>Open <code>chrome://extensions</code> and enable Developer mode</li>
-      <li>Click <strong>Load unpacked</strong> and select the <code>extension/</code> folder</li>
-      <li>Click the Phylax extension icon in Chrome toolbar</li>
-      <li>Enter the 6-digit code shown above</li>
-      <li>Click <strong>Connect Device</strong></li>
-      <li>Watch the terminal and this page for confirmation</li>
-    </ol>
+  <div class="pairing-content" id="pairing-content">
+    <h1>Parent Pairing Code</h1>
+    <p class="subtitle">Enter this code in the Phylax extension</p>
+    <div class="code-display" id="code-display"></div>
+    <p class="hint">Code expires in 10 minutes</p>
+    <button class="new-code-btn" onclick="newCode()">Generate New Code</button>
+
+    <div class="steps">
+      <h3>How to test:</h3>
+      <ol>
+        <li>Open <code>chrome://extensions</code> and enable Developer mode</li>
+        <li>Click <strong>Load unpacked</strong> and select the <code>extension/</code> folder</li>
+        <li>Click the Phylax extension icon in Chrome toolbar</li>
+        <li>Enter the 6-digit code shown above</li>
+        <li>Click <strong>Connect Device</strong></li>
+        <li>Watch the terminal and this page for confirmation</li>
+      </ol>
+    </div>
+
+    <div class="log-section">
+      <h3>Live Events</h3>
+      <div id="log">Waiting for extension to connect...</div>
+    </div>
   </div>
 
-  <div class="log-section">
-    <h3>Live Events</h3>
-    <div id="log">Waiting for extension to connect...</div>
+  <div class="success-card" id="success-card">
+    <div class="success-icon">&#x2713;</div>
+    <h2>Device Paired Successfully!</h2>
+    <p id="success-details">The extension is now connected and protected.</p>
+    <button class="new-code-btn" style="margin-top: 24px;" onclick="resetPairing()">Pair Another Device</button>
   </div>
 
   <script>
@@ -309,15 +353,36 @@ function getTestPageHTML() {
       log.scrollTop = log.scrollHeight;
     }
 
+    function showSuccess(device) {
+      document.getElementById('pairing-content').classList.add('hidden');
+      const card = document.getElementById('success-card');
+      card.classList.add('visible');
+      if (device) {
+        document.getElementById('success-details').innerHTML =
+          '<strong>' + (device.device_name || 'Chrome Browser') + '</strong> is now paired and protected.<br>' +
+          '<span style="color:rgba(255,255,255,0.3);font-size:12px;">Device ID: ' + device.device_id + '</span>';
+      }
+    }
+
+    function resetPairing() {
+      document.getElementById('success-card').classList.remove('visible');
+      document.getElementById('pairing-content').classList.remove('hidden');
+      fetch('/api/new-code').then(r => r.json()).then(({ code }) => showCode(code));
+      addLog('Ready for next pairing...');
+    }
+
     // Load initial code
     fetch('/api/code').then(r => r.json()).then(({ code }) => showCode(code));
 
-    // Poll for events (simple approach)
+    // Poll for pairing success — auto-transition to dashboard view
     setInterval(async () => {
       try {
-        const res = await fetch('/api/code');
-        const { code } = await res.json();
-        // Code changed = something happened
+        const res = await fetch('/api/pairing/status');
+        const data = await res.json();
+        if (data.paired && data.device) {
+          showSuccess(data.device);
+          addLog('Device paired: ' + (data.device.device_name || data.device.device_id));
+        }
       } catch {}
     }, 2000);
   </script>
