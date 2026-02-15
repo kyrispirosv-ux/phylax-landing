@@ -48,7 +48,7 @@ export const useStore = create<AppState>((set) => ({
 
     pairingCode: null,
     generatePairingCode: () => {
-        const code = Math.random().toString(36).substring(2, 8).toUpperCase();
+        const code = String(Math.floor(100000 + Math.random() * 900000));
         set({ pairingCode: code, pairingStatus: 'waiting' });
     },
     pairingStatus: 'waiting',
