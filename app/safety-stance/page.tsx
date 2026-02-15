@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { GreekKeyLogo } from '@/components/GreekKeyLogo';
+import { Shield, Lock, Eye, Server, Database, Key } from 'lucide-react';
 
 export const metadata = {
     title: 'Phylax — Safety Stance',
@@ -28,62 +29,125 @@ export default function SafetyStance() {
             </nav>
 
             <main className="max-w-[900px] mx-auto px-6 py-20">
+                <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-[#34D399]/20 bg-[#34D399]/5 text-sm text-[#34D399] mb-8">
+                    <Shield className="w-4 h-4" />
+                    <span>Privacy First Architecture</span>
+                </div>
+
                 <h1 className="text-4xl md:text-[42px] font-bold mb-6 bg-gradient-to-b from-white to-white/70 bg-clip-text text-transparent">
-                    Our Safety Stance
+                    Our Uncompromising Stance on Safety & Privacy
                 </h1>
-                <p className="text-lg text-white/70 mb-12 max-w-2xl leading-relaxed">
-                    At Phylax, we believe that protecting children online shouldn't mean sacrificing their privacy.
-                    We are building a safety tool, not a surveillance tool.
+                <p className="text-lg text-white/70 mb-16 max-w-2xl leading-relaxed">
+                    At Phylax, we reject the false dichotomy between child safety and digital privacy.
+                    We believe you can—and must—have both. We are building a safety tool, not a surveillance tool.
                 </p>
 
-                <section className="mb-16">
-                    <h2 className="text-2xl md:text-[28px] font-bold text-white mb-4">Privacy by Design</h2>
-                    <p className="text-lg text-white/70 leading-relaxed">
-                        Traditional safety tools send every URL visited to the cloud for analysis. This creates a massive
-                        database of user activity. Phylax takes a different approach. We've optimized our AI models to
-                        run locally on the device (Edge AI). This means the analysis happens on your computer, and the
-                        raw data stays there.
-                    </p>
+                {/* Core Principles Grid */}
+                <div className="grid md:grid-cols-2 gap-6 mb-20">
+                    {[
+                        {
+                            icon: <Server className="w-6 h-6 text-[#22D3EE]" />,
+                            title: "Edge AI Processing",
+                            desc: "Analysis happens on your device, not our servers."
+                        },
+                        {
+                            icon: <Database className="w-6 h-6 text-[#34D399]" />,
+                            title: "Zero Data Sales",
+                            desc: "We never sell, trade, or share your family's data."
+                        },
+                        {
+                            icon: <Key className="w-6 h-6 text-[#F472B6]" />,
+                            title: "Parent-Owned Keys",
+                            desc: "Only you can decrypt sensitive alert details."
+                        },
+                        {
+                            icon: <Eye className="w-6 h-6 text-[#A78BFA]" />,
+                            title: "Transparent Logic",
+                            desc: "Open-source analysis rules for verification."
+                        }
+                    ].map((item, i) => (
+                        <div key={i} className="p-6 rounded-2xl bg-white/5 border border-white/10">
+                            <div className="mb-4 p-3 bg-white/5 rounded-xl w-fit">{item.icon}</div>
+                            <h3 className="text-lg font-bold text-white mb-2">{item.title}</h3>
+                            <p className="text-white/60 text-sm">{item.desc}</p>
+                        </div>
+                    ))}
+                </div>
 
-                    <div className="mt-10 p-8 rounded-[18px] bg-white/[0.06] border border-white/10">
-                        <h3 className="text-xl font-bold text-[#22D3EE] mb-2 mt-0">The &quot;No Spy&quot; Guarantee</h3>
-                        <p className="text-lg text-white/90 leading-relaxed m-0">
-                            We do not log your child&#39;s browsing history to our servers. We only sync high-level risk events
-                            (e.g., &quot;Blocked gambling site&quot;) to the parent dashboard so you can take action.
+                <section className="mb-20">
+                    <h2 className="text-2xl md:text-[32px] font-bold text-white mb-6">Technical Architecture: How Edge AI Works</h2>
+                    <div className="prose prose-invert max-w-none text-lg text-white/70 leading-relaxed space-y-6">
+                        <p>
+                            Traditional safety tools work by routing all your child&#39;s internet traffic through a VPN or proxy server
+                            where it is analyzed in the cloud. This means every website visited, every search term, and every image
+                            viewed is sent to a third-party server.
                         </p>
+                        <p>
+                            <strong>Phylax takes a radically different approach.</strong> We have optimized powerful AI models to run
+                            efficiently directly on your child&#39;s computer (Edge AI).
+                        </p>
+                        <ul className="list-disc pl-6 space-y-2 mt-4 text-white/80">
+                            <li><strong>Local Analysis:</strong> The AI scans text and images within the browser on the local machine.</li>
+                            <li><strong>No URL Uploads:</strong> Browsing history is not continuously uploaded to our cloud.</li>
+                            <li><strong>Privacy Preserving:</strong> Raw data stays on the device. Only high-confidence risk alerts (e.g., &quot;Bullying Detected&quot;) are encrypted and synced to your dashboard.</li>
+                        </ul>
                     </div>
                 </section>
 
-                <section className="mb-16">
-                    <h2 className="text-2xl md:text-[28px] font-bold text-white mb-4">Data Ownership</h2>
+                <section className="mb-20">
+                    <h2 className="text-2xl md:text-[32px] font-bold text-white mb-6">Data Retention & Security</h2>
+                    <div className="prose prose-invert max-w-none text-lg text-white/70 leading-relaxed space-y-6">
+                        <p>
+                            We practice data minimization. We only collect what is strictly necessary to provide the service.
+                        </p>
+
+                        <div className="mt-8 grid gap-4">
+                            <div className="p-6 rounded-xl bg-white/[0.03] border-l-4 border-[#22D3EE]">
+                                <h3 className="text-white font-bold mb-2">Alert Data</h3>
+                                <p className="text-sm">
+                                    When a safety rule is triggered (e.g. violent content), a snippet of the context is encrypted using
+                                    AES-256 encryption. This data is retained for 30 days to allow for parental review and is then
+                                    automatically permanently deleted.
+                                </p>
+                            </div>
+                            <div className="p-6 rounded-xl bg-white/[0.03] border-l-4 border-[#34D399]">
+                                <h3 className="text-white font-bold mb-2">Usage Statistics</h3>
+                                <p className="text-sm">
+                                    We collect aggregate, anonymous telemetry (e.g. &quot;10,000 threats blocked today&quot;) to improve our AI models.
+                                    This data cannot be traced back to an individual user or family.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section className="mb-20">
+                    <h2 className="text-2xl md:text-[32px] font-bold text-white mb-6">Our Business Model</h2>
                     <p className="text-lg text-white/70 mb-6 leading-relaxed">
-                        You own your family&#39;s data. We differ from &quot;free&quot; safety products that monetize your data by
-                        selling it to advertisers or brokers. Phylax is a paid product because <strong>you are the customer,
-                            not the product.</strong>
+                        The most common question we get is: &quot;If I&#39;m not paying with my data, how do you make money?&quot;
                     </p>
-                    <ul className="list-disc pl-6 space-y-3 text-lg text-white/70">
-                        <li>We never sell user data.</li>
-                        <li>We do not use your private data to train public AI models.</li>
-                        <li>You can delete your account and all associated data at any time.</li>
-                    </ul>
-                </section>
-
-                <section className="mb-16">
-                    <h2 className="text-2xl md:text-[28px] font-bold text-white mb-4">Transparency</h2>
+                    <p className="text-lg text-white/70 leading-relaxed mb-6">
+                        The answer is simple: <strong>Phylax is a paid product.</strong>
+                    </p>
                     <p className="text-lg text-white/70 leading-relaxed">
-                        Trust is earned through transparency. We are committed to open-sourcing key components of our
-                        analysis engine so specifically technical parents can verify our claims. We clearly document
-                        what data is collected, why it is needed, and how long it is kept.
+                        By charging a fair subscription fee, we align our incentives with yours. We don&#39;t need to sell your data
+                        to advertisers because you are our customer, not the product. This financial independence allows us to
+                        build features that prioritize your privacy over profit.
                     </p>
                 </section>
 
-                <section className="mb-8">
-                    <h2 className="text-2xl md:text-[28px] font-bold text-white mb-4">Safety vs. Surveillance</h2>
-                    <p className="text-lg text-white/70 leading-relaxed">
-                        There is a fine line between keeping a child safe and invading their privacy. Surveillance erodes
-                        trust. Safety builds it. Phylax is designed to intervene only when necessary, allowing children
-                        the freedom to explore the internet safely while giving parents peace of mind.
-                    </p>
+                <section className="mb-12">
+                    <div className="p-8 rounded-[24px] bg-gradient-to-br from-[#7C5CFF]/10 to-transparent border border-[#7C5CFF]/20">
+                        <h2 className="text-2xl md:text-[32px] font-bold text-white mb-4">Safety vs. Surveillance</h2>
+                        <p className="text-lg text-white/80 leading-relaxed italic">
+                            &quot;There is a fine line between keeping a child safe and invading their privacy. Surveillance erodes
+                            trust. Safety builds it.&quot;
+                        </p>
+                        <p className="text-lg text-white/70 mt-6 leading-relaxed">
+                            Phylax is designed to intervene only when necessary, allowing children the freedom to explore the internet
+                            safely while giving parents peace of mind that they will be alerted to genuine dangers, not everyday curiosity.
+                        </p>
+                    </div>
                 </section>
             </main>
 
