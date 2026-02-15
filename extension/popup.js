@@ -7,11 +7,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     const errorMsg = document.getElementById('error-msg');
     const digits = document.querySelectorAll('.code-digit');
 
-    // ── 6-digit code input behavior ──
+    // ── 6-character code input behavior ──
 
     digits.forEach((input, i) => {
         input.addEventListener('input', (e) => {
-            const val = e.target.value.replace(/\D/g, '');
+            const val = e.target.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
             e.target.value = val;
             if (val && i < digits.length - 1) digits[i + 1].focus();
             updateButton();
@@ -25,7 +25,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         input.addEventListener('paste', (e) => {
             e.preventDefault();
-            const paste = (e.clipboardData || window.clipboardData).getData('text').replace(/\D/g, '');
+            const paste = (e.clipboardData || window.clipboardData).getData('text').replace(/[^A-Za-z0-9]/g, '').toUpperCase();
             for (let j = 0; j < Math.min(paste.length, 6); j++) {
                 digits[j].value = paste[j];
             }

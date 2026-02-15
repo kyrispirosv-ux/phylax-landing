@@ -10,7 +10,7 @@ create table public.pairing_tokens (
   family_id uuid not null references public.families(id) on delete cascade,
   child_id uuid not null references public.children(id) on delete cascade,
   secret text not null,                    -- random 32+ byte hex string
-  short_code char(6) not null,             -- 6-digit numeric code (maps to strong token)
+  short_code char(6) not null,             -- 6-character alphanumeric code (maps to strong token)
   expires_at timestamptz not null,
   used_at timestamptz,                     -- null = unused
   used_by_device_id uuid references public.devices(id),
@@ -24,7 +24,7 @@ create index idx_pairing_tokens_short_code on public.pairing_tokens (short_code)
 create index idx_pairing_tokens_secret on public.pairing_tokens (secret) where used_at is null;
 create index idx_pairing_tokens_family on public.pairing_tokens (family_id);
 
--- Rate-limit table for 6-digit code attempts
+-- Rate-limit table for pairing code attempts
 create table public.pairing_attempts (
   id bigint generated always as identity primary key,
   ip_hint text,                            -- partial IP or fingerprint (not full IP for privacy)

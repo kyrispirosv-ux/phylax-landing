@@ -66,8 +66,8 @@ export async function POST(request: Request) {
       );
     }
 
-    // Hash the short code before DB lookup — raw code is never compared in plaintext
-    const shortCodeHash = sha256(short_code);
+    // Normalize to uppercase and hash before DB lookup — raw code is never compared in plaintext
+    const shortCodeHash = sha256(short_code.toUpperCase());
 
     const { data: token } = await db
       .from("pairing_tokens")

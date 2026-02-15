@@ -63,7 +63,11 @@ export async function POST(request: Request) {
 
   // Generate cryptographically strong values
   const secret = crypto.randomBytes(32).toString("hex");
-  const shortCode = String(crypto.randomInt(100000, 999999));
+  const ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no 0/O, 1/I
+  let shortCode = "";
+  for (let i = 0; i < 6; i++) {
+    shortCode += ALPHABET[crypto.randomInt(ALPHABET.length)];
+  }
   const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString(); // 10 minutes
 
   // Store ONLY hashes — raw values are returned to the client but never persisted

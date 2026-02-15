@@ -9,9 +9,9 @@
  *   node test-pairing-server.js
  *
  * Then:
- *   1. Open http://localhost:3000 in your browser — it shows a 6-digit code
+ *   1. Open http://localhost:3000 in your browser — it shows a 6-character code
  *   2. Load the extension in Chrome (chrome://extensions → Load unpacked → select extension/)
- *   3. Click the Phylax extension icon → enter the 6-digit code → click Connect
+ *   3. Click the Phylax extension icon → enter the 6-character code → click Connect
  *   4. Watch the page auto-transition to the parent dashboard
  */
 
@@ -30,7 +30,11 @@ const heartbeats = new Map();   // device_id → { last_seen, extension_version,
 const MAX_EVENTS = 50;
 
 function generateCode() {
-  const code = String(crypto.randomInt(100000, 999999));
+  const ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no 0/O, 1/I
+  let code = '';
+  for (let i = 0; i < 6; i++) {
+    code += ALPHABET[crypto.randomInt(ALPHABET.length)];
+  }
   const data = {
     child_id: 'test-child-' + crypto.randomUUID().slice(0, 8),
     family_id: 'test-family-' + crypto.randomUUID().slice(0, 8),
@@ -444,7 +448,7 @@ function getDashboardHTML() {
         <li>Open <code>chrome://extensions</code> and enable Developer mode</li>
         <li>Click <strong>Load unpacked</strong> → select the <code>extension/</code> folder</li>
         <li>Click the Phylax extension icon in Chrome toolbar</li>
-        <li>Enter the 6-digit code shown above</li>
+        <li>Enter the 6-character code shown above</li>
         <li>Click <strong>Connect Device</strong></li>
       </ol>
     </div>

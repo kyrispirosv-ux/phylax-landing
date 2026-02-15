@@ -16,7 +16,7 @@ const pairedMessage = document.getElementById('paired-message');
 // ── Code input behavior ──
 digits.forEach((input, i) => {
   input.addEventListener('input', (e) => {
-    const val = e.target.value.replace(/\D/g, '');
+    const val = e.target.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
     e.target.value = val;
     if (val && i < digits.length - 1) {
       digits[i + 1].focus();
@@ -33,7 +33,7 @@ digits.forEach((input, i) => {
   // Handle paste of full code
   input.addEventListener('paste', (e) => {
     e.preventDefault();
-    const paste = (e.clipboardData || window.clipboardData).getData('text').replace(/\D/g, '');
+    const paste = (e.clipboardData || window.clipboardData).getData('text').replace(/[^A-Za-z0-9]/g, '').toUpperCase();
     for (let j = 0; j < Math.min(paste.length, 6); j++) {
       digits[j].value = paste[j];
     }

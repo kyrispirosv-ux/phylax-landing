@@ -196,7 +196,7 @@ export function LiveDashboard(props: Props) {
             {onboardCode && (
               <div className="mt-4 space-y-4">
                 <div>
-                  <p className="text-white/40 text-xs font-medium mb-2">Your 6-digit pairing code:</p>
+                  <p className="text-white/40 text-xs font-medium mb-2">Your 6-character pairing code:</p>
                   <div className="flex items-center gap-4">
                     <span className="text-4xl font-mono font-bold tracking-[0.4em] text-white bg-white/5 px-6 py-3 rounded-xl border border-white/10">
                       {onboardCode.short_code}
