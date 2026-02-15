@@ -10,6 +10,7 @@ import { evaluate, compileToPolicyObject } from './engine/pipeline.js';
 import { createSessionState, updateSessionState } from './engine/behavior.js';
 import { cacheClear, cacheStats } from './engine/decision-cache.js';
 import { createConversationState } from './engine/grooming-detector.js';
+import { classify_video_risk, analyze_message_risk, predict_conversation_risk } from './engine/risk-classifier.js';
 
 // ── State ───────────────────────────────────────────────────────
 
@@ -133,7 +134,7 @@ async function setRules(rules) {
   // Notify all tabs
   const tabs = await chrome.tabs.query({});
   for (const tab of tabs) {
-    chrome.tabs.sendMessage(tab.id, { type: 'PHYLAX_RULES_UPDATED', rules }).catch(() => {});
+    chrome.tabs.sendMessage(tab.id, { type: 'PHYLAX_RULES_UPDATED', rules }).catch(() => { });
   }
 }
 
@@ -200,7 +201,7 @@ function shouldThrottleDecision(tabId, action, url) {
   const urlPath = extractThrottlePath(url);
 
   if (cached.action === action && cached.path === urlPath &&
-      (now - cached.timestamp) < TAB_DECISION_THROTTLE_MS) {
+    (now - cached.timestamp) < TAB_DECISION_THROTTLE_MS) {
     return true;
   }
   return false;
@@ -286,8 +287,8 @@ async function processEvent(rawEvent, tabId) {
     message_child: decision.decision === 'BLOCK'
       ? "This isn't allowed by your family's safety settings."
       : decision.decision === 'LIMIT'
-      ? 'Time for a break!'
-      : '',
+        ? 'Time for a break!'
+        : '',
     message_parent: decision.evidence?.join(' ') || decision.reason_code,
     timestamp: Date.now(),
     // Pass through enforcement and evidence
@@ -501,7 +502,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
     processEvent(message.event, tabId).then(decision => {
       if (decision && decision.action !== 'ALLOW' &&
-          shouldThrottleDecision(tabId, decision.action, eventUrl)) {
+        shouldThrottleDecision(tabId, decision.action, eventUrl)) {
         console.log(`[Phylax] Throttled ${decision.action} for tab ${tabId}`);
         sendResponse({ decision: { action: 'ALLOW', decision: 'ALLOW', scores: decision.scores, throttled: true } });
       } else {
@@ -528,6 +529,84 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     isConversationBlocked(message.domain, message.path).then(blocked => {
       sendResponse({ blocked });
     });
+    return true;
+  }
+
+  // ── TASK 1: YouTube element-level video classification ─────────
+  // Receives per-video metadata from youtube-scanner.js and returns
+  // a structured classification using the risk-classifier pipeline.
+  if (message.type === 'PHYLAX_CLASSIFY_VIDEO') {
+    const video = message.video;
+    if (!video) {
+      sendResponse({ classification: null });
+      return true;
+    }
+
+    // Ensure policy is ready (thresholds depend on profile tier)
+    waitForPolicy().then(() => {
+      const classification = classify_video_risk(
+        video.contentText || '',
+        {
+          title: video.title,
+          channel: video.channel,
+          description: video.description,
+          tags: video.badges || [],
+        }
+      );
+
+      console.log(`[Phylax] Video classify: "${(video.title || '').slice(0, 50)}" → ${classification.decision} (${classification.category}, risk: ${classification.risk_score})`);
+
+      // Log blocked/warned videos
+      if (classification.decision !== 'allow') {
+        const logEvent = createEvent({
+          eventType: 'VIDEO_CLASSIFIED',
+          tabId: sender.tab?.id,
+          url: `https://youtube.com/watch?v=${video.videoId}`,
+          domain: 'youtube.com',
+          payload: {
+            videoId: video.videoId,
+            title: video.title,
+            classification,
+            searchQuery: message.searchQuery,
+          },
+          profileId: profileTier,
+        });
+        eventBuffer.push(logEvent);
+      }
+
+      sendResponse({ classification });
+    });
+    return true;
+  }
+
+  // ── TASK 2: Grooming/manipulation message analysis ────────────
+  // Direct API for analyze_message_risk — used for demo testing.
+  if (message.type === 'PHYLAX_ANALYZE_MESSAGE') {
+    const result = analyze_message_risk(
+      message.messageText || '',
+      message.conversationHistory || null,
+    );
+    sendResponse({ result });
+    return true;
+  }
+
+  // ── TASK 3: Predictive conversation risk analysis ─────────────
+  // Direct API for predict_conversation_risk — used for demo testing.
+  if (message.type === 'PHYLAX_PREDICT_RISK') {
+    const result = predict_conversation_risk(message.messages || []);
+    sendResponse({ result });
+
+    // If elevated or higher, send predictive warning to the tab
+    if (result.risk_level === 'elevated' || result.risk_level === 'high' || result.risk_level === 'critical') {
+      const tabId = sender.tab?.id;
+      if (tabId) {
+        chrome.tabs.sendMessage(tabId, {
+          type: 'PHYLAX_PREDICTIVE_WARNING',
+          decision: result,
+        }).catch(() => {});
+      }
+    }
+
     return true;
   }
 
@@ -604,6 +683,14 @@ async function handleDashboardMessage(message, sendResponse) {
         current.push({ text: message.rule, active: true });
         await setRules(current);
         sendResponse({ success: true, rulesCount: current.length });
+        break;
+      }
+      case 'PHYLAX_PAIR_DEVICE': {
+        console.log('[Phylax] Device paired with code:', message.code);
+        // In a real app, we would exchange this code for an auth token here.
+        // For local demo, we just acknowledge it and trigger a rule fetch.
+        await rebuildPolicy([]); // Refresh with default rules or fetch from "server"
+        sendResponse({ success: true });
         break;
       }
       case 'PHYLAX_TOGGLE_RULE': {
@@ -770,7 +857,7 @@ chrome.webNavigation.onCommitted.addListener(async (details) => {
           chrome.tabs.sendMessage(details.tabId, {
             type: 'PHYLAX_ENFORCE_DECISION',
             decision: blockDecision,
-          }).catch(() => {});
+          }).catch(() => { });
         }
       }
     }
@@ -801,8 +888,8 @@ chrome.webNavigation.onCompleted.addListener(async (details) => {
         content_object: tabContent.content_object,
         title: tabContent.content_object.title || '',
         text: (tabContent.content_object.title || '') + ' ' +
-              (tabContent.content_object.description || '') + ' ' +
-              (tabContent.content_object.main_text || '').slice(0, 3000),
+          (tabContent.content_object.description || '') + ' ' +
+          (tabContent.content_object.main_text || '').slice(0, 3000),
         content_type_hint: tabContent.content_object.content_type || 'unknown',
       };
     }
@@ -821,7 +908,7 @@ chrome.webNavigation.onCompleted.addListener(async (details) => {
       chrome.tabs.sendMessage(details.tabId, {
         type: 'PHYLAX_ENFORCE_DECISION',
         decision,
-      }).catch(() => {});
+      }).catch(() => { });
     }
   }
 });

@@ -52,5 +52,14 @@ export async function GET(request: Request) {
     }
   }
 
-  return NextResponse.json({ status: "ok", aggregated, date: yesterday });
+  // ── Cleanup expired pairing tokens and old attempts ──
+  let cleanedTokens = 0;
+  try {
+    const { data: cleanupResult } = await db.rpc("cleanup_expired_pairing_tokens");
+    cleanedTokens = cleanupResult ?? 0;
+  } catch (err) {
+    console.error("[cron] pairing token cleanup failed:", err);
+  }
+
+  return NextResponse.json({ status: "ok", aggregated, date: yesterday, cleaned_pairing_tokens: cleanedTokens });
 }

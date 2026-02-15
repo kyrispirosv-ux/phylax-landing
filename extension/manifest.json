@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Phylax SafeGuard",
-  "version": "4.0",
-  "description": "Intelligent child safety with grooming detection, content filtering, behavior analysis, and parent dashboard integration.",
+  "version": "6.0",
+  "description": "Child safety with video blocking, grooming detection, risk scoring, and parent dashboard.",
 
   "permissions": [
     "storage",
@@ -18,9 +18,7 @@
   "externally_connectable": {
     "matches": [
       "https://phylax-landing.vercel.app/*",
-      "https://app.phylax.ai/*",
-      "http://localhost:*/*",
-      "http://127.0.0.1:*/*"
+      "https://app.phylax.ai/*"
     ]
   },
 
@@ -33,9 +31,7 @@
     {
       "matches": [
         "https://phylax-landing.vercel.app/*",
-        "https://app.phylax.ai/*",
-        "http://localhost:*/*",
-        "http://127.0.0.1:*/*"
+        "https://app.phylax.ai/*"
       ],
       "js": ["bridge.js"],
       "run_at": "document_idle"
@@ -44,6 +40,15 @@
       "matches": ["<all_urls>"],
       "js": ["content/observer.js", "content/enforcer.js"],
       "run_at": "document_start"
+    },
+    {
+      "matches": [
+        "https://www.youtube.com/*",
+        "https://youtube.com/*",
+        "https://m.youtube.com/*"
+      ],
+      "js": ["content/youtube-scanner.js"],
+      "run_at": "document_idle"
     }
   ],
 

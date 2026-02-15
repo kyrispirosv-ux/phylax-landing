@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 
 type Child = { id: string; name: string; tier: string };
 type Device = { id: string; child_id: string; device_name: string; status: string; last_heartbeat: string | null; extension_version: string | null };
@@ -48,6 +48,31 @@ export function LiveDashboard(props: Props) {
   const { parentName, children: kids, devices, alerts, events, ruleCount, weeklyBlocked, accessRequests, riskLevel, onlineDeviceCount, activeDeviceCount } = props;
   const [selectedChild, setSelectedChild] = useState<string>("");
   const [now, setNow] = useState(Date.now());
+
+  // Onboarding: auto-generate pairing code when no devices exist
+  const [onboardCode, setOnboardCode] = useState<{ short_code: string; install_link: string; expires_at: string } | null>(null);
+  const [onboardLoading, setOnboardLoading] = useState(false);
+  const [onboardCopied, setOnboardCopied] = useState("");
+
+  const autoGeneratePairingCode = useCallback(async () => {
+    if (devices.length > 0 || kids.length === 0 || onboardCode || onboardLoading) return;
+    setOnboardLoading(true);
+    try {
+      const res = await fetch("/api/pairing/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ child_id: kids[0].id }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setOnboardCode(data);
+      }
+    } catch { /* ignore */ } finally {
+      setOnboardLoading(false);
+    }
+  }, [devices.length, kids, onboardCode, onboardLoading]);
+
+  useEffect(() => { autoGeneratePairingCode(); }, [autoGeneratePairingCode]);
 
   // Tick every 30s to keep "time ago" fresh — makes it feel alive
   useEffect(() => {
@@ -116,6 +141,63 @@ export function LiveDashboard(props: Props) {
               {child.name}
             </button>
           ))}
+        </div>
+      )}
+
+      {/* ═══ ONBOARDING: Pairing Code Card (shown when no devices) ═══ */}
+      {devices.length === 0 && (
+        <div className="relative overflow-hidden rounded-2xl border border-[#7C5CFF]/30 ring-1 ring-[#7C5CFF]/20 bg-gradient-to-br from-[#7C5CFF]/10 to-[#22D3EE]/5 p-6 sm:p-8">
+          <div className="absolute -top-20 -right-20 w-60 h-60 rounded-full bg-[#7C5CFF] opacity-[0.06] blur-3xl" />
+          <div className="relative">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#7C5CFF] to-[#22D3EE] flex items-center justify-center shadow-lg shadow-purple-500/30">
+                <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m9.07-9.07l4.5-4.5a4.5 4.5 0 016.364 6.364l-1.757 1.757" />
+                </svg>
+              </div>
+              <div>
+                <h2 className="text-lg font-bold text-white">Connect Your First Device</h2>
+                <p className="text-white/40 text-sm">Enter this code in the Phylax extension to connect this device.</p>
+              </div>
+            </div>
+
+            {onboardLoading && (
+              <div className="flex items-center gap-2 mt-4">
+                <div className="w-4 h-4 border-2 border-[#7C5CFF]/30 border-t-[#7C5CFF] rounded-full animate-spin" />
+                <span className="text-white/40 text-sm">Generating pairing code...</span>
+              </div>
+            )}
+
+            {onboardCode && (
+              <div className="mt-4 space-y-4">
+                <div>
+                  <p className="text-white/40 text-xs font-medium mb-2">Your 6-digit pairing code:</p>
+                  <div className="flex items-center gap-4">
+                    <span className="text-4xl font-mono font-bold tracking-[0.4em] text-white bg-white/5 px-6 py-3 rounded-xl border border-white/10">
+                      {onboardCode.short_code}
+                    </span>
+                    <button
+                      onClick={async () => {
+                        await navigator.clipboard.writeText(onboardCode.short_code);
+                        setOnboardCopied("code");
+                        setTimeout(() => setOnboardCopied(""), 2000);
+                      }}
+                      className="px-4 py-2 bg-[#7C5CFF] text-white text-sm font-medium rounded-lg hover:bg-[#7C5CFF]/80 transition"
+                    >
+                      {onboardCopied === "code" ? "Copied!" : "Copy Code"}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-2 text-white/30 text-xs">
+                  <svg className="w-4 h-4 text-amber-400/70 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span>Expires in 10 minutes. Single-use only. Go to <Link href="/dashboard/devices" className="text-[#7C5CFF] hover:underline">Devices</Link> to generate a new code.</span>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       )}
 

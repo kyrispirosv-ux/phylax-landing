@@ -83,6 +83,7 @@ export type Database = {
           device_name: string;
           extension_version: string | null;
           pairing_code: string | null;
+          auth_token_hash: string | null;
           status: "active" | "inactive" | "pending";
           last_heartbeat: string | null;
           created_at: string;
@@ -94,10 +95,12 @@ export type Database = {
           platform?: "chrome" | "ios" | "android";
           device_name?: string;
           pairing_code?: string | null;
+          auth_token_hash?: string | null;
         };
         Update: {
           device_name?: string;
           extension_version?: string | null;
+          auth_token_hash?: string | null;
           status?: "active" | "inactive" | "pending";
           last_heartbeat?: string | null;
         };
@@ -203,8 +206,8 @@ export type Database = {
           id: string;
           family_id: string;
           child_id: string;
-          secret: string;
-          short_code: string;
+          secret_hash: string;
+          short_code_hash: string;
           expires_at: string;
           used_at: string | null;
           used_by_device_id: string | null;
@@ -215,8 +218,8 @@ export type Database = {
           id?: string;
           family_id: string;
           child_id: string;
-          secret: string;
-          short_code: string;
+          secret_hash: string;
+          short_code_hash: string;
           expires_at: string;
           created_by: string;
         };

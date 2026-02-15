@@ -817,5 +817,121 @@
     if (existing) existing.remove();
   }
 
+  // ═════════════════════════════════════════════════════════════════
+  // PREDICTIVE RISK — Yellow shield indicator
+  // ═════════════════════════════════════════════════════════════════
+
+  /**
+   * Show a subtle yellow shield icon for elevated (not critical) risk.
+   * Used by the predictive risk intelligence system (Task 3).
+   * Appears as a floating indicator — does NOT block interaction.
+   */
+  function showPredictiveWarning(decision) {
+    // Don't show if a block overlay is already active
+    if (currentOverlay) return;
+
+    // Don't duplicate
+    if (document.getElementById('phylax-predictive-shield')) return;
+
+    const tooltip = decision.reasoning?.[0] || 'Early-stage manipulation pattern detected.';
+
+    const container = document.createElement('div');
+    container.id = 'phylax-predictive-shield';
+    container.style.cssText = `
+      position: fixed;
+      bottom: 20px; right: 20px;
+      z-index: 2147483640;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      animation: phylaxShieldSlideIn 0.4s ease;
+    `;
+
+    container.innerHTML = `
+      <style>
+        @keyframes phylaxShieldSlideIn {
+          from { transform: translateY(20px) scale(0.8); opacity: 0; }
+          to { transform: translateY(0) scale(1); opacity: 1; }
+        }
+        @keyframes phylaxShieldPulse {
+          0%, 100% { box-shadow: 0 4px 16px rgba(245, 158, 11, 0.3); }
+          50% { box-shadow: 0 4px 24px rgba(245, 158, 11, 0.6); }
+        }
+        #phylax-shield-btn {
+          width: 48px; height: 48px;
+          background: linear-gradient(135deg, #F59E0B, #D97706);
+          border-radius: 14px;
+          display: flex; align-items: center; justify-content: center;
+          cursor: help;
+          border: 2px solid rgba(255, 255, 255, 0.15);
+          animation: phylaxShieldPulse 3s ease-in-out infinite;
+          transition: transform 0.2s;
+        }
+        #phylax-shield-btn:hover { transform: scale(1.1); }
+        #phylax-shield-tooltip {
+          position: absolute;
+          bottom: calc(100% + 12px);
+          right: 0;
+          background: #1a1a2e;
+          border: 1px solid rgba(245, 158, 11, 0.35);
+          border-radius: 12px;
+          padding: 12px 16px;
+          color: white;
+          font-size: 13px;
+          line-height: 1.5;
+          max-width: 280px;
+          opacity: 0;
+          pointer-events: none;
+          transition: opacity 0.25s ease;
+          box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+        }
+        #phylax-shield-btn:hover + #phylax-shield-tooltip,
+        #phylax-shield-tooltip:hover {
+          opacity: 1;
+          pointer-events: auto;
+        }
+      </style>
+      <div id="phylax-shield-btn">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+        </svg>
+      </div>
+      <div id="phylax-shield-tooltip">
+        <div style="font-weight: 600; margin-bottom: 4px; color: #F59E0B;">
+          Phylax Safety Notice
+        </div>
+        <div style="color: rgba(255,255,255,0.7);">
+          ${tooltip}
+        </div>
+        <div style="margin-top: 8px; font-size: 11px; color: rgba(255,255,255,0.35);">
+          Risk level: ${decision.risk_level || 'elevated'} &middot; Confidence: ${Math.round((decision.confidence || 0.5) * 100)}%
+        </div>
+      </div>
+    `;
+
+    safeAppendOverlay(container);
+
+    // Auto-dismiss after 15 seconds
+    setTimeout(() => {
+      const el = document.getElementById('phylax-predictive-shield');
+      if (el) {
+        el.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
+        el.style.opacity = '0';
+        el.style.transform = 'translateY(20px) scale(0.8)';
+        setTimeout(() => el.remove(), 500);
+      }
+    }, 15000);
+  }
+
+  // Listen for predictive risk warnings from background
+  window.addEventListener('phylax-predictive-warning', (e) => {
+    showPredictiveWarning(e.detail);
+  });
+
+  // Handle predictive warning messages from background
+  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message.type === 'PHYLAX_PREDICTIVE_WARNING') {
+      showPredictiveWarning(message.decision);
+    }
+  });
+
   console.log('[Phylax Enforcer v3] Ready on:', host);
 })();

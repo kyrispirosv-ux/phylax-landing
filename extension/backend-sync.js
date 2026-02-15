@@ -44,6 +44,19 @@ async function getDeviceId() {
   return s.phylaxDeviceId || null;
 }
 
+async function getAuthToken() {
+  const s = await chrome.storage.local.get(['phylaxAuthToken']);
+  return s.phylaxAuthToken || null;
+}
+
+/** Build headers with auth token for authenticated API calls */
+async function getAuthHeaders() {
+  const headers = { 'Content-Type': 'application/json' };
+  const token = await getAuthToken();
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  return headers;
+}
+
 async function isPaired() {
   const s = await chrome.storage.local.get(['phylaxPaired']);
   return !!s.phylaxPaired;
@@ -60,7 +73,8 @@ export async function syncPolicy() {
   const currentVer = stored.phylaxPolicyVersion || 0;
 
   try {
-    const res = await fetch(`${base}/api/extension/sync?device_id=${deviceId}&policy_version=${currentVer}`);
+    const headers = await getAuthHeaders();
+    const res = await fetch(`${base}/api/extension/sync?device_id=${deviceId}&policy_version=${currentVer}`, { headers });
     if (!res.ok) return null;
     const data = await res.json();
 
@@ -113,9 +127,10 @@ export async function flushEvents() {
   const base = await getApiBase();
 
   try {
+    const headers = await getAuthHeaders();
     const res = await fetch(`${base}/api/extension/events`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({ device_id: deviceId, events: batch }),
     });
     if (!res.ok) {
@@ -135,9 +150,10 @@ export async function requestAccess(url, domain, ruleId) {
   const base = await getApiBase();
 
   try {
+    const headers = await getAuthHeaders();
     const res = await fetch(`${base}/api/extension/access-request`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({ device_id: deviceId, url, domain, rule_id: ruleId }),
     });
     return await res.json();
@@ -154,9 +170,10 @@ async function sendHeartbeat() {
   const base = await getApiBase();
 
   try {
+    const headers = await getAuthHeaders();
     await fetch(`${base}/api/extension/sync`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({
         device_id: deviceId,
         extension_version: chrome.runtime.getManifest().version,

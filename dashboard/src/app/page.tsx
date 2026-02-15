@@ -7,7 +7,8 @@ export default async function Home() {
 
   if (user) {
     redirect("/dashboard");
-  } else {
-    redirect("/auth/login");
   }
+
+  // Serve the static landing page for unauthenticated visitors
+  redirect("/landing.html");
 }

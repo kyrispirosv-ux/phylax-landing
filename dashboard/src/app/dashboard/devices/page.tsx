@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { getParentInfo } from "@/lib/supabase/helpers";
+import { QRCode } from "@/components/dashboard/qr-code";
 
 type Child = { id: string; name: string; tier: string };
 type Device = {
@@ -33,6 +34,7 @@ export default function DevicesPage() {
   const [selectedChild, setSelectedChild] = useState<string>("");
   const [generating, setGenerating] = useState(false);
   const [copied, setCopied] = useState<string>("");
+  const [unpairing, setUnpairing] = useState<string>("");
 
   useEffect(() => { load(); }, []);
 
@@ -76,6 +78,19 @@ export default function DevicesPage() {
     await navigator.clipboard.writeText(text);
     setCopied(label);
     setTimeout(() => setCopied(""), 2000);
+  }
+
+  async function unpairDevice(deviceId: string) {
+    if (!confirm("Are you sure you want to unpair this device? The extension will stop syncing.")) return;
+    setUnpairing(deviceId);
+    try {
+      const res = await fetch(`/api/devices?device_id=${deviceId}`, { method: "DELETE" });
+      if (res.ok) {
+        await load();
+      }
+    } finally {
+      setUnpairing("");
+    }
   }
 
   function timeAgo(ts: string | null): string {
@@ -160,17 +175,13 @@ export default function DevicesPage() {
               </div>
             </div>
 
-            {/* QR Code placeholder */}
+            {/* QR Code */}
             <div>
               <p className="text-white/40 text-xs font-medium mb-1">QR Code</p>
-              <div className="w-40 h-40 bg-white rounded-xl flex items-center justify-center">
-                <div className="text-center p-2">
-                  <svg className="w-16 h-16 mx-auto text-gray-400 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 4h4v4H4V4zm12 0h4v4h-4V4zM4 16h4v4H4v-4zm12 4h4v-4h-4v4zM8 4h2v2H8V4zm6 0h2v2h-2V4zM4 8h2v2H4V8zm14 0h2v2h-2V8zM8 16h2v2H8v-2zm6 0h2v2h-2v-2z" />
-                  </svg>
-                  <p className="text-[10px] text-gray-500">Scan with phone camera</p>
-                </div>
+              <div className="w-44 h-44 bg-white rounded-xl flex items-center justify-center p-2">
+                <QRCode value={pairingToken.install_link} size={160} />
               </div>
+              <p className="text-white/30 text-[10px] mt-1">Scan with phone camera to send link</p>
             </div>
 
             <p className="text-amber-400/70 text-xs">
@@ -207,6 +218,15 @@ export default function DevicesPage() {
                 {childName(device.child_id)} &middot; {device.extension_version ? `v${device.extension_version}` : "Unknown version"} &middot; Last seen {timeAgo(device.last_heartbeat)}
               </p>
             </div>
+            {device.status === "active" && (
+              <button
+                onClick={() => unpairDevice(device.id)}
+                disabled={unpairing === device.id}
+                className="text-xs text-red-400/60 hover:text-red-400 transition px-3 py-1.5 rounded-lg hover:bg-red-400/10 disabled:opacity-50"
+              >
+                {unpairing === device.id ? "Removing..." : "Unpair"}
+              </button>
+            )}
           </div>
         ))}
         {devices.length === 0 && (
