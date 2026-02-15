@@ -122,6 +122,84 @@ export default function Home() {
           </div>
         </section>
 
+        {/* Privacy Section */}
+        <section className="py-24 px-6 bg-[#0A1022]">
+          <div className="max-w-7xl mx-auto">
+            <div className="grid md:grid-cols-2 gap-16 items-center">
+              <div>
+                <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-[#34D399]/20 bg-[#34D399]/5 text-sm text-[#34D399] mb-6">
+                  <Shield className="w-4 h-4" />
+                  <span>Privacy First Design</span>
+                </div>
+                <h2 className="text-3xl md:text-5xl font-bold text-white mb-6">
+                  Safety without surveillance.
+                </h2>
+                <p className="text-xl text-white/70 mb-8 leading-relaxed">
+                  Most safety tools spy on your children to protect them. We don&#39;t.
+                  Phylax uses Edge AI to analyze content directly on the device,
+                  so personal data never leaves your home.
+                </p>
+
+                <div className="space-y-6 mb-10">
+                  {[
+                    { title: "Edge AI Analysis", desc: "All processing happens locally on the device." },
+                    { title: "No Data Selling", desc: "You are the customer, not the product." },
+                    { title: "Transparent & Open", desc: "Verify our claims with open-source components." }
+                  ].map((item, i) => (
+                    <div key={i} className="flex gap-4">
+                      <div className="mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#34D399]/10">
+                        <Check className="h-3.5 w-3.5 text-[#34D399]" />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-white">{item.title}</h3>
+                        <p className="text-sm text-white/60">{item.desc}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <Link
+                  href="/safety-stance"
+                  className="group inline-flex items-center gap-2 font-medium text-white transition-colors hover:text-[#34D399]"
+                >
+                  Read our full Safety Stance
+                  <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+                </Link>
+              </div>
+
+              <div className="relative">
+                <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-[#34D399]/20 to-transparent blur-[100px]" />
+                <div className="glass-card relative rounded-3xl border-[#34D399]/20 p-8">
+                  <div className="mb-8 flex items-center gap-4 border-b border-white/10 pb-6">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#34D399]/10">
+                      <Lock className="h-6 w-6 text-[#34D399]" />
+                    </div>
+                    <div>
+                      <div className="font-bold text-white">The &quot;No Spy&quot; Guarantee</div>
+                      <div className="text-sm text-white/50">Our commitment to your family</div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between rounded-xl border border-white/5 bg-white/5 p-4">
+                      <span className="text-white/80">Browser History</span>
+                      <span className="rounded bg-[#34D399]/10 px-2 py-1 font-mono text-sm text-[#34D399]">NEVER LOGGED</span>
+                    </div>
+                    <div className="flex items-center justify-between rounded-xl border border-white/5 bg-white/5 p-4">
+                      <span className="text-white/80">Chat Content</span>
+                      <span className="rounded bg-[#34D399]/10 px-2 py-1 font-mono text-sm text-[#34D399]">LOCAL ONLY</span>
+                    </div>
+                    <div className="flex items-center justify-between rounded-xl border border-white/5 bg-white/5 p-4">
+                      <span className="text-white/80">Personal Data</span>
+                      <span className="rounded bg-[#34D399]/10 px-2 py-1 font-mono text-sm text-[#34D399]">NOT SOLD</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
         {/* Pricing */}
         <section id="pricing" className="py-24 px-6 max-w-7xl mx-auto">
           <div className="text-center mb-16">
