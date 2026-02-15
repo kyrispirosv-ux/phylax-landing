@@ -1281,7 +1281,7 @@
           <p>
             You own your family's data. We never sell it, and we don't use it to train public models.
           </p>
-          <button class="btn">Read our Safety Stance</button>
+          <a href="/safety-stance.html" class="btn">Read our Safety Stance</a>
         </div>
         <div class="detail-visual">
           <!-- Abstract representation of privacy/encryption -->
@@ -1710,9 +1710,9 @@
 
     // ── Content Category Toggles (create real rules) ──
     const CATEGORY_RULES = {
-      'adult':    'Block adult content and pornography',
+      'adult': 'Block adult content and pornography',
       'gambling': 'Block gambling sites and gambling content',
-      'weapons':  'Block weapons and graphic violence',
+      'weapons': 'Block weapons and graphic violence',
     };
 
     function initCategoryToggles() {
@@ -1990,7 +1990,9 @@ User: ${userText}`
             Cloud Sync: OK
           </div>
           <div style="font-size: 13px; display: flex; align-items: center; gap: 6px; margin-top: 2px;">
-            <div id="extensionStatusDot" style="width: 6px; height: 6px; background: var(--bad); border-radius: 50%; box-shadow: 0 0 8px rgba(251, 113, 133, 0.4);"></div>
+            <div id="extensionStatusDot"
+              style="width: 6px; height: 6px; background: var(--bad); border-radius: 50%; box-shadow: 0 0 8px rgba(251, 113, 133, 0.4);">
+            </div>
             <span id="extensionStatusText" style="color: var(--bad);">Extension Not Detected</span>
           </div>
         </div>
