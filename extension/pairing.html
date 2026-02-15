@@ -1,11 +1,17 @@
 <!doctype html>
 <html lang="en">
+
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Phylax — Pair Your Device</title>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
     body {
       background: #070A12;
       color: white;
@@ -17,24 +23,52 @@
       text-align: center;
       padding: 24px;
     }
-    .container { max-width: 420px; width: 100%; }
+
+    .container {
+      max-width: 420px;
+      width: 100%;
+    }
+
     .logo {
-      width: 64px; height: 64px;
+      width: 64px;
+      height: 64px;
       background: linear-gradient(135deg, #7C5CFF, #22D3EE);
       border-radius: 16px;
-      display: flex; align-items: center; justify-content: center;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       margin: 0 auto 24px;
       box-shadow: 0 10px 40px rgba(124, 92, 255, 0.3);
     }
-    .logo svg { width: 28px; height: 28px; }
-    h1 { font-size: 24px; margin-bottom: 8px; }
-    .subtitle { color: rgba(255,255,255,0.5); font-size: 14px; margin-bottom: 32px; }
 
-    .code-input-group { display: flex; gap: 8px; justify-content: center; margin-bottom: 16px; }
+    .logo svg {
+      width: 28px;
+      height: 28px;
+    }
+
+    h1 {
+      font-size: 24px;
+      margin-bottom: 8px;
+    }
+
+    .subtitle {
+      color: rgba(255, 255, 255, 0.5);
+      font-size: 14px;
+      margin-bottom: 32px;
+    }
+
+    .code-input-group {
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+      margin-bottom: 16px;
+    }
+
     .code-digit {
-      width: 48px; height: 56px;
-      background: rgba(255,255,255,0.05);
-      border: 2px solid rgba(255,255,255,0.1);
+      width: 48px;
+      height: 56px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 2px solid rgba(255, 255, 255, 0.1);
       border-radius: 12px;
       color: white;
       font-size: 24px;
@@ -43,8 +77,14 @@
       outline: none;
       transition: border-color 0.2s;
     }
-    .code-digit:focus { border-color: #7C5CFF; }
-    .code-digit::placeholder { color: rgba(255,255,255,0.15); }
+
+    .code-digit:focus {
+      border-color: #7C5CFF;
+    }
+
+    .code-digit::placeholder {
+      color: rgba(255, 255, 255, 0.15);
+    }
 
     .btn {
       display: inline-block;
@@ -59,31 +99,49 @@
       transition: background 0.2s;
       width: 100%;
     }
-    .btn:hover { background: #6B4FE0; }
-    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .btn:hover {
+      background: #6B4FE0;
+    }
+
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
 
     .status {
       margin-top: 16px;
       font-size: 13px;
       min-height: 20px;
     }
-    .status.success { color: #34D399; }
-    .status.error { color: #FF5050; }
-    .status.loading { color: rgba(255,255,255,0.5); }
+
+    .status.success {
+      color: #34D399;
+    }
+
+    .status.error {
+      color: #FF5050;
+    }
+
+    .status.loading {
+      color: rgba(255, 255, 255, 0.5);
+    }
 
     .divider {
       display: flex;
       align-items: center;
       gap: 12px;
       margin: 24px 0;
-      color: rgba(255,255,255,0.2);
+      color: rgba(255, 255, 255, 0.2);
       font-size: 12px;
     }
-    .divider::before, .divider::after {
+
+    .divider::before,
+    .divider::after {
       content: "";
       flex: 1;
       height: 1px;
-      background: rgba(255,255,255,0.08);
+      background: rgba(255, 255, 255, 0.08);
     }
 
     .paired-card {
@@ -93,19 +151,38 @@
       padding: 24px;
       display: none;
     }
-    .paired-card.visible { display: block; }
-    .paired-card h2 { color: #34D399; font-size: 20px; margin-bottom: 8px; }
-    .paired-card p { color: rgba(255,255,255,0.5); font-size: 13px; }
 
-    .form-section { display: block; }
-    .form-section.hidden { display: none; }
+    .paired-card.visible {
+      display: block;
+    }
+
+    .paired-card h2 {
+      color: #34D399;
+      font-size: 20px;
+      margin-bottom: 8px;
+    }
+
+    .paired-card p {
+      color: rgba(255, 255, 255, 0.5);
+      font-size: 13px;
+    }
+
+    .form-section {
+      display: block;
+    }
+
+    .form-section.hidden {
+      display: none;
+    }
   </style>
 </head>
+
 <body>
   <div class="container">
     <div class="logo">
-      <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="square" stroke-linejoin="miter">
-        <path d="M3 3H21V21H3V7H17V17H7V11H13V13"/>
+      <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="square"
+        stroke-linejoin="miter">
+        <path d="M3 3H21V21H3V7H17V17H7V11H13V13" />
       </svg>
     </div>
     <h1>Pair Your Device</h1>
@@ -113,12 +190,12 @@
 
     <div class="form-section" id="form-section">
       <div class="code-input-group" id="code-inputs">
-        <input class="code-digit" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off">
-        <input class="code-digit" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off">
-        <input class="code-digit" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off">
-        <input class="code-digit" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off">
-        <input class="code-digit" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off">
-        <input class="code-digit" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off">
+        <input class="code-digit" type="text" maxlength="1" style="text-transform: uppercase;" autocomplete="off">
+        <input class="code-digit" type="text" maxlength="1" style="text-transform: uppercase;" autocomplete="off">
+        <input class="code-digit" type="text" maxlength="1" style="text-transform: uppercase;" autocomplete="off">
+        <input class="code-digit" type="text" maxlength="1" style="text-transform: uppercase;" autocomplete="off">
+        <input class="code-digit" type="text" maxlength="1" style="text-transform: uppercase;" autocomplete="off">
+        <input class="code-digit" type="text" maxlength="1" style="text-transform: uppercase;" autocomplete="off">
       </div>
       <button class="btn" id="pair-btn" disabled>Pair Device</button>
       <div class="status" id="status"></div>
@@ -135,4 +212,5 @@
 
   <script src="pairing.js"></script>
 </body>
+
 </html>
