@@ -30,6 +30,7 @@ interface AppState {
     generatePairingCode: () => void;
     pairingStatus: 'waiting' | 'connected' | 'expired';
     setPairingStatus: (status: 'waiting' | 'connected' | 'expired') => void;
+    checkPairingStatus: (code: string) => Promise<boolean>;
 
     // Dashboard Data
     devices: Device[];
@@ -46,17 +47,54 @@ export const useStore = create<AppState>((set) => ({
     login: (name, email) => set({ isAuthenticated: true, user: { name, email } }),
     logout: () => set({ isAuthenticated: false, user: null }),
 
+    driverId: null, // Placeholder if needed
+
+    // Onboarding & Pairing
     pairingCode: null,
-    generatePairingCode: () => {
-        const ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-        let code = '';
-        for (let i = 0; i < 6; i++) {
-            code += ALPHABET[Math.floor(Math.random() * ALPHABET.length)];
+    generatePairingCode: async () => {
+        try {
+            // TODO: Get actual child_id from auth context or let API find default
+            // For now sending empty object, API handles default child lookup for parent
+            const res = await fetch('/api/pairing/generate', {
+                method: 'POST',
+                body: JSON.stringify({}),
+            });
+            if (res.ok) {
+                const data = await res.json();
+                set({ pairingCode: data.short_code, pairingStatus: 'waiting' });
+                return data.short_code;
+            }
+        } catch (error) {
+            console.error('Failed to generate code', error);
         }
-        set({ pairingCode: code, pairingStatus: 'waiting' });
     },
     pairingStatus: 'waiting',
     setPairingStatus: (status) => set({ pairingStatus: status }),
+
+    checkPairingStatus: async (code: string) => {
+        try {
+            const res = await fetch(`/api/pairing/status?code=${code}`);
+            if (res.ok) {
+                const data = await res.json();
+                if (data.paired) {
+                    set((state) => ({
+                        pairingStatus: 'connected',
+                        devices: [...state.devices, {
+                            id: data.device_id,
+                            name: 'New Device', // API doesn't return name in status, can fetch device details if needed
+                            type: 'chrome',
+                            lastSeen: 'Just now',
+                            status: 'active'
+                        }]
+                    }));
+                    return true;
+                }
+            }
+        } catch (error) {
+            console.error('Failed to check status', error);
+        }
+        return false;
+    },
 
     devices: [],
     addDevice: (device) => set((state) => ({ devices: [...state.devices, device], pairingStatus: 'connected' })),
