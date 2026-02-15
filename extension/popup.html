@@ -27,12 +27,43 @@
     }
     .dot {
       width: 8px; height: 8px; border-radius: 50%;
-      background: #34D399; box-shadow: 0 0 8px rgba(52,211,153,0.4);
     }
     .footer {
       font-size: 10px; color: rgba(255,255,255,0.2);
       margin-top: 20px; padding-top: 12px;
       border-top: 1px solid rgba(255,255,255,0.06);
+    }
+    .code-row {
+      display: flex; gap: 6px; justify-content: center; margin-bottom: 10px;
+    }
+    .code-digit {
+      width: 36px; height: 42px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 8px;
+      color: white;
+      font-size: 20px;
+      font-weight: 700;
+      text-align: center;
+      outline: none;
+    }
+    .code-digit:focus {
+      border-color: #7C5CFF;
+      box-shadow: 0 0 0 2px rgba(124, 92, 255, 0.3);
+    }
+    .connect-btn {
+      width: 100%; padding: 10px; border-radius: 8px; border: none;
+      background: #7C5CFF; color: white; font-weight: 600; cursor: pointer;
+      font-size: 13px; transition: opacity 0.2s;
+    }
+    .connect-btn:disabled {
+      opacity: 0.4; cursor: not-allowed;
+    }
+    .error-text {
+      font-size: 11px; color: #F87171; margin-top: 8px;
+    }
+    .hint {
+      font-size: 11px; color: rgba(255,255,255,0.35); margin-top: 6px;
     }
   </style>
 </head>
@@ -44,19 +75,26 @@
       </svg>
     </div>
     <div class="title">Phylax SafeGuard</div>
-    
+
     <div id="status-container" class="status">
       <div id="status-icon" class="dot" style="background: #FBBF24; box-shadow: 0 0 8px rgba(251,191,36,0.4);"></div>
       <span id="status-text">Not Connected</span>
     </div>
 
     <div id="pairing-section" style="margin-top: 20px;">
-      <input type="text" id="pairing-code" placeholder="Enter Pairing Code" 
-        style="width: 100%; padding: 8px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.05); color: white; margin-bottom: 8px; text-align: center; text-transform: uppercase;">
-      <button id="connect-btn" 
-        style="width: 100%; padding: 8px; border-radius: 8px; border: none; background: #7C5CFF; color: white; font-weight: 600; cursor: pointer;">
+      <div class="code-row">
+        <input type="text" maxlength="1" class="code-digit" data-index="0">
+        <input type="text" maxlength="1" class="code-digit" data-index="1">
+        <input type="text" maxlength="1" class="code-digit" data-index="2">
+        <input type="text" maxlength="1" class="code-digit" data-index="3">
+        <input type="text" maxlength="1" class="code-digit" data-index="4">
+        <input type="text" maxlength="1" class="code-digit" data-index="5">
+      </div>
+      <button id="connect-btn" class="connect-btn" disabled>
         Connect Device
       </button>
+      <div class="hint">Enter 6-character code from parent dashboard</div>
+      <div id="error-msg" class="error-text" style="display:none;"></div>
     </div>
 
     <div id="connected-section" style="display: none; margin-top: 20px;">
@@ -64,7 +102,7 @@
        <div style="font-size: 14px; font-weight: 600; color: #22D3EE;">Active & Monitoring</div>
     </div>
   </div>
-  
+
   <div class="footer">Managed by your parent or guardian</div>
 
   <script src="popup.js"></script>

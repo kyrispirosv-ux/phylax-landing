@@ -77,7 +77,7 @@ export default function PairPage() {
           <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-5">
             <p className="text-white/40 text-sm">
               If automatic pairing doesn&apos;t work, open the Phylax extension and enter the
-              6-digit code your parent gave you.
+              6-character code your parent gave you.
             </p>
           </div>
         )}

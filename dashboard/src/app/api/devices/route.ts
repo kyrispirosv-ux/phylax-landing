@@ -2,6 +2,36 @@ import { NextResponse } from "next/server";
 import { createServerSupabase, createServiceClient } from "@/lib/supabase/server";
 
 /**
+ * GET /api/devices
+ * Returns the parent's devices. Used by the dashboard to poll for newly paired devices.
+ */
+export async function GET() {
+  const supabase = await createServerSupabase();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { data: parent } = await supabase
+    .from("parents")
+    .select("family_id")
+    .eq("id", user.id)
+    .single() as { data: { family_id: string } | null };
+
+  if (!parent) {
+    return NextResponse.json({ devices: [] });
+  }
+
+  const { data: devices } = await supabase
+    .from("devices")
+    .select("id, child_id, device_name, status, last_heartbeat, extension_version")
+    .eq("family_id", parent.family_id)
+    .eq("status", "active");
+
+  return NextResponse.json({ devices: devices ?? [] });
+}
+
+/**
  * DELETE /api/devices?device_id=xxx
  * Parent unpairs a device. Marks it inactive and clears auth token.
  */

@@ -1,0 +1,2407 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Phylax — Child Protection, Designed Like a Product</title>
+  <meta name="description"
+    content="Phylax is a child-safety platform: a lightweight child browser extension powered by parent-defined policies, semantic detection, and real-time risk scoring." />
+  <style>
+    :root {
+      --bg0: #070A12;
+      --bg1: #0A1022;
+      --card: rgba(255, 255, 255, .06);
+      --card2: rgba(255, 255, 255, .085);
+      --stroke: rgba(255, 255, 255, .10);
+      --stroke2: rgba(255, 255, 255, .16);
+      --txt: rgba(255, 255, 255, .92);
+      --muted: rgba(255, 255, 255, .70);
+      --muted2: rgba(255, 255, 255, .55);
+      --shadow: 0 20px 60px rgba(0, 0, 0, .55);
+      --shadow2: 0 10px 30px rgba(0, 0, 0, .35);
+      --radius: 18px;
+      --radius2: 26px;
+      --max: 1120px;
+      --accent1: #7C5CFF;
+      --accent2: #22D3EE;
+      --accent3: #34D399;
+      --warn: #FBBF24;
+      --bad: #FB7185;
+      --ok: #60A5FA;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+    }
+
+    * {
+      box-sizing: border-box
+    }
+
+    html,
+    body {
+      height: 100%
+    }
+
+    body {
+      margin: 0;
+      font-family: var(--sans);
+      color: var(--txt);
+      background:
+        radial-gradient(1200px 700px at 20% 10%, rgba(124, 92, 255, .15), transparent 60%),
+        radial-gradient(1000px 650px at 85% 15%, rgba(34, 211, 238, .12), transparent 58%),
+        radial-gradient(900px 600px at 55% 90%, rgba(52, 211, 153, .08), transparent 58%),
+        linear-gradient(180deg, var(--bg0), var(--bg1));
+      overflow-x: hidden;
+      line-height: 1.5;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none
+    }
+
+    .container {
+      max-width: var(--max);
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    /* Navigation */
+    .nav {
+      position: sticky;
+      top: 0;
+      z-index: 30;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      background: rgba(7, 10, 18, .65);
+      border-bottom: 1px solid rgba(255, 255, 255, .08);
+    }
+
+    .nav-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 72px;
+    }
+
+    .brand {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      letter-spacing: .2px;
+    }
+
+    .logo {
+      width: 40px;
+      height: 40px;
+      border-radius: 12px;
+      background: radial-gradient(circle at 30% 25%, rgba(255, 255, 255, .18), transparent 45%),
+        linear-gradient(135deg, rgba(124, 92, 255, .9), rgba(34, 211, 238, .75));
+      box-shadow: 0 0 0 1px rgba(255, 255, 255, .1) inset, 0 10px 20px rgba(124, 92, 255, .25);
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .logo:after {
+      content: "";
+      position: absolute;
+      inset: -40%;
+      background: conic-gradient(from 180deg, rgba(255, 255, 255, .0), rgba(255, 255, 255, .3), rgba(255, 255, 255, .0));
+      animation: spin 6s linear infinite;
+      opacity: .4;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg)
+      }
+    }
+
+    .brand-text h1 {
+      font-size: 16px;
+      margin: 0;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .brand-text p {
+      margin: 0;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 24px;
+      font-size: 14px;
+      color: var(--muted);
+      font-weight: 500;
+    }
+
+    .nav-links a:hover {
+      color: var(--txt)
+    }
+
+    /* Interactive Demo Styles */
+    .demo-toggle {
+      width: 40px;
+      height: 24px;
+      background: var(--stroke2);
+      border-radius: 99px;
+      position: relative;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+
+    .demo-toggle.active {
+      background: var(--accent2);
+    }
+
+    .demo-toggle-thumb {
+      width: 20px;
+      height: 20px;
+      background: white;
+      border-radius: 50%;
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .demo-toggle.active .demo-toggle-thumb {
+      transform: translateX(16px);
+    }
+
+    .llm-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(5, 5, 5, 0.9);
+      backdrop-filter: blur(4px);
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s;
+    }
+
+    .llm-overlay.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .llm-loader {
+      width: 40px;
+      height: 40px;
+      border: 3px solid rgba(255, 255, 255, 0.1);
+      border-top-color: var(--accent1);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-bottom: 16px;
+    }
+
+    /* Chat Interface Styles */
+    .llm-chat-window {
+      width: 100%;
+      max-width: 480px;
+      height: 600px;
+      background: #0f1525;
+      border: 1px solid var(--stroke2);
+      border-radius: 20px;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+      overflow: hidden;
+      transform: scale(0.95);
+      transition: all 0.3s;
+    }
+
+    .llm-overlay.active .llm-chat-window {
+      transform: scale(1);
+    }
+
+    .llm-header {
+      padding: 16px 20px;
+      background: var(--bg1);
+      border-bottom: 1px solid var(--stroke);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .llm-avatar {
+      width: 36px;
+      height: 36px;
+      background: linear-gradient(135deg, var(--accent1), var(--accent2));
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      box-shadow: 0 4px 12px rgba(124, 92, 255, 0.3);
+    }
+
+    .chat-messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .message {
+      max-width: 85%;
+      padding: 12px 16px;
+      border-radius: 16px;
+      font-size: 14px;
+      line-height: 1.5;
+      animation: fadeIn 0.3s ease;
+    }
+
+    .message.bot {
+      align-self: flex-start;
+      background: rgba(255, 255, 255, 0.08);
+      border-top-left-radius: 4px;
+      color: var(--txt);
+    }
+
+    .message.user {
+      align-self: flex-end;
+      background: var(--accent1);
+      border-bottom-right-radius: 4px;
+      color: #fff;
+    }
+
+    .chat-input-area {
+      padding: 16px;
+      background: var(--bg1);
+      border-top: 1px solid var(--stroke);
+      display: flex;
+      gap: 12px;
+    }
+
+    .status-dot {
+      display: inline-block;
+      width: 6px;
+      height: 6px;
+      background: var(--accent3);
+      border-radius: 50%;
+      margin-left: 6px;
+    }
+
+    .typing-indicator span {
+      display: inline-block;
+      width: 6px;
+      height: 6px;
+      background: var(--muted);
+      border-radius: 50%;
+      margin: 0 2px;
+      animation: bounce 0.6s infinite alternate;
+    }
+
+    .typing-indicator span:nth-child(2) {
+      animation-delay: 0.2s;
+    }
+
+    .typing-indicator span:nth-child(3) {
+      animation-delay: 0.4s;
+    }
+
+    @keyframes bounce {
+      to {
+        transform: translateY(-4px);
+      }
+    }
+
+    .btn {
+      border: 1px solid rgba(255, 255, 255, .14);
+      background: rgba(255, 255, 255, .06);
+      color: var(--txt);
+      padding: 10px 18px;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all .2s ease;
+      box-shadow: var(--shadow2);
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
+      background: rgba(255, 255, 255, .1);
+      border-color: rgba(255, 255, 255, .25)
+    }
+
+    .btn-primary {
+      border-color: rgba(255, 255, 255, .2);
+      background: linear-gradient(135deg, rgba(124, 92, 255, 1), rgba(124, 92, 255, 0.8));
+      box-shadow: 0 4px 12px rgba(124, 92, 255, .3), inset 0 1px 1px rgba(255, 255, 255, .2);
+      text-shadow: 0 1px 2px rgba(0, 0, 0, .15);
+    }
+
+    .btn-primary:hover {
+      box-shadow: 0 6px 16px rgba(124, 92, 255, .4), inset 0 1px 1px rgba(255, 255, 255, .3);
+    }
+
+    .platform-badge:hover {
+      background: rgba(255, 255, 255, 0.1) !important;
+      border-color: rgba(255, 255, 255, 0.25) !important;
+      transform: translateY(-2px);
+      cursor: default;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    }
+
+    /* Hero */
+    .hero {
+      padding: 100px 0 80px 0;
+      position: relative;
+      text-align: center;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, .12);
+      background: rgba(255, 255, 255, .05);
+      font-size: 13px;
+      color: var(--muted);
+      font-weight: 500;
+      margin-bottom: 24px;
+      backdrop-filter: blur(4px);
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: var(--accent2);
+      box-shadow: 0 0 0 4px rgba(34, 211, 238, .15);
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0% {
+        box-shadow: 0 0 0 0 rgba(34, 211, 238, .4);
+      }
+
+      70% {
+        box-shadow: 0 0 0 6px rgba(34, 211, 238, 0);
+      }
+
+      100% {
+        box-shadow: 0 0 0 0 rgba(34, 211, 238, 0);
+      }
+    }
+
+    h1 {
+      font-size: 56px;
+      line-height: 1.1;
+      letter-spacing: -1.5px;
+      background: linear-gradient(180deg, #fff, rgba(255, 255, 255, 0.7));
+      background-clip: text;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin: 0 0 24px 0;
+    }
+
+    .hero p {
+      font-size: 20px;
+      color: var(--muted);
+      max-width: 600px;
+      margin: 0 auto 32px auto;
+      line-height: 1.6;
+    }
+
+    .disclaimer {
+      margin-top: 24px;
+      color: rgba(255, 255, 255, .45);
+      font-size: 13px;
+    }
+
+    /* Grid/Feature Section */
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+      margin-bottom: 120px;
+    }
+
+    .feature-card {
+      background: var(--card);
+      border: 1px solid var(--stroke);
+      border-radius: var(--radius);
+      padding: 32px;
+      transition: all .3s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .feature-card:hover {
+      background: var(--card2);
+      border-color: var(--stroke2);
+      transform: translateY(-4px);
+      box-shadow: var(--shadow2);
+    }
+
+    .feature-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, .05);
+      border: 1px solid rgba(255, 255, 255, .1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 20px;
+      font-size: 20px;
+    }
+
+    .feature-title {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 12px;
+      color: #fff;
+    }
+
+    .feature-desc {
+      font-size: 15px;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    /* Detail Section */
+    .section-detail {
+      padding: 80px 0;
+      border-top: 1px solid var(--stroke);
+    }
+
+    .split-layout {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 60px;
+      align-items: center;
+    }
+
+    .detail-content h2 {
+      font-size: 32px;
+      margin-bottom: 16px;
+      letter-spacing: -0.5px;
+    }
+
+    .detail-content p {
+      font-size: 17px;
+      color: var(--muted);
+      line-height: 1.7;
+      margin-bottom: 30px;
+    }
+
+    .detail-visual {
+      background: linear-gradient(135deg, rgba(255, 255, 255, .03), rgba(255, 255, 255, .01));
+      border: 1px solid var(--stroke);
+      border-radius: var(--radius2);
+      height: 360px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+
+    /* Privacy Badge */
+    .privacy-badge {
+      background: rgba(52, 211, 153, 0.1);
+      border: 1px solid rgba(52, 211, 153, 0.2);
+      color: var(--accent3);
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      display: inline-block;
+      margin-bottom: 16px;
+    }
+
+    footer {
+      border-top: 1px solid var(--stroke);
+      padding: 60px 0;
+      margin-top: 80px;
+      color: var(--muted2);
+      font-size: 14px;
+      text-align: center;
+    }
+
+    @media (max-width: 900px) {
+      .features-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .split-layout {
+        grid-template-columns: 1fr;
+      }
+
+      h1 {
+        font-size: 42px;
+      }
+
+      .nav-links {
+        display: none;
+      }
+    }
+
+    /* Pricing */
+    .pricing-section {
+      padding: 100px 0;
+      position: relative;
+    }
+
+    .pricing-header {
+      text-align: center;
+      max-width: 600px;
+      margin: 0 auto 60px auto;
+    }
+
+    .pricing-header h2 {
+      font-size: 36px;
+      margin-bottom: 16px;
+      color: #fff;
+    }
+
+    .pricing-header p {
+      font-size: 16px;
+      color: var(--muted);
+    }
+
+    .pricing-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+      align-items: start;
+      margin-bottom: 60px;
+    }
+
+    .pricing-card {
+      background: var(--card);
+      border: 1px solid var(--stroke);
+      border-radius: var(--radius2);
+      padding: 32px;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      transition: all .3s ease;
+    }
+
+    .pricing-card:hover {
+      transform: translateY(-4px);
+      border-color: var(--stroke2);
+    }
+
+    /* Featured card styles */
+    .pricing-card.featured {
+      background: linear-gradient(180deg, rgba(34, 211, 238, 0.08), rgba(34, 211, 238, 0.02));
+      border-color: rgba(34, 211, 238, 0.4);
+      box-shadow: 0 0 40px rgba(34, 211, 238, 0.15);
+      z-index: 2;
+    }
+
+    .tier-badge {
+      position: absolute;
+      top: -14px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--accent2);
+      color: #000;
+      font-size: 12px;
+      font-weight: 700;
+      padding: 4px 16px;
+      border-radius: 99px;
+      box-shadow: 0 4px 12px rgba(34, 211, 238, 0.4);
+      letter-spacing: 0.5px;
+      text-wrap: nowrap;
+    }
+
+    .price-block {
+      margin: 24px 0;
+    }
+
+    .price-amount {
+      font-size: 42px;
+      font-weight: 700;
+      letter-spacing: -1px;
+      color: #fff;
+    }
+
+    .price-period {
+      font-size: 15px;
+      color: var(--muted2);
+      font-weight: 500;
+    }
+
+    .price-sub {
+      font-size: 13px;
+      color: var(--accent3);
+      margin-top: 4px;
+      display: block;
+    }
+
+    .price-context {
+      font-size: 13px;
+      color: var(--muted2);
+      margin-top: 8px;
+      font-style: italic;
+    }
+
+    .tier-title {
+      font-size: 20px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .tier-desc {
+      font-size: 14px;
+      color: var(--muted);
+      line-height: 1.4;
+      margin-bottom: 0;
+    }
+
+    .divider {
+      height: 1px;
+      background: var(--stroke);
+      margin: 24px 0;
+      width: 100%;
+    }
+
+    .feature-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      flex-grow: 1;
+    }
+
+    .feature-item {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 14px;
+      font-size: 14px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .feature-item.limit {
+      color: var(--muted2);
+    }
+
+    .check {
+      flex-shrink: 0;
+    }
+
+    .positioning-line {
+      margin-top: 24px;
+      padding-top: 20px;
+      border-top: 1px dashed var(--stroke);
+      font-size: 13px;
+      font-style: italic;
+      color: var(--muted2);
+      text-align: center;
+    }
+
+    .school-plan {
+      text-align: center;
+      padding: 40px;
+      background: var(--card);
+      border: 1px solid var(--stroke);
+      border-radius: var(--radius);
+      margin-top: 40px;
+    }
+
+    @media (max-width: 900px) {
+      .pricing-grid {
+        grid-template-columns: 1fr;
+        max-width: 500px;
+        margin: 0 auto;
+      }
+
+      .pricing-card.featured {
+        transform: scale(1.02);
+      }
+    }
+
+    /* Greek Key Animation */
+    @keyframes spin-slow {
+      from {
+        transform: rotate(0deg);
+      }
+
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    .greek-key-bg {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 800px;
+      height: 800px;
+      transform: translate(-50%, -50%);
+      opacity: 0.03;
+      pointer-events: none;
+      z-index: 0;
+      background-image: url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M20,20 L80,20 L80,80 L20,80 L20,30 L70,30 L70,70 L30,70 L30,40 L60,40 L60,60 L40,60 L40,50 L50,50' fill='none' stroke='white' stroke-width='5'/%3E%3C/svg%3E");
+      mask-image: radial-gradient(circle, black 30%, transparent 70%);
+      -webkit-mask-image: radial-gradient(circle, black 30%, transparent 70%);
+    }
+
+    /* Process/Deep Dive Section */
+    .process-section {
+      padding: 120px 0;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .process-container {
+      max-width: 900px;
+      margin: 0 auto;
+      position: relative;
+      z-index: 1;
+    }
+
+    .step-item {
+      display: grid;
+      grid-template-columns: 80px 1fr;
+      gap: 32px;
+      margin-bottom: 60px;
+      position: relative;
+    }
+
+    .step-item:last-child {
+      margin-bottom: 0;
+    }
+
+    /* Connection Line */
+    .step-item:not(:last-child)::after {
+      content: '';
+      position: absolute;
+      left: 40px;
+      top: 80px;
+      bottom: -60px;
+      width: 2px;
+      background: linear-gradient(180deg, var(--stroke2), rgba(255, 255, 255, 0.05));
+    }
+
+    .step-number {
+      width: 80px;
+      height: 80px;
+      border-radius: 20px;
+      background: var(--card);
+      border: 1px solid var(--stroke);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--accent2);
+      box-shadow: 0 0 0 4px rgba(0, 0, 0, 0.2), var(--shadow2);
+      position: relative;
+      z-index: 2;
+    }
+
+    .step-content {
+      padding-top: 10px;
+    }
+
+    .step-title {
+      font-size: 24px;
+      color: #fff;
+      font-weight: 600;
+      margin-bottom: 12px;
+    }
+
+    .step-desc {
+      font-size: 16px;
+      color: var(--muted);
+      line-height: 1.7;
+      margin-bottom: 20px;
+    }
+
+    .tech-pill {
+      display: inline-block;
+      font-family: var(--mono);
+      font-size: 12px;
+      padding: 4px 10px;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--muted2);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    /* Circular Greek Key Graphic */
+    .greek-circle-container {
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: 600px;
+      height: 600px;
+      transform: translate(30%, -20%);
+      opacity: 0.1;
+      /* Subtle */
+      animation: spin-slow 120s linear infinite;
+      pointer-events: none;
+    }
+
+    /* Complex Circular Meander SVG Path */
+    .meander-path {
+      fill: none;
+      stroke: white;
+      stroke-width: 1.5;
+      stroke-linecap: square;
+    }
+
+    /* Modal Styles */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(8px);
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+    }
+
+    .modal-overlay.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .modal {
+      background: #0f1525;
+      border: 1px solid var(--stroke2);
+      border-radius: var(--radius2);
+      width: 100%;
+      max-width: 480px;
+      padding: 40px;
+      box-shadow: var(--shadow);
+      transform: scale(0.95) translateY(10px);
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      position: relative;
+    }
+
+    .modal-overlay.open .modal {
+      transform: scale(1) translateY(0);
+    }
+
+    .close-modal {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      background: none;
+      border: none;
+      color: var(--muted2);
+      cursor: pointer;
+      font-size: 24px;
+      transition: color 0.2s;
+    }
+
+    .close-modal:hover {
+      color: #fff;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .form-label {
+      display: block;
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+
+    .form-input {
+      width: 100%;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--stroke);
+      border-radius: 10px;
+      padding: 12px 16px;
+      font-size: 16px;
+      color: #fff;
+      font-family: inherit;
+      transition: border-color 0.2s;
+    }
+
+    .form-input:focus {
+      outline: none;
+      border-color: var(--accent2);
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    /* Demo Dashboard Overlay */
+    .demo-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: #050505;
+      z-index: 200;
+      display: flex;
+      flex-direction: column;
+      transform: translateY(100%);
+      transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .demo-overlay.active {
+      transform: translateY(0);
+    }
+
+    .demo-nav {
+      height: 72px;
+      border-bottom: 1px solid var(--stroke);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 32px;
+      background: var(--bg1);
+    }
+
+    .demo-layout {
+      display: flex;
+      flex: 1;
+      height: calc(100% - 72px);
+    }
+
+    .demo-sidebar {
+      width: 260px;
+      border-right: 1px solid var(--stroke);
+      background: rgba(10, 16, 34, 0.5);
+      display: flex;
+      flex-direction: column;
+      padding: 24px;
+      gap: 8px;
+    }
+
+    .demo-main {
+      flex: 1;
+      background: var(--bg0);
+      padding: 40px;
+      overflow-y: auto;
+      display: flex;
+      gap: 32px;
+    }
+
+    .demo-link {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      border-radius: 12px;
+      color: var(--muted);
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .demo-link.active {
+      background: rgba(124, 92, 255, 0.15);
+      color: #fff;
+    }
+
+    .demo-link:hover:not(.active) {
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--txt);
+    }
+
+    .stat-card {
+      background: var(--card);
+      border: 1px solid var(--stroke);
+      border-radius: 20px;
+      padding: 24px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .risk-meter {
+      width: 140px;
+      height: 140px;
+      border-radius: 50%;
+      background: conic-gradient(var(--accent3) 0% 85%, rgba(255, 255, 255, 0.1) 85% 100%);
+      margin: 16px auto 24px auto;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+
+    .risk-meter::after {
+      content: "";
+      position: absolute;
+      inset: 12px;
+      background: var(--bg0);
+      border-radius: 50%;
+    }
+
+    .risk-value {
+      position: relative;
+      z-index: 2;
+      font-size: 32px;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .event-item {
+      display: flex;
+      gap: 16px;
+      padding: 16px 0;
+      border-bottom: 1px solid var(--stroke);
+    }
+
+    .event-item:last-child {
+      border-bottom: none;
+    }
+
+    .console-line {
+      font-family: var(--mono);
+      font-size: 13px;
+      margin-bottom: 6px;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="nav">
+    <div class="container nav-inner">
+      <div class="brand">
+        <div class="logo">
+          <svg viewBox="0 0 100 100"
+            style="width: 24px; height: 24px; fill: none; stroke: white; stroke-width: 8; stroke-linecap: square;">
+            <path
+              d="M20,20 L80,20 L80,80 L20,80 L20,30 L70,30 L70,70 L30,70 L30,40 L60,40 L60,60 L40,60 L40,50 L50,50" />
+          </svg>
+        </div>
+        <div class="brand-text">
+          <h1>Phylax Child Protection</h1>
+          <p>Intelligent Protection</p>
+        </div>
+      </div>
+      <div class="nav-links">
+        <a href="#how-it-works">How it Works</a>
+        <a href="#privacy">Privacy First</a>
+        <a href="#pricing">Pricing</a>
+        <a href="/signup">Log In</a>
+      </div>
+      <div class="cta">
+        <a href="/signup" class="btn btn-primary" style="text-decoration: none;">Get Started</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="container">
+
+    <!-- Hero Section -->
+    <section class="hero">
+      <div class="pill">
+        <span class="dot"></span>
+        Coming Soon · Private Beta
+      </div>
+
+      <h1>Child safety, reimagined for the AI era.</h1>
+
+      <p>
+        Phylax is a child-protection platform managed by a universal parent app. On the child's device, it operates as a
+        browser extension for Apple or a dedicated app for Android. Parents set safety rules in plain language, and
+        Phylax uses semantic analysis and risk scoring to understand context, block harmful content, and surface
+        meaningful alerts in real time.
+      </p>
+
+      <div style="display: flex; gap: 16px; justify-content: center; align-items: center; flex-direction: column;">
+        <a href="/signup" class="btn btn-primary"
+          style="padding: 14px 28px; font-size: 16px; text-decoration: none;">Get Started</a>
+
+        <button class="btn"
+          style="padding: 16px 32px; font-size: 18px; font-weight: 600; background: linear-gradient(135deg, #22D3EE, #34D399); color: #000; border: none; box-shadow: 0 8px 24px rgba(34, 211, 238, 0.25); display: flex; align-items: center; gap: 12px;"
+          onclick="openDemo()">
+          <span>▶</span> Try Interactive Demo
+        </button>
+      </div>
+
+      <!-- Supported Platforms -->
+      <div style="margin-top: 40px; display: flex; flex-direction: column; align-items: center; gap: 12px;">
+        <span
+          style="font-size: 12px; font-weight: 600; color: var(--muted2); letter-spacing: 1px; text-transform: uppercase;">Available
+          For</span>
+        <div style="display: flex; gap: 12px; flex-wrap: wrap; justify-content: center;">
+          <!-- Android Badge -->
+          <div
+            style="background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 99px; padding: 8px 16px; display: flex; align-items: center; gap: 8px; transition: all 0.2s;"
+            class="platform-badge">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style="color: #3DDC84;">
+              <path
+                d="M17.523 15.3414C17.523 15.3414 17.523 15.3414 17.523 15.3414C17.564 15.3414 17.597 15.3084 17.597 15.2674L17.597 12.8724C17.597 12.8314 17.564 12.7984 17.523 12.7984C17.482 12.7984 17.449 12.8314 17.449 12.8724L17.449 15.2674C17.449 15.3084 17.482 15.3414 17.523 15.3414ZM6.477 15.3414C6.518 15.3414 6.551 15.3084 6.551 15.2674L6.551 12.8724C6.551 12.8314 6.518 12.7984 6.477 12.7984C6.436 12.7984 6.403 12.8314 6.403 12.8724L6.403 15.2674C6.403 15.3084 6.436 15.3414 6.477 15.3414ZM12 4.14844C15.659 4.14844 18.733 6.64144 19.667 10.0094H4.333C5.267 6.64144 8.341 4.14844 12 4.14844ZM16.66 2.39944L18.428 0.63144C18.497 0.56244 18.5 0.45744 18.437 0.38244C18.374 0.30644 18.266 0.28544 18.18 0.33444C18.156 0.34744 18.136 0.36744 18.123 0.39144L16.208 2.30644C14.945 1.59744 13.504 1.19644 12 1.19644C10.496 1.19544 9.055 1.59744 7.792 2.30644L5.877 0.39144C5.836 0.35044 5.78 0.32744 5.722 0.32744C5.626 0.32744 5.543 0.38444 5.508 0.47144C5.498 0.49644 5.496 0.52344 5.501 0.54944C5.506 0.57544 5.518 0.59944 5.536 0.61744L7.339 2.42044C5.161 3.66644 3.523 5.8 2.924 8.37044L2.852 8.37044H2.407C1.077 8.37044 0 9.44744 0 10.7774V18.1854C0 19.5154 1.077 20.5924 2.407 20.5924H2.852V20.6274C2.852 22.4884 4.364 24.0004 6.225 24.0004H17.777C19.638 24.0004 21.15 22.4884 21.15 20.6274V20.5924H21.593C22.923 20.5924 24 19.5154 24 18.1854V10.7774C24 9.44744 22.923 8.37044 21.593 8.37044H21.107C20.505 5.77444 18.847 3.62644 16.66 2.39944Z" />
+            </svg>
+            <span style="font-size: 14px; font-weight: 500; color: var(--txt);">Android</span>
+          </div>
+
+          <!-- Chrome Badge -->
+          <div
+            style="background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 99px; padding: 8px 16px; display: flex; align-items: center; gap: 8px; transition: all 0.2s;"
+            class="platform-badge">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round" style="color: #fff;">
+              <circle cx="12" cy="12" r="10"></circle>
+              <circle cx="12" cy="12" r="4"></circle>
+              <line x1="21.17" y1="8" x2="12" y2="8"></line>
+              <line x1="3.95" y1="6.06" x2="8.54" y2="14"></line>
+              <line x1="10.88" y1="21.94" x2="15.46" y2="14"></line>
+            </svg>
+            <span style="font-size: 14px; font-weight: 500; color: var(--txt);">Google Chrome</span>
+          </div>
+        </div>
+      </div>
+
+      <p class="disclaimer">
+        Phylax is currently in active development and available only to early testers.
+        The platform shown below reflects our intended launch architecture and safety philosophy.
+      </p>
+    </section>
+
+    <!-- Deep Dive "How it Works" -->
+    <section id="how-it-works" class="process-section">
+      <!-- Decorative Greek Key Circle Background -->
+      <div class="greek-circle-container">
+        <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" class="meander-path">
+          <defs>
+            <pattern id="meanderPattern" x="0" y="0" width="40" height="20" patternUnits="userSpaceOnUse">
+              <path d="M0,20 L0,0 L20,0 L20,10 L10,10 L10,5 L30,5 L30,15 L10,15 L10,20" fill="none"
+                stroke="currentColor" stroke-width="2" />
+            </pattern>
+          </defs>
+          <!-- Using a simpler geometric representation for the "Greek Key" effect -->
+          <circle cx="100" cy="100" r="90" stroke-width="8" stroke="rgba(255,255,255,0.2)" stroke-dasharray="20 10" />
+          <circle cx="100" cy="100" r="70" stroke-width="4" stroke="rgba(255,255,255,0.1)" stroke-dasharray="40 5" />
+          <circle cx="100" cy="100" r="50" stroke-width="2" stroke="rgba(255,255,255,0.1)" />
+
+          <!-- Abstract Key Segments -->
+          <path d="M100,10 L100,30 L120,30 M100,190 L100,170 L80,170 M10,100 L30,100 L30,80 M190,100 L170,100 L170,120"
+            stroke="white" stroke-width="2" fill="none" opacity="0.5" />
+        </svg>
+      </div>
+
+      <div class="container process-container">
+        <div style="text-align: center; margin-bottom: 80px;">
+          <h2 style="font-size: 36px; margin-bottom: 16px;">How Phylax Protects</h2>
+          <p style="color: var(--muted); max-width: 500px; margin: 0 auto;">A multi-layered defense system running
+            almost entirely on your child's device.</p>
+        </div>
+
+        <!-- Step 1 -->
+        <div class="step-item">
+          <div class="step-number">01</div>
+          <div class="step-content">
+            <div class="step-title">Deep Content Analysis</div>
+            <div class="step-desc">
+              Phylax lives in the browser as an extension. Unlike DNS filters that only see domain names (like
+              "google.com"), Phylax reads the actual page content. It scans text, analyzes image metadata, and
+              understands the context of what is being viewed in real-time.
+            </div>
+            <div class="tech-pill">DOM Mutation Observers</div>
+            <div class="tech-pill">Computer Vision Lite</div>
+          </div>
+        </div>
+
+        <!-- Step 2 -->
+        <div class="step-item">
+          <div class="step-number">02</div>
+          <div class="step-content">
+            <div class="step-title">The Semantic Decision Engine</div>
+            <div class="step-desc">
+              This is the "Brain". A quantized Large Language Model (LLM) runs locally on the computer. It takes the
+              data from the extension and scores it against your specific family policies. It doesn't just look for "bad
+              words"—it measures <em style="color: var(--txt);">intent</em>.
+            </div>
+            <div class="step-desc">
+              <i>Example: It understands that "breast cancer symptoms" is medical (Safe), while similar keywords in
+                another context might be explicit (Blocked).</i>
+            </div>
+            <div class="tech-pill">Local LLM (ONNX/WASM)</div>
+            <div class="tech-pill">Vector Embeddings</div>
+          </div>
+        </div>
+
+        <!-- Step 3 -->
+        <div class="step-item">
+          <div class="step-number">03</div>
+          <div class="step-content">
+            <div class="step-title">Parent Dashboard & Enforcement</div>
+            <div class="step-desc">
+              You stay in the loop without needing to spy. The dashboard shows you high-level risk trends and
+              significant blocks, but respects your child's privacy by summarizing safe activity. You can adjust the
+              "Strictness Knob" or create custom rules in plain English.
+            </div>
+            <div class="tech-pill">Real-time Sync</div>
+            <div class="tech-pill">Privacy-Preserving Logs</div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- Detail Section: Privacy -->
+    <section id="privacy" class="section-detail">
+      <div class="container split-layout">
+        <div class="detail-content">
+          <div class="privacy-badge">PRIVACY BY DESIGN</div>
+          <h2>Safe browsing shouldn't cost your privacy.</h2>
+          <p>
+            Legacy safety tools track everything. Phylax is different. We process as much as possible locally on the
+            device. When cloud analysis is needed, data is anonymized.
+          </p>
+          <p>
+            You own your family's data. We never sell it, and we don't use it to train public models.
+          </p>
+          <button class="btn">Read our Safety Stance</button>
+        </div>
+        <div class="detail-visual">
+          <!-- Abstract representation of privacy/encryption -->
+          <div style="text-align: center; opacity: 0.8;">
+            <div style="font-size: 48px; margin-bottom: 20px;">🛡️</div>
+            <div style="font-family: var(--mono); font-size: 14px; color: var(--accent3);">ENCRYPTED_ADAPTER::ACTIVE
+            </div>
+            <div style="font-family: var(--mono); font-size: 14px; color: var(--muted2); margin-top: 4px;">Local
+              Analysis Preference: HIGH</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Pricing Section -->
+    <section id="pricing" class="pricing-section">
+      <div class="container">
+        <div class="pricing-header">
+          <h2>Simple, transparent pricing.</h2>
+          <p>Invest in your child's digital wellbeing for less than the cost of a streaming subscription.</p>
+        </div>
+
+        <div class="pricing-grid">
+          <!-- Tier 1: Free -->
+          <div class="pricing-card">
+            <div class="tier-title">
+              <span style="color: var(--accent3);">🟢</span> Foundation
+            </div>
+            <div class="tier-desc">
+              Essential protection for instant onboarding.
+            </div>
+            <div class="divider"></div>
+            <div class="price-block">
+              <div class="price-amount">$0</div>
+              <div class="price-period">Forever free</div>
+            </div>
+
+            <ul class="feature-list">
+              <li class="feature-item"><span class="check" style="color: var(--accent3);">✓</span> Child browser
+                extension</li>
+              <li class="feature-item"><span class="check" style="color: var(--accent3);">✓</span> Real-time content
+                blocking</li>
+              <li class="feature-item"><span class="check" style="color: var(--accent3);">✓</span> Basic semantic
+                filtering</li>
+              <li class="feature-item"><span class="check" style="color: var(--accent3);">✓</span> Parenting dashboard
+                (read-only)</li>
+              <li class="feature-item"><span class="check" style="color: var(--accent3);">✓</span> Weekly safety summary
+              </li>
+              <li class="feature-item"><span class="check" style="color: var(--accent3);">✓</span> Manual block lists
+              </li>
+              <li class="feature-item limit">Limit: 1 Child</li>
+              <li class="feature-item limit">7-day analytics history</li>
+            </ul>
+
+            <div class="positioning-line">
+              “Essential protection, no cost.”
+            </div>
+          </div>
+
+          <!-- Tier 2: Plus -->
+          <div class="pricing-card featured">
+            <div class="tier-badge">Most Parents</div>
+            <div class="tier-title">
+              <span style="color: var(--accent2);">🔵</span> Plus
+            </div>
+            <div class="tier-desc">
+              The standard for modern digital parenting.
+            </div>
+            <div class="divider"></div>
+            <div class="price-block">
+              <div class="price-amount">$9.99<span class="price-period">/mo</span></div>
+              <div class="price-sub">or $99/year (2 months free)</div>
+              <div class="price-context">Comparable to Netflix, cheaper than therapy.</div>
+            </div>
+
+            <ul class="feature-list">
+              <li class="feature-item"><span class="check" style="color: var(--accent2);">✓</span> <strong>Everything in
+                  Free, plus:</strong></li>
+              <li class="feature-item"><span class="check" style="color: var(--accent2);">✓</span> Up to 4 children</li>
+              <li class="feature-item"><span class="check" style="color: var(--accent2);">✓</span> AI-powered semantic
+                risk scoring</li>
+              <li class="feature-item"><span class="check" style="color: var(--accent2);">✓</span> Message + video
+                context analysis</li>
+              <li class="feature-item"><span class="check" style="color: var(--accent2);">✓</span> Custom parent rules
+                (natural language)</li>
+              <li class="feature-item"><span class="check" style="color: var(--accent2);">✓</span> 30-day activity
+                history</li>
+              <li class="feature-item"><span class="check" style="color: var(--accent2);">✓</span> Smart alerts
+                (non-spammy)</li>
+              <li class="feature-item"><span class="check" style="color: var(--accent2);">✓</span> Adjustable strictness
+                by age</li>
+            </ul>
+
+            <div class="positioning-line">
+              “Protection that adapts to your child.”
+            </div>
+            <div style="margin-top: 20px;">
+              <a href="/signup" class="btn btn-primary"
+                style="width: 100%; background: linear-gradient(135deg, rgba(34,92,238,1), rgba(34,211,238,0.8)); box-shadow: 0 4px 12px rgba(34,211,238,.3); text-align: center; display: block; text-decoration: none;">Start
+                Free Trial</a>
+            </div>
+          </div>
+
+          <!-- Tier 3: Guardian -->
+          <div class="pricing-card">
+            <div class="tier-title">
+              <span style="color: var(--accent1);">🟣</span> Guardian
+            </div>
+            <div class="tier-desc">
+              For power users and high-trust households.
+            </div>
+            <div class="divider"></div>
+            <div class="price-block">
+              <div class="price-amount">$19.99<span class="price-period">/mo</span></div>
+              <div class="price-sub">$199/year</div>
+            </div>
+
+            <ul class="feature-list">
+              <li class="feature-item"><span class="check" style="color: var(--accent1);">✓</span> <strong>Everything in
+                  Plus, plus:</strong></li>
+              <li class="feature-item"><span class="check" style="color: var(--accent1);">✓</span> Unlimited children
+              </li>
+              <li class="feature-item"><span class="check" style="color: var(--accent1);">✓</span> Long-term behavioral
+                trend analysis</li>
+              <li class="feature-item"><span class="check" style="color: var(--accent1);">✓</span> Early grooming /
+                manipulation detection</li>
+              <li class="feature-item"><span class="check" style="color: var(--accent1);">✓</span> AI-generated safety
+                insights</li>
+              <li class="feature-item"><span class="check" style="color: var(--accent1);">✓</span> Family-level policy
+                templates</li>
+              <li class="feature-item"><span class="check" style="color: var(--accent1);">✓</span> Priority model
+                updates</li>
+            </ul>
+
+            <div class="positioning-line">
+              “For families who want foresight, not just filters.”
+            </div>
+          </div>
+        </div>
+
+        <!-- Optional School Plan -->
+        <div style="text-align: center; color: var(--muted); font-size: 14px; opacity: 0.7;">
+          <p>Looking for Family or School plans? <a href="#" style="text-decoration: underline;">Contact Sales</a> for
+            organization pricing.</p>
+        </div>
+
+      </div>
+    </section>
+
+    <footer>
+      <div class="brand" style="justify-content: center; margin-bottom: 20px; opacity: 0.7;">
+        <div class="logo" style="width: 24px; height: 24px; border-radius: 8px;"></div>
+        <span style="font-weight: 600; color: #fff;">Phylax Child Protection</span>
+      </div>
+      <p>&copy; 2026 Phylax Inc. All rights reserved.</p>
+      <div style="margin-top: 20px;">
+        <a href="#" style="margin: 0 10px;">Twitter</a>
+        <a href="#" style="margin: 0 10px;">GitHub</a>
+        <a href="#" style="margin: 0 10px;">Contact</a>
+      </div>
+    </footer>
+
+  </div>
+
+  <!-- Modal -->
+  <div class="modal-overlay" id="accessModal">
+    <div class="modal">
+      <button class="close-modal" onclick="closeModal()">×</button>
+      <div class="brand" style="margin-bottom: 24px;">
+        <div class="logo">
+          <svg viewBox="0 0 100 100"
+            style="width: 24px; height: 24px; fill: none; stroke: white; stroke-width: 8; stroke-linecap: square;">
+            <path
+              d="M20,20 L80,20 L80,80 L20,80 L20,30 L70,30 L70,70 L30,70 L30,40 L60,40 L60,60 L40,60 L40,50 L50,50" />
+          </svg>
+        </div>
+        <div class="brand-text">
+          <h1 style="font-size: 18px;">Request Early Access</h1>
+        </div>
+      </div>
+
+      <p style="color: var(--muted); margin-bottom: 24px; font-size: 15px;">
+        Join the waitlist for the Phylax private beta. We are onboarding new families every week.
+      </p>
+
+      <!-- FormSubmit Configuration -->
+      <form action="https://formsubmit.co/kyrispirosv@gmail.com" method="POST">
+        <!-- Redirect to same page after submit (optional, or remove to use default thank you page) -->
+        <input type="hidden" name="_next" value="https://phylax-landing.vercel.app">
+        <input type="hidden" name="_captcha" value="true">
+        <input type="hidden" name="_subject" value="New Phylax Access Request">
+
+        <div class="form-group">
+          <label class="form-label">Full Name</label>
+          <input type="text" name="name" class="form-input" placeholder="e.g. Alexis Ohanian" required>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Email Address</label>
+          <input type="email" name="email" class="form-input" placeholder="name@example.com" required>
+        </div>
+
+        <button type="submit" class="btn btn-primary" style="width: 100%; padding: 14px; font-size: 16px;">
+          Join Waitlist
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    // ── Phylax Extension Communication Layer ──────────────────────
+    // This bridges the web app to the Phylax SafeGuard Chrome extension.
+    // Communication uses window.postMessage -> bridge.js content script -> background.js
+
+    const PhylaxExtension = {
+      connected: false,
+      version: null,
+
+      // Send a message to the extension via postMessage (bridge.js picks it up)
+      send(message) {
+        window.postMessage(message, '*');
+        console.log('[Phylax Web] Sent to extension:', message.type);
+      },
+
+      // Sync all current rules to the extension
+      syncRules() {
+        const rules = JSON.parse(localStorage.getItem('phylaxRules') || '[]');
+        this.send({ type: 'PHYLAX_SYNC_RULES', rules: rules });
+      },
+
+      // Notify extension that a new rule was added
+      addRule(ruleText) {
+        this.send({ type: 'PHYLAX_ADD_RULE', rule: ruleText });
+      },
+
+      // Notify extension that a rule was toggled
+      toggleRule(index) {
+        this.send({ type: 'PHYLAX_TOGGLE_RULE', index: index });
+      },
+
+      // Notify extension that all rules were cleared
+      clearRules() {
+        this.send({ type: 'PHYLAX_CLEAR_RULES' });
+      },
+
+      // Check if extension is installed
+      ping() {
+        this.send({ type: 'PHYLAX_PING' });
+      },
+
+      // Update the UI status indicator
+      updateStatus(connected, version) {
+        this.connected = connected;
+        this.version = version;
+        const dot = document.getElementById('extensionStatusDot');
+        const text = document.getElementById('extensionStatusText');
+        if (dot && text) {
+          if (connected) {
+            dot.style.background = 'var(--accent3)';
+            dot.style.boxShadow = '0 0 8px rgba(52, 211, 153, 0.4)';
+            text.textContent = 'Extension Connected (v' + version + ')';
+            text.style.color = 'var(--accent3)';
+          } else {
+            dot.style.background = 'var(--bad)';
+            dot.style.boxShadow = '0 0 8px rgba(251, 113, 133, 0.4)';
+            text.textContent = 'Extension Not Detected';
+            text.style.color = 'var(--bad)';
+          }
+        }
+      }
+    };
+
+    // Listen for extension responses
+    window.addEventListener('message', (event) => {
+      if (event.source !== window) return;
+      if (!event.data || !event.data.type) return;
+
+      // Extension ready signal from bridge.js
+      if (event.data.type === 'PHYLAX_EXTENSION_READY') {
+        console.log('[Phylax Web] Extension detected! Version:', event.data.version);
+        PhylaxExtension.updateStatus(true, event.data.version);
+        // Sync all rules (categories + custom) to extension
+        syncAllRules();
+      }
+
+      // Response to our ping
+      if (event.data.type === 'PHYLAX_PING_RESPONSE' && event.data.success) {
+        PhylaxExtension.updateStatus(true, event.data.version);
+      }
+
+      // Log sync responses
+      if (event.data.type === 'PHYLAX_SYNC_RULES_RESPONSE') {
+        console.log('[Phylax Web] Rules synced to extension:', event.data);
+      }
+    });
+
+    // Check for extension on page load
+    setTimeout(() => {
+      if (!PhylaxExtension.connected) {
+        // Also check via DOM attribute (set by bridge.js)
+        if (document.documentElement.hasAttribute('data-phylax-extension')) {
+          PhylaxExtension.updateStatus(true, '?');
+          syncAllRules();
+        } else {
+          PhylaxExtension.updateStatus(false);
+          console.log('[Phylax Web] Extension not detected. Install the Phylax SafeGuard extension from the /extension folder.');
+        }
+      }
+    }, 1500);
+
+    // ── Original App Code ─────────────────────────────────────────
+
+    function openModal() {
+      document.getElementById('accessModal').classList.add('open');
+    }
+    function closeModal() {
+      document.getElementById('accessModal').classList.remove('open');
+    }
+
+    // Close on click outside
+    document.getElementById('accessModal').addEventListener('click', function (e) {
+      if (e.target === this) {
+        closeModal();
+      }
+    });
+
+    // Demo functions
+    function openDemo() {
+      document.getElementById('demoOverlay').classList.add('active');
+      switchTab('dashboard');
+      loadRules();
+      initCategoryToggles(); // Sync category + custom rules to extension
+    }
+    function closeDemo() {
+      document.getElementById('demoOverlay').classList.remove('active');
+    }
+
+    // --- Persistence Logic ---
+    function loadRules() {
+      let rules = JSON.parse(localStorage.getItem('phylaxRules') || '[]');
+      const container = document.getElementById('customRulesList');
+      if (!container) return; // Might be on a different tab or not ready
+
+      container.innerHTML = '';
+
+      if (rules.length === 0) {
+        container.innerHTML = '<div style="font-size: 13px; color: var(--muted2); font-style: italic;" id="noRulesMsg">No custom rules added yet.</div>';
+      } else {
+        // Migration check: if rules are strings, convert to objects
+        if (typeof rules[0] === 'string') {
+          rules = rules.map(r => ({ text: r, active: true }));
+          localStorage.setItem('phylaxRules', JSON.stringify(rules));
+        }
+
+        rules.forEach((rule, index) => {
+          const div = document.createElement('div');
+          // Style similar to the content categories items but for light background
+          div.style.cssText = "display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid rgba(0,0,0,0.1); animation: fadeIn 0.3s ease;";
+          if (index === rules.length - 1) div.style.borderBottom = 'none'; // distinct separator
+
+          div.innerHTML = `
+            <div style="font-size: 14px; color: #111827; font-weight: 500; padding-right: 12px;">${rule.text}</div>
+            <div class="demo-toggle ${rule.active ? 'active' : ''}" onclick="toggleCustomRule(${index})" style="background: ${rule.active ? 'var(--accent2)' : '#E5E7EB'};">
+              <div class="demo-toggle-thumb" style="background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,0.2);"></div>
+            </div>
+          `;
+          container.appendChild(div);
+        });
+      }
+    }
+
+    function saveRule(ruleText) {
+      if (!ruleText) return;
+      let rules = JSON.parse(localStorage.getItem('phylaxRules') || '[]');
+
+      // Ensure we are working with objects
+      if (rules.length > 0 && typeof rules[0] === 'string') {
+        rules = rules.map(r => ({ text: r, active: true }));
+      }
+
+      rules.push({ text: ruleText, active: true });
+      localStorage.setItem('phylaxRules', JSON.stringify(rules));
+      loadRules();
+
+      // Sync all rules (categories + custom) to the extension
+      syncAllRules();
+    }
+
+    function toggleCustomRule(index) {
+      let rules = JSON.parse(localStorage.getItem('phylaxRules') || '[]');
+      if (rules[index]) {
+        rules[index].active = !rules[index].active;
+        localStorage.setItem('phylaxRules', JSON.stringify(rules));
+        loadRules();
+        syncAllRules();
+      }
+    }
+
+    function clearRules() {
+      if (confirm('Clear all custom rules?')) {
+        localStorage.removeItem('phylaxRules');
+        loadRules();
+        syncAllRules(); // Still keeps category rules active
+      }
+    }
+
+    // Tab Switching
+    function switchTab(tabId) {
+      // 1. Update Sidebar Links
+      const links = document.querySelectorAll('.demo-link');
+      links.forEach(link => link.classList.remove('active'));
+      const activeLink = document.getElementById('link-' + tabId);
+      if (activeLink) activeLink.classList.add('active');
+
+      // 2. Update Content
+      const tabs = document.querySelectorAll('.tab-content');
+      tabs.forEach(tab => tab.classList.remove('active'));
+      const activeTab = document.getElementById('tab-' + tabId);
+      if (activeTab) activeTab.classList.add('active');
+
+      if (tabId === 'policy') {
+        loadRules();
+      }
+    }
+
+    // ── Content Category Toggles (create real rules) ──
+    const CATEGORY_RULES = {
+      'adult': 'Block adult content and pornography',
+      'gambling': 'Block gambling sites and gambling content',
+      'weapons': 'Block weapons and graphic violence',
+    };
+
+    function initCategoryToggles() {
+      const saved = JSON.parse(localStorage.getItem('phylaxCategories') || '{"adult":true,"gambling":true,"weapons":false}');
+      document.querySelectorAll('[data-category]').forEach(el => {
+        const cat = el.getAttribute('data-category');
+        if (saved[cat]) {
+          el.classList.add('active');
+        } else {
+          el.classList.remove('active');
+        }
+      });
+      syncAllRules();
+    }
+
+    function toggleSwitch(el) {
+      el.classList.toggle('active');
+      const cat = el.getAttribute('data-category');
+      if (cat) {
+        const saved = JSON.parse(localStorage.getItem('phylaxCategories') || '{}');
+        saved[cat] = el.classList.contains('active');
+        localStorage.setItem('phylaxCategories', JSON.stringify(saved));
+        syncAllRules();
+      }
+    }
+
+    // Merge category rules + custom rules into a single rules array and sync to extension
+    function syncAllRules() {
+      const categories = JSON.parse(localStorage.getItem('phylaxCategories') || '{"adult":true,"gambling":true,"weapons":false}');
+      const customRules = JSON.parse(localStorage.getItem('phylaxRules') || '[]');
+
+      const allRules = [];
+      // Add category rules for active toggles
+      for (const [cat, ruleText] of Object.entries(CATEGORY_RULES)) {
+        if (categories[cat]) {
+          allRules.push({ text: ruleText, active: true, _source: 'category' });
+        }
+      }
+      // Add custom rules from chat
+      for (const r of customRules) {
+        allRules.push({ ...r, _source: 'custom' });
+      }
+
+      PhylaxExtension.send({ type: 'PHYLAX_SYNC_RULES', rules: allRules });
+    }
+
+    // --- Real Gemini Integration ---
+    let GEMINI_API_KEY = localStorage.getItem('phylax_api_key') || '';
+
+    function handleEnter(e) {
+      if (e.key === 'Enter') submitRule();
+    }
+
+    function submitRule() {
+      const input = document.getElementById('ruleInput');
+      const text = input.value.trim();
+      if (!text) return;
+
+      const chat = document.getElementById('chatHistory');
+      chat.innerHTML += `<div class="message user">${text}</div>`;
+      input.value = '';
+      chat.scrollTop = chat.scrollHeight;
+
+      // Typing Indicator
+      const typingId = 'typing-' + Date.now();
+      chat.innerHTML += `
+         <div class="message bot typing-indicator" id="${typingId}">
+           <span></span><span></span><span></span>
+         </div>
+       `;
+      chat.scrollTop = chat.scrollHeight;
+
+      // 1. Check if user is entering an API Key (Regex for robustness)
+      // Matches AIza followed by ~35 chars, allowing for surrounding whitespace
+      const keyMatch = text.match(/(AIza[0-9A-Za-z-_]{35})/);
+
+      if (keyMatch) {
+        const newKey = keyMatch[0];
+        GEMINI_API_KEY = newKey;
+        localStorage.setItem('phylax_api_key', newKey);
+
+        setTimeout(() => {
+          document.getElementById(typingId).remove();
+          chat.innerHTML += `<div class="message bot">✨ <strong>Gemini Connected!</strong> I've updated your API key. I am now fully operational.</div>`;
+          chat.scrollTop = chat.scrollHeight;
+        }, 800);
+        return;
+      }
+
+      // 2. Decide: Real API or Simulation
+      if (GEMINI_API_KEY) {
+        callGemini(text, typingId);
+      } else {
+        runSimulation(text, typingId);
+      }
+    }
+
+    async function callGemini(userText, typingId) {
+      try {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{
+              parts: [{
+                text: `You are Phylax, an intelligent child-protection AI assistant.
+Your goal is to be helpful, knowledgeable, and empathetic to parents.
+1. Answer the user's questions about safety, technology, or parenting intelligently and conversationally.
+2. IMPORTANT: If the user explicitly asks to set a rule, OR implies a desire to block, limit, or monitor something (e.g., 'Stop them from seeing gambling', 'No TikTok after 8pm'), you must identify this.
+3. If a rule intention is detected, append a specific proposal tag to the END of your response in this exact format:
+   ||PROPOSE_RULE: <concise rule text>||
+   
+   Example User: "I promise to block youtube"
+   Example Response: "I understand. Blocking YouTube can help with focus. ||PROPOSE_RULE: Block YouTube||"
+
+   Example User: "How do I make my kid safe?"
+   Example Response: "You can use filters and monitoring. I can help you set rules if you'd like." (No proposal tag)
+
+4. Keep your response friendly and concise (under 3 sentences).
+                                   
+User: ${userText}`
+              }]
+            }]
+          })
+        });
+
+        const data = await response.json();
+        document.getElementById(typingId).remove();
+
+        if (data.error) {
+          const errorMsg = "API Error: " + data.error.message;
+          const chat = document.getElementById('chatHistory');
+          chat.innerHTML += `<div class="message bot" style="color: var(--bad);">${errorMsg}</div>`;
+          if (data.error.code === 400 || data.error.code === 403) {
+            localStorage.removeItem('phylax_api_key');
+            GEMINI_API_KEY = '';
+            chat.innerHTML += `<div class="message bot">I've disconnected the invalid Key. You are back in simulation mode.</div>`;
+          }
+          return;
+        }
+
+        const aiResponse = data.candidates[0].content.parts[0].text;
+        const chat = document.getElementById('chatHistory');
+
+        // Check for Rule Proposal
+        const ruleMatch = aiResponse.match(/\|\|PROPOSE_RULE: (.*?)\|\|/);
+
+        if (ruleMatch) {
+          // Rule detected: Show explanation + Confirmation Button
+          const cleanResponse = aiResponse.replace(ruleMatch[0], '').trim();
+          const ruleText = ruleMatch[1].trim();
+          const safeRule = ruleText.replace(/'/g, "\\'"); // escape for HTML attribute
+
+          if (cleanResponse) {
+            chat.innerHTML += `<div class="message bot">${cleanResponse}</div>`;
+          }
+
+          // Add the suggestion card
+          chat.innerHTML += `
+              <div class="message bot" style="background: rgba(34, 211, 238, 0.08); border-left: 3px solid var(--accent2); margin-top: -4px; animation: fadeIn 0.3s ease;">
+                <div style="font-size: 12px; margin-bottom: 6px; font-weight: 600; color: var(--accent2); text-transform: uppercase; letter-spacing: 0.5px;">💡 Suggested Rule</div>
+                <div style="font-size: 15px; margin-bottom: 12px; color: white;">"${ruleText}"</div>
+                <button class="btn" style="padding: 6px 14px; font-size: 13px; border-color: var(--accent2); background: rgba(34, 211, 238, 0.1);" 
+                   onclick="confirmRule('${safeRule}', this)">
+                   Add Rule
+                </button>
+              </div>
+            `;
+        } else {
+          // Normal chat
+          chat.innerHTML += `<div class="message bot">${aiResponse}</div>`;
+        }
+
+        chat.scrollTop = chat.scrollHeight;
+
+      } catch (e) {
+        document.getElementById(typingId).remove();
+        document.getElementById('chatHistory').innerHTML += `<div class="message bot">Connection error. Back to simulation.</div>`;
+        console.error(e);
+      }
+    }
+
+    // Helper to confirm rules from chat
+    function confirmRule(ruleText, btn) {
+      saveRule(ruleText);
+      btn.innerHTML = 'Scan & Active ✓';
+      btn.style.background = 'var(--accent3)';
+      btn.style.borderColor = 'var(--accent3)';
+      btn.style.color = '#000';
+      btn.onclick = null; // Disable click
+    }
+
+    function runSimulation(text, typingId) {
+      const chat = document.getElementById('chatHistory');
+      const lowerText = text.toLowerCase();
+
+      setTimeout(() => {
+        document.getElementById(typingId).remove();
+
+        let response = "";
+
+        // 0. Check for greetings
+        if (/^\s*(hi|hello|hey|greetings|howdy)\b/i.test(text)) {
+          response = "Hi there! I'm Phylax, your family's AI safety agent. I'm here to help you set up safety rules. Try telling me: 'Block social media during homework hours'.";
+        }
+        // 1. Check for questions
+        else if (lowerText.endsWith('?') || lowerText.startsWith('can i') || lowerText.startsWith('how') || lowerText.startsWith('what')) {
+          response = "I am currently in <strong>Demo Simulation Mode</strong>. To connect my real brain, paste your Gemini API Key starting with 'AIza' right here in the chat.";
+        }
+        // 2. Check for "block" intent
+        else if (lowerText.includes("block") || lowerText.includes("ban") || lowerText.includes("stop")) {
+          response = "Understood. I've created a blocking rule for that context based on semantic matching.";
+          saveRule(text);
+        }
+        // 3. Check for "alert" intent
+        else if (lowerText.includes("alert") || lowerText.includes("warn")) {
+          response = "Noted. I will send you a real-time alert when this context is detected.";
+          saveRule(text);
+        }
+        else {
+          response = "I've processed that rule and updated the local vector store. The policy is now active.";
+          saveRule(text);
+        }
+
+        chat.innerHTML += `<div class="message bot">${response}</div>`;
+        chat.scrollTop = chat.scrollHeight;
+      }, 1000);
+    }
+  </script>
+
+  <!-- Demo Interface Overlay -->
+  <div class="demo-overlay" id="demoOverlay">
+    <div class="demo-nav">
+      <div class="brand">
+        <div class="logo" style="width: 32px; height: 32px;">
+          <svg viewBox="0 0 100 100"
+            style="width: 100%; height: 100%; fill: none; stroke: white; stroke-width: 8; stroke-linecap: square;">
+            <path
+              d="M20,20 L80,20 L80,80 L20,80 L20,30 L70,30 L70,70 L30,70 L30,40 L60,40 L60,60 L40,60 L40,50 L50,50" />
+          </svg>
+        </div>
+        <div class="brand-text">
+          <h1 style="font-size: 18px;">Phylax Control Center</h1>
+          <p style="font-size: 12px;">Connected: MacBook Pro (Alex)</p>
+        </div>
+      </div>
+      <button class="btn" onclick="closeDemo()">Exit Demo</button>
+    </div>
+
+    <div class="demo-layout">
+      <!-- Sidebar -->
+      <div class="demo-sidebar">
+        <div id="link-dashboard" class="demo-link active" onclick="switchTab('dashboard')">
+          <span>📊</span> Dashboard
+        </div>
+        <div id="link-activity" class="demo-link" onclick="switchTab('activity')">
+          <span>🛡️</span> Activity Log
+        </div>
+        <div id="link-policy" class="demo-link" onclick="switchTab('policy')" style="color: var(--accent2);">
+          <span style="filter: drop-shadow(0 0 8px rgba(34, 211, 238, 0.6));">✨</span> AI Policy Creator
+        </div>
+        <div id="link-family" class="demo-link" onclick="switchTab('family')">
+          <span>👤</span> Family Settings
+        </div>
+
+        <div
+          style="margin-top: auto; padding: 16px; background: rgba(124, 92, 255, 0.08); border: 1px solid rgba(124, 92, 255, 0.1); border-radius: 12px;">
+          <div style="font-size: 12px; color: var(--accent1); font-weight: 600; margin-bottom: 4px;">SYSTEM STATUS</div>
+          <div style="font-size: 13px; color: var(--muted2); display: flex; align-items: center; gap: 6px;">
+            <div style="width: 6px; height: 6px; background: var(--accent3); border-radius: 50%;"></div>
+            Model Active
+          </div>
+          <div style="font-size: 13px; color: var(--muted2); display: flex; align-items: center; gap: 6px;">
+            <div style="width: 6px; height: 6px; background: var(--accent3); border-radius: 50%;"></div>
+            Cloud Sync: OK
+          </div>
+          <div style="font-size: 13px; display: flex; align-items: center; gap: 6px; margin-top: 2px;">
+            <div id="extensionStatusDot"
+              style="width: 6px; height: 6px; background: var(--bad); border-radius: 50%; box-shadow: 0 0 8px rgba(251, 113, 133, 0.4);">
+            </div>
+            <span id="extensionStatusText" style="color: var(--bad);">Extension Not Detected</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Main Content Container -->
+      <div class="demo-main">
+
+        <!-- Create a wrapper for tab contents -->
+        <style>
+          .tab-content {
+            display: none;
+            width: 100%;
+            height: 100%;
+          }
+
+          .tab-content.active {
+            display: flex;
+            gap: 32px;
+            animation: fadeIn 0.3s ease;
+          }
+
+          @keyframes fadeIn {
+            from {
+              opacity: 0;
+              transform: translateY(10px);
+            }
+
+            to {
+              opacity: 1;
+              transform: translateY(0);
+            }
+          }
+        </style>
+
+        <!-- TAB 1: DASHBOARD (Original Content) -->
+        <div id="tab-dashboard" class="tab-content active">
+          <!-- Left Column -->
+          <div style="flex: 2; display: flex; flex-direction: column; gap: 24px;">
+            <div style="display: flex; gap: 24px;">
+              <!-- Safety Score -->
+              <div class="stat-card">
+                <h3 style="margin: 0 0 4px 0; font-size: 16px; color: #fff;">Safety Score</h3>
+                <p style="margin: 0 0 16px 0; font-size: 13px; color: var(--muted2);">Real-time semantic risk assessment
+                </p>
+
+                <div class="risk-meter">
+                  <div class="risk-value">94</div>
+                </div>
+                <div style="text-align: center; font-size: 14px; font-weight: 500; color: var(--accent3);">Optimal
+                  Safety</div>
+              </div>
+
+              <!-- Screen Time -->
+              <div class="stat-card">
+                <div style="display: flex; justify-content: space-between;">
+                  <h3 style="margin: 0 0 4px 0; font-size: 16px; color: #fff;">Screen Time</h3>
+                  <span class="tech-pill">Today</span>
+                </div>
+
+                <div style="margin-top: 24px;">
+                  <div style="font-size: 42px; font-weight: 700; color: #fff; line-height: 1;">1h 45m</div>
+                  <div style="font-size: 14px; color: var(--muted2); margin-top: 8px;">Remaining: 2h 15m</div>
+                </div>
+
+                <div
+                  style="height: 8px; background: rgba(255,255,255,0.08); border-radius: 4px; margin-top: auto; overflow: hidden;">
+                  <div style="width: 45%; height: 100%; background: var(--accent2);"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Interventions -->
+            <div class="stat-card" style="flex: 1;">
+              <h3 style="margin: 0 0 20px 0; font-size: 16px; color: #fff;">Recent Interventions</h3>
+
+              <div class="event-item">
+                <div
+                  style="width: 32px; height: 32px; background: rgba(251, 113, 133, 0.2); border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: var(--bad);">
+                  🚫
+                </div>
+                <div style="flex: 1;">
+                  <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                    <span style="font-size: 15px; font-weight: 500; color: #fff;">Blocked: Adult Content</span>
+                    <span style="font-size: 12px; color: var(--muted2);">2 mins ago</span>
+                  </div>
+                  <div style="font-size: 13px; color: var(--muted);">Context analysis detected high-probability gambling
+                    interface pattern.</div>
+                </div>
+              </div>
+
+              <div class="event-item">
+                <div
+                  style="width: 32px; height: 32px; background: rgba(251, 191, 36, 0.2); border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: var(--warn);">
+                  ⚠️
+                </div>
+                <div style="flex: 1;">
+                  <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                    <span style="font-size: 15px; font-weight: 500; color: #fff;">Warning: Excessive Social Media</span>
+                    <span style="font-size: 12px; color: var(--muted2);">15 mins ago</span>
+                  </div>
+                  <div style="font-size: 13px; color: var(--muted);">Approaching daily limit for social category. Speed
+                    bump applied.</div>
+                </div>
+              </div>
+
+              <div class="event-item">
+                <div
+                  style="width: 32px; height: 32px; background: rgba(96, 165, 250, 0.2); border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: var(--ok);">
+                  🛡️
+                </div>
+                <div style="flex: 1;">
+                  <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                    <span style="font-size: 15px; font-weight: 500; color: #fff;">Safe Search Enforced</span>
+                    <span style="font-size: 12px; color: var(--muted2);">1h ago</span>
+                  </div>
+                  <div style="font-size: 13px; color: var(--muted);">Query regarding "weapons" redirected to educational
+                    context.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right Column -->
+          <div style="flex: 1; display: flex; flex-direction: column; gap: 24px;">
+            <!-- Live Analysis Log -->
+            <div class="stat-card">
+              <h3 style="margin: 0 0 16px 0; font-size: 16px; color: #fff;">Live Context Stream</h3>
+              <div
+                style="background: rgba(0,0,0,0.4); border-radius: 12px; padding: 16px; border: 1px solid var(--stroke2); height: 200px; overflow: hidden; position: relative;">
+                <div class="console-line" style="color: var(--muted2);">> initializing_vision_model... OK</div>
+                <div class="console-line" style="color: var(--muted2);">> connecting_local_agent... OK</div>
+                <div class="console-line" style="color: var(--muted2);">----------------------------------------</div>
+                <div class="console-line" style="color: #fff;">> GET /homework-help</div>
+                <div class="console-line" style="color: var(--accent3);"> Analysis: EDUCATIONAL (0.99)</div>
+                <div class="console-line" style="color: var(--muted2);"> Action: Allow</div>
+                <br>
+                <div class="console-line" style="color: #fff;">> GET /roblox-chat</div>
+                <div class="console-line" style="color: var(--warn);"> Analysis: POTENTIAL_RISK (0.65)</div>
+                <div class="console-line" style="color: var(--muted2);"> flag: sentiment_aggressive</div>
+                <div class="console-line" style="color: var(--muted2);"> Action: Monitor + Log</div>
+
+                <div
+                  style="position: absolute; bottom: 0; left: 0; width: 100%; height: 60px; background: linear-gradient(to bottom, transparent, rgba(0,0,0,0.4));">
+                </div>
+              </div>
+            </div>
+
+            <!-- Quick Policies -->
+            <div class="stat-card">
+              <h3 style="margin: 0 0 16px 0; font-size: 16px; color: #fff;">Active Policies</h3>
+              <div style="display: flex; flex-direction: column; gap: 12px;">
+                <div
+                  style="display: flex; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.03); padding: 12px; border-radius: 10px;">
+                  <div style="font-size: 14px;">Gambling & Risk</div>
+                  <span style="color: var(--bad); font-size: 12px; font-weight: 600;">STRICT BLOCK</span>
+                </div>
+                <div
+                  style="display: flex; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.03); padding: 12px; border-radius: 10px;">
+                  <div style="font-size: 14px;">Social Media</div>
+                  <span style="color: var(--warn); font-size: 12px; font-weight: 600;">1 HR LIMIT</span>
+                </div>
+                <div
+                  style="display: flex; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.03); padding: 12px; border-radius: 10px;">
+                  <div style="font-size: 14px;">Bedtime</div>
+                  <span style="color: var(--accent2); font-size: 12px; font-weight: 600;">9:00 PM</span>
+                </div>
+              </div>
+              <button class="btn btn-primary"
+                style="width: 100%; margin-top: 16px; font-size: 13px; background: linear-gradient(135deg, var(--accent1), var(--accent2));"
+                onclick="switchTab('policy')">✨ Open AI Policy Creator</button>
+            </div>
+          </div>
+        </div> <!-- End Tab Dashboard -->
+
+        <!-- TAB 2: ACTIVITY LOG -->
+        <div id="tab-activity" class="tab-content" style="flex-direction: column;">
+          <h2 style="margin-top: 0;">Activity Log</h2>
+          <div class="stat-card" style="flex: 1; padding: 0; overflow: hidden;">
+            <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 14px;">
+              <thead style="background: rgba(255,255,255,0.02); border-bottom: 1px solid var(--stroke);">
+                <tr>
+                  <th style="padding: 16px 24px; color: var(--muted);">Timestamp</th>
+                  <th style="padding: 16px 24px; color: var(--muted);">Context / URL</th>
+                  <th style="padding: 16px 24px; color: var(--muted);">Risk Level</th>
+                  <th style="padding: 16px 24px; color: var(--muted);">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr style="border-bottom: 1px solid var(--stroke2);">
+                  <td style="padding: 16px 24px; color: var(--muted2);">2 mins ago</td>
+                  <td style="padding: 16px 24px; color: #fff;">poker-online-free.net</td>
+                  <td style="padding: 16px 24px;"><span style="color: var(--bad); font-weight: 600;">HIGH (0.92)</span>
+                  </td>
+                  <td style="padding: 16px 24px;"><span class="tech-pill"
+                      style="color: var(--bad); border-color: var(--bad);">BLOCKED</span></td>
+                </tr>
+                <tr style="border-bottom: 1px solid var(--stroke2);">
+                  <td style="padding: 16px 24px; color: var(--muted2);">15 mins ago</td>
+                  <td style="padding: 16px 24px; color: #fff;">instagram.com/reels</td>
+                  <td style="padding: 16px 24px;"><span style="color: var(--warn); font-weight: 600;">MED (0.45)</span>
+                  </td>
+                  <td style="padding: 16px 24px;"><span class="tech-pill"
+                      style="color: var(--warn); border-color: var(--warn);">LIMIT WARNING</span></td>
+                </tr>
+                <tr style="border-bottom: 1px solid var(--stroke2);">
+                  <td style="padding: 16px 24px; color: var(--muted2);">42 mins ago</td>
+                  <td style="padding: 16px 24px; color: #fff;">History of Rome - Wikipedia</td>
+                  <td style="padding: 16px 24px;"><span style="color: var(--accent3); font-weight: 600;">LOW
+                      (0.01)</span></td>
+                  <td style="padding: 16px 24px;"><span class="tech-pill">ALLOWED</span></td>
+                </tr>
+                <tr style="border-bottom: 1px solid var(--stroke2);">
+                  <td style="padding: 16px 24px; color: var(--muted2);">1 hr ago</td>
+                  <td style="padding: 16px 24px; color: #fff;">khanacademy.org</td>
+                  <td style="padding: 16px 24px;"><span style="color: var(--accent3); font-weight: 600;">SAFE
+                      (0.00)</span></td>
+                  <td style="padding: 16px 24px;"><span class="tech-pill">ALLOWED</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- TAB 3: POLICY RULES -->
+        <div id="tab-policy" class="tab-content" style="flex-direction: column;">
+          <h2 style="margin-top: 0; display: flex; align-items: center; gap: 12px;">
+            AI Policy Creator
+            <span class="tech-pill"
+              style="font-size: 12px; border-color: var(--accent2); color: var(--accent2);">Active</span>
+          </h2>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+
+            <div class="stat-card">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                <h3 style="margin: 0; font-size: 16px;">Content Categories</h3>
+                <span class="tech-pill">Standard Mode</span>
+              </div>
+
+              <div
+                style="display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--stroke2);">
+                <div>
+                  <div style="font-weight: 500;">Adult & Pornography</div>
+                  <div style="font-size: 12px; color: var(--muted2);">Explicit vision & text detection</div>
+                </div>
+                <div class="demo-toggle active" data-category="adult" onclick="toggleSwitch(this)">
+                  <div class="demo-toggle-thumb"></div>
+                </div>
+              </div>
+
+              <div
+                style="display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--stroke2);">
+                <div>
+                  <div style="font-weight: 500;">Gambling / High Risk</div>
+                  <div style="font-size: 12px; color: var(--muted2);">Poker, betting, crypto scams</div>
+                </div>
+                <div class="demo-toggle active" data-category="gambling" onclick="toggleSwitch(this)">
+                  <div class="demo-toggle-thumb"></div>
+                </div>
+              </div>
+
+              <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 0;">
+                <div>
+                  <div style="font-weight: 500;">Weapons / Violence</div>
+                  <div style="font-size: 12px; color: var(--muted2);">Graphic imagery & shopping</div>
+                </div>
+                <div class="demo-toggle" data-category="weapons" onclick="toggleSwitch(this)">
+                  <div class="demo-toggle-thumb"></div>
+                </div>
+              </div>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 24px;">
+              <!-- Card 2: Embedded Chat with Integrated Rules -->
+              <div class="stat-card"
+                style="padding: 0; overflow: hidden; height: 850px; border-color: var(--accent1); box-shadow: 0 0 40px rgba(124, 92, 255, 0.15); display: flex; flex-direction: column;">
+
+                <!-- TOP: Chat Interface (Flexible) -->
+                <div class="llm-chat-window"
+                  style="flex: 1; width: 100%; border: none; border-radius: 0; box-shadow: none; transform: none; max-width: none; display: flex; flex-direction: column; height: auto;">
+
+                  <!-- Header -->
+                  <div class="llm-header" style="flex: 0 0 auto;">
+                    <div class="llm-avatar">🤖</div>
+                    <div style="flex: 1;">
+                      <h3 style="margin: 0; font-size: 15px; color: #fff;">Phylax AI Agent</h3>
+                      <div style="font-size: 12px; color: var(--accent3); display: flex; align-items: center;">
+                        Online <span class="status-dot"></span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Chat History -->
+                  <div class="chat-messages" id="chatHistory" style="flex: 1; overflow-y: auto;">
+                    <div class="message bot">
+                      Hi, I'm Phylax. I manage your family's safety policy. Determine a new rule in plain English, and I
+                      will translate it into enforcement logic.
+                    </div>
+                  </div>
+
+                  <!-- Input -->
+                  <div class="chat-input-area" style="flex: 0 0 auto;">
+                    <input type="text" id="ruleInput" class="form-input" style="margin: 0;" placeholder="Type a rule..."
+                      onkeypress="handleEnter(event)">
+                    <button class="btn btn-primary" style="padding: 0 20px;" onclick="submitRule()">→</button>
+                  </div>
+                </div>
+
+                <!-- BOTTOM: Integrated Rules List (Fixed Height) -->
+                <div
+                  style="background: #FFFFFF; padding: 16px; border-top: 1px solid #E5E7EB; height: 260px; flex: 0 0 260px; overflow-y: auto; display: flex; flex-direction: column; position: relative; z-index: 10;">
+                  <div
+                    style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-shrink: 0;">
+                    <div
+                      style="font-size: 11px; font-weight: 800; color: #374151; letter-spacing: 1px; text-transform: uppercase;">
+                      Active Rules</div>
+                    <button onclick="clearRules()"
+                      style="background: #F3F4F6; border: 1px solid #D1D5DB; border-radius: 4px; padding: 4px 10px; color: #4B5563; font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.2s;">CLEAR
+                      ALL</button>
+                  </div>
+                  <div id="customRulesList" style="flex: 1; display: flex; flex-direction: column; gap: 8px;">
+                    <div style="font-size: 13px; color: #6B7280; font-style: italic; padding: 8px 0;" id="noRulesMsg">
+                      No custom rules active. Type a rule above to add one.
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- TAB 4: FAMILY SETTINGS -->
+        <div id="tab-family" class="tab-content" style="flex-direction: column;">
+          <h2 style="margin-top: 0;">Family Settings</h2>
+          <div class="stat-card" style="max-width: 600px;">
+            <div style="display: flex; gap: 20px; align-items: flex-start;">
+              <div
+                style="width: 80px; height: 80px; background: linear-gradient(135deg, #ddd, #999); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 32px; font-weight: 700; color: #333;">
+                A</div>
+              <div style="flex: 1;">
+                <h3 style="margin: 0 0 4px 0;">Alex (Child)</h3>
+                <p style="margin: 0 0 16px 0; color: var(--muted);">MacBook Pro 14" · Last active now</p>
+
+                <div class="form-group">
+                  <label class="form-label">Age Group</label>
+                  <select class="form-input" style="color: #fff;">
+                    <option>Pre-Teen (10-12)</option>
+                    <option>Teen (13-15)</option>
+                    <option>Young Adult (16+)</option>
+                  </select>
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label">Daily Screen Time Limit</label>
+                  <select class="form-input" style="color: #fff;">
+                    <option>2 Hours</option>
+                    <option>3 Hours</option>
+                    <option selected>4 Hours</option>
+                    <option>Unlimited</option>
+                  </select>
+                </div>
+
+                <div style="padding-top: 16px; border-top: 1px solid var(--stroke2);">
+                  <button class="btn btn-primary" onclick="alert('Settings saved!')">Save Changes</button>
+                </div>
+
+                <div style="margin-top: 40px; padding-top: 24px; border-top: 1px dashed var(--stroke2);">
+                  <h4 style="margin: 0 0 12px 0; font-size: 14px; color: var(--muted);">API Key Configuration</h4>
+                  <div class="form-group">
+                    <input type="password" id="apiKeyInput" class="form-input"
+                      placeholder="Paste Gemini API Key (AIza...)" style="font-size: 13px;">
+                  </div>
+                  <div style="display: flex; gap: 12px;">
+                    <button class="btn" onclick="updateKeyManual()">Update Key</button>
+                    <button class="btn" style="color: var(--bad); border-color: rgba(251, 113, 133, 0.3);"
+                      onclick="clearKeyManual()">Clear Key</button>
+                  </div>
+                </div>
+
+                <script>
+                  function updateKeyManual() {
+                    const input = document.getElementById('apiKeyInput');
+                    const val = input.value.trim();
+                    if (val.includes('AIza')) {
+                      localStorage.setItem('phylax_api_key', val);
+                      GEMINI_API_KEY = val;
+                      alert('API Key updated successfully! You can now use the AI features.');
+                      input.value = '';
+                    } else {
+                      alert('Invalid Key format. It should start with "AIza".');
+                    }
+                  }
+
+                  function clearKeyManual() {
+                    localStorage.removeItem('phylax_api_key');
+                    GEMINI_API_KEY = '';
+                    alert('API Key removed. Reverted to simulation mode.');
+                  }
+                </script>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</body>
+
+</html>

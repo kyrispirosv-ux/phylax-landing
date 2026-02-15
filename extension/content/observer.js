@@ -713,7 +713,7 @@
 
   async function sendEvent(eventType, payload = {}) {
     if (!isContextValid()) {
-      console.warn('[Phylax] sendEvent skipped — extension context invalid');
+      console.debug('[Phylax] sendEvent skipped — extension context invalid');
       return;
     }
     try {

@@ -8,7 +8,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 export default function OnboardingWizard() {
     const router = useRouter();
-    const { pairingCode, generatePairingCode, pairingStatus, devices } = useStore();
+    const { pairingCode, generatePairingCode, checkPairingStatus, pairingStatus, devices } = useStore();
     const [step, setStep] = useState(1);
     const [copied, setCopied] = useState(false);
 
@@ -17,10 +17,17 @@ export default function OnboardingWizard() {
     }, [pairingCode, generatePairingCode]);
 
     useEffect(() => {
-        if (devices.length > 0 && step < 3) {
-            setStep(3);
+        let interval: NodeJS.Timeout;
+        if (step === 2 && pairingCode) {
+            interval = setInterval(async () => {
+                const isPaired = await checkPairingStatus(pairingCode);
+                if (isPaired) {
+                    setStep(3);
+                }
+            }, 3000);
         }
-    }, [devices, step]);
+        return () => clearInterval(interval);
+    }, [step, pairingCode, checkPairingStatus]);
 
     const copyCode = () => {
         if (pairingCode) {
@@ -105,10 +112,7 @@ export default function OnboardingWizard() {
                                 <div className="w-2 h-2 rounded-full bg-[#22D3EE]" />
                             </div>
 
-                            {/* Hidden debug button to force proceed for demo */}
-                            <button onClick={() => setStep(3)} className="mt-12 text-xs text-white/10 hover:text-white/50">
-                                [Debug: Force Connect]
-                            </button>
+
                         </motion.div>
                     )}
 

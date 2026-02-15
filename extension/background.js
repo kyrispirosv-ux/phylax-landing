@@ -11,6 +11,7 @@ import { createSessionState, updateSessionState } from './engine/behavior.js';
 import { cacheClear, cacheStats } from './engine/decision-cache.js';
 import { createConversationState } from './engine/grooming-detector.js';
 import { classify_video_risk, analyze_message_risk, predict_conversation_risk } from './engine/risk-classifier.js';
+import { startSync } from './backend-sync.js';
 
 // ── State ───────────────────────────────────────────────────────
 
@@ -686,10 +687,12 @@ async function handleDashboardMessage(message, sendResponse) {
         break;
       }
       case 'PHYLAX_PAIR_DEVICE': {
-        console.log('[Phylax] Device paired with code:', message.code);
-        // In a real app, we would exchange this code for an auth token here.
-        // For local demo, we just acknowledge it and trigger a rule fetch.
-        await rebuildPolicy([]); // Refresh with default rules or fetch from "server"
+        console.log('[Phylax] Device paired — starting background sync');
+        // Rebuild policy from whatever rules we now have (may have been set by popup/pairing page)
+        const pairedRules = await getRules();
+        await rebuildPolicy(pairedRules);
+        // Start background sync timers (policy poll, heartbeat, event flush)
+        startSync();
         sendResponse({ success: true });
         break;
       }
@@ -917,7 +920,7 @@ chrome.webNavigation.onCompleted.addListener(async (details) => {
 // INITIALIZATION
 // ═════════════════════════════════════════════════════════════════
 
-chrome.runtime.onInstalled.addListener(async () => {
+chrome.runtime.onInstalled.addListener(async (details) => {
   try {
     console.log('[Phylax] Engine installed — Pipeline v3.0 (Intelligent Grooming Detection)');
     profileTier = await getProfileTier();
@@ -931,6 +934,14 @@ chrome.runtime.onInstalled.addListener(async () => {
       await rebuildPolicy([]);
     }
     markPolicyReady();
+
+    // On fresh install, check if not yet paired and open pairing page
+    if (details.reason === 'install') {
+      const { phylaxPaired } = await chrome.storage.local.get('phylaxPaired');
+      if (!phylaxPaired) {
+        chrome.tabs.create({ url: chrome.runtime.getURL('pairing.html') });
+      }
+    }
   } catch (e) {
     console.error('[Phylax] onInstalled error:', e);
     currentPolicy = compileToPolicyObject([], profileTier);

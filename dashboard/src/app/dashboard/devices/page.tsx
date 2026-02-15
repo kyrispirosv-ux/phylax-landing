@@ -56,6 +56,24 @@ export default function DevicesPage() {
     setLoading(false);
   }
 
+  // Poll for newly paired devices when a pairing token is active
+  useEffect(() => {
+    if (!pairingToken) return;
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch("/api/devices");
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.devices && data.devices.length > devices.length) {
+          // New device detected — refresh the device list and clear the pairing token
+          setPairingToken(null);
+          load();
+        }
+      } catch { /* retry on next tick */ }
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [pairingToken, devices.length]);
+
   async function generateToken() {
     if (!selectedChild) return;
     setGenerating(true);
@@ -143,9 +161,9 @@ export default function DevicesPage() {
 
         {pairingToken && (
           <div className="bg-white/[0.03] border border-[#7C5CFF]/20 rounded-xl p-5 space-y-4">
-            {/* 6-digit code */}
+            {/* 6-character code */}
             <div>
-              <p className="text-white/40 text-xs font-medium mb-1">6-Digit Code (enter on child&apos;s device)</p>
+              <p className="text-white/40 text-xs font-medium mb-1">Pairing Code (enter on child&apos;s device)</p>
               <div className="flex items-center gap-3">
                 <span className="text-3xl font-mono font-bold tracking-[0.3em] text-white">
                   {pairingToken.short_code}

@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
+import { useState, useEffect, useCallback, useRef } from "react";
 
 type Child = { id: string; name: string; tier: string };
 type Device = { id: string; child_id: string; device_name: string; status: string; last_heartbeat: string | null; extension_version: string | null };
@@ -46,6 +47,7 @@ const RISK_CONFIG = {
 
 export function LiveDashboard(props: Props) {
   const { parentName, children: kids, devices, alerts, events, ruleCount, weeklyBlocked, accessRequests, riskLevel, onlineDeviceCount, activeDeviceCount } = props;
+  const router = useRouter();
   const [selectedChild, setSelectedChild] = useState<string>("");
   const [now, setNow] = useState(Date.now());
 
@@ -79,6 +81,29 @@ export function LiveDashboard(props: Props) {
     const t = setInterval(() => setNow(Date.now()), 30_000);
     return () => clearInterval(t);
   }, []);
+
+  // Poll for newly paired devices while the onboarding card is visible
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  useEffect(() => {
+    if (devices.length > 0 || kids.length === 0) return;
+
+    pollRef.current = setInterval(async () => {
+      try {
+        const res = await fetch("/api/devices");
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.devices && data.devices.length > 0) {
+          // Device found — refresh the server component data
+          if (pollRef.current) clearInterval(pollRef.current);
+          router.refresh();
+        }
+      } catch { /* network error, try again next tick */ }
+    }, 3000);
+
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
+  }, [devices.length, kids.length, router]);
 
   const risk = RISK_CONFIG[riskLevel];
 
@@ -171,7 +196,7 @@ export function LiveDashboard(props: Props) {
             {onboardCode && (
               <div className="mt-4 space-y-4">
                 <div>
-                  <p className="text-white/40 text-xs font-medium mb-2">Your 6-digit pairing code:</p>
+                  <p className="text-white/40 text-xs font-medium mb-2">Your 6-character pairing code:</p>
                   <div className="flex items-center gap-4">
                     <span className="text-4xl font-mono font-bold tracking-[0.4em] text-white bg-white/5 px-6 py-3 rounded-xl border border-white/10">
                       {onboardCode.short_code}
