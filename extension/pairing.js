@@ -103,12 +103,13 @@ async function pair(payload) {
   try {
     const result = await consumeToken(payload);
 
-    // Store device info
+    // Store device info + auth token
     await chrome.storage.local.set({
       phylaxDeviceId: result.device_id,
       phylaxChildId: result.child_id,
       phylaxFamilyId: result.family_id,
       phylaxPolicyVersion: result.policy_version,
+      phylaxAuthToken: result.auth_token || null,
       phylaxPaired: true,
     });
 

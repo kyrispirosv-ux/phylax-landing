@@ -2,10 +2,18 @@ import { NextResponse } from "next/server";
 import { createServerSupabase, createServiceClient } from "@/lib/supabase/server";
 import crypto from "crypto";
 
+/** SHA-256 hex hash for one-way storage */
+function sha256(value: string): string {
+  return crypto.createHash("sha256").update(value).digest("hex");
+}
+
 /**
  * POST /api/pairing/generate
  * Parent generates a pairing token for a child.
  * Returns: token_id, secret, short_code, install_link, expires_at
+ *
+ * Security: raw secret and short_code are NEVER stored —
+ * only their SHA-256 hashes are persisted in the database.
  */
 export async function POST(request: Request) {
   // Authenticate the parent
@@ -53,18 +61,19 @@ export async function POST(request: Request) {
     .eq("child_id", child_id)
     .is("used_at", null);
 
-  // Generate cryptographically strong token
+  // Generate cryptographically strong values
   const secret = crypto.randomBytes(32).toString("hex");
   const shortCode = String(crypto.randomInt(100000, 999999));
   const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString(); // 10 minutes
 
+  // Store ONLY hashes — raw values are returned to the client but never persisted
   const { data: token, error } = await db
     .from("pairing_tokens")
     .insert({
       family_id: parent.family_id,
       child_id: child_id,
-      secret,
-      short_code: shortCode,
+      secret_hash: sha256(secret),
+      short_code_hash: sha256(shortCode),
       expires_at: expiresAt,
       created_by: parent.id,
     })
