@@ -7,6 +7,7 @@
   <title>Phylax — Child Protection, Designed Like a Product</title>
   <meta name="description"
     content="Phylax is a child-safety platform: a lightweight child browser extension powered by parent-defined policies, semantic detection, and real-time risk scoring." />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     :root {
       --bg0: #070A12;
@@ -926,6 +927,142 @@
       color: #fff;
     }
 
+    /* Onboarding Steps */
+    .onboard-steps {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0;
+      margin-bottom: 28px;
+    }
+
+    .onboard-step {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      color: var(--muted2);
+      transition: color 0.3s;
+    }
+
+    .onboard-step.active {
+      color: var(--accent2);
+    }
+
+    .onboard-step.done {
+      color: var(--accent3);
+    }
+
+    .onboard-step-num {
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      border: 1.5px solid currentColor;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    .onboard-step.active .onboard-step-num {
+      background: var(--accent2);
+      color: #000;
+      border-color: var(--accent2);
+    }
+
+    .onboard-step.done .onboard-step-num {
+      background: var(--accent3);
+      color: #000;
+      border-color: var(--accent3);
+    }
+
+    .onboard-divider {
+      width: 32px;
+      height: 1px;
+      background: var(--stroke2);
+      margin: 0 10px;
+      flex-shrink: 0;
+    }
+
+    .onboard-panel {
+      display: none;
+      animation: fadeIn 0.3s ease;
+    }
+
+    .onboard-panel.active {
+      display: block;
+    }
+
+    .pairing-code-display {
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+      margin: 24px 0 16px;
+    }
+
+    .pairing-code-char {
+      width: 48px;
+      height: 58px;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1.5px solid var(--stroke2);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      font-weight: 700;
+      font-family: var(--mono);
+      color: #fff;
+      letter-spacing: 1px;
+    }
+
+    .countdown-timer {
+      text-align: center;
+      color: var(--muted);
+      font-size: 14px;
+      margin-top: 8px;
+    }
+
+    .countdown-timer .time {
+      color: var(--accent2);
+      font-weight: 600;
+      font-family: var(--mono);
+    }
+
+    .countdown-timer.expiring .time {
+      color: var(--bad);
+    }
+
+    .onboard-success-icon {
+      width: 72px;
+      height: 72px;
+      border-radius: 50%;
+      background: rgba(52, 211, 153, 0.12);
+      border: 2px solid var(--accent3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 20px;
+      font-size: 32px;
+    }
+
+    .onboard-error {
+      background: rgba(251, 113, 133, 0.1);
+      border: 1px solid rgba(251, 113, 133, 0.25);
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-size: 13px;
+      color: var(--bad);
+      margin-top: 12px;
+      display: none;
+    }
+
+    .onboard-error.visible {
+      display: block;
+    }
+
     .form-group {
       margin-bottom: 20px;
     }
@@ -1447,57 +1584,372 @@
 
   </div>
 
-  <!-- Modal -->
+  <!-- Onboarding Modal -->
   <div class="modal-overlay" id="accessModal">
     <div class="modal">
-      <button class="close-modal" onclick="closeModal()">×</button>
-      <div class="brand" style="margin-bottom: 24px;">
-        <div class="logo">
-          <svg viewBox="0 0 100 100"
-            style="width: 24px; height: 24px; fill: none; stroke: white; stroke-width: 8; stroke-linecap: square;">
-            <path
-              d="M20,20 L80,20 L80,80 L20,80 L20,30 L70,30 L70,70 L30,70 L30,40 L60,40 L60,60 L40,60 L40,50 L50,50" />
-          </svg>
+      <button class="close-modal" onclick="closeModal()">&times;</button>
+
+      <!-- Step Indicators -->
+      <div class="onboard-steps">
+        <div class="onboard-step active" id="stepInd1">
+          <div class="onboard-step-num">1</div>
+          <span>Account</span>
         </div>
-        <div class="brand-text">
-          <h1 style="font-size: 18px;">Request Early Access</h1>
+        <div class="onboard-divider"></div>
+        <div class="onboard-step" id="stepInd2">
+          <div class="onboard-step-num">2</div>
+          <span>Pair Device</span>
+        </div>
+        <div class="onboard-divider"></div>
+        <div class="onboard-step" id="stepInd3">
+          <div class="onboard-step-num">3</div>
+          <span>Done</span>
         </div>
       </div>
 
-      <p style="color: var(--muted); margin-bottom: 24px; font-size: 15px;">
-        Join the waitlist for the Phylax private beta. We are onboarding new families every week.
-      </p>
+      <!-- STEP 1: Create Account -->
+      <div class="onboard-panel active" id="onboardStep1">
+        <div class="brand" style="margin-bottom: 16px;">
+          <div class="logo" style="width: 32px; height: 32px;">
+            <svg viewBox="0 0 100 100"
+              style="width: 20px; height: 20px; fill: none; stroke: white; stroke-width: 8; stroke-linecap: square;">
+              <path
+                d="M20,20 L80,20 L80,80 L20,80 L20,30 L70,30 L70,70 L30,70 L30,40 L60,40 L60,60 L40,60 L40,50 L50,50" />
+            </svg>
+          </div>
+          <div class="brand-text">
+            <h1 style="font-size: 18px; margin: 0;">Create Your Account</h1>
+          </div>
+        </div>
 
-      <!-- FormSubmit Configuration -->
-      <form action="https://formsubmit.co/kyrispirosv@gmail.com" method="POST">
-        <!-- Redirect to same page after submit (optional, or remove to use default thank you page) -->
-        <input type="hidden" name="_next" value="https://phylax-landing.vercel.app">
-        <input type="hidden" name="_captcha" value="true">
-        <input type="hidden" name="_subject" value="New Phylax Access Request">
+        <p style="color: var(--muted); margin-bottom: 24px; font-size: 15px;">
+          Set up your parent account to start protecting your family.
+        </p>
 
         <div class="form-group">
           <label class="form-label">Full Name</label>
-          <input type="text" name="name" class="form-input" placeholder="e.g. Alexis Ohanian" required>
+          <input type="text" id="onboardName" class="form-input" placeholder="e.g. Alexis Ohanian">
         </div>
 
         <div class="form-group">
           <label class="form-label">Email Address</label>
-          <input type="email" name="email" class="form-input" placeholder="name@example.com" required>
+          <input type="email" id="onboardEmail" class="form-input" placeholder="name@example.com">
         </div>
 
-        <button type="submit" class="btn btn-primary" style="width: 100%; padding: 14px; font-size: 16px;">
-          Join Waitlist
+        <div class="form-group">
+          <label class="form-label">Password</label>
+          <input type="password" id="onboardPassword" class="form-input" placeholder="Min 6 characters">
+        </div>
+
+        <div class="onboard-error" id="step1Error"></div>
+
+        <button class="btn btn-primary" style="width: 100%; padding: 14px; font-size: 16px; margin-top: 8px;"
+          onclick="submitStep1()" id="step1Btn">
+          Create Account &amp; Continue
         </button>
-      </form>
+      </div>
+
+      <!-- STEP 2: Pair Device -->
+      <div class="onboard-panel" id="onboardStep2">
+        <div style="text-align: center;">
+          <div style="font-size: 40px; margin-bottom: 8px;">🔗</div>
+          <h2 style="margin: 0 0 8px 0; font-size: 22px;">Pair Your Device</h2>
+          <p style="color: var(--muted); font-size: 14px; margin: 0 0 4px 0;">
+            Enter this code in the <strong style="color: var(--accent2);">Phylax SafeGuard</strong> browser extension on your child's device.
+          </p>
+        </div>
+
+        <div class="pairing-code-display" id="pairingCodeDisplay">
+          <div class="pairing-code-char">-</div>
+          <div class="pairing-code-char">-</div>
+          <div class="pairing-code-char">-</div>
+          <div class="pairing-code-char">-</div>
+          <div class="pairing-code-char">-</div>
+          <div class="pairing-code-char">-</div>
+        </div>
+
+        <div class="countdown-timer" id="countdownTimer">
+          Code expires in <span class="time" id="countdownValue">10:00</span>
+        </div>
+
+        <div style="margin-top: 24px; padding: 16px; background: rgba(124, 92, 255, 0.06); border: 1px solid rgba(124, 92, 255, 0.12); border-radius: 12px;">
+          <div style="font-size: 13px; color: var(--muted); line-height: 1.6;">
+            <strong style="color: #fff;">How to pair:</strong><br>
+            1. Install the Phylax SafeGuard extension on your child's browser<br>
+            2. Open the extension and click "Pair Device"<br>
+            3. Enter the 6-character code shown above
+          </div>
+        </div>
+
+        <div class="onboard-error" id="step2Error"></div>
+
+        <div style="display: flex; gap: 12px; margin-top: 20px;">
+          <button class="btn" style="flex: 1; padding: 14px; font-size: 14px;" onclick="regenerateCode()" id="regenBtn">
+            Regenerate Code
+          </button>
+          <button class="btn btn-primary" style="flex: 1; padding: 14px; font-size: 14px;" onclick="skipToStep3()">
+            Skip for Now
+          </button>
+        </div>
+      </div>
+
+      <!-- STEP 3: Success -->
+      <div class="onboard-panel" id="onboardStep3">
+        <div style="text-align: center;">
+          <div class="onboard-success-icon">&#10003;</div>
+          <h2 style="margin: 0 0 8px 0; font-size: 22px;">You're All Set!</h2>
+          <p style="color: var(--muted); font-size: 14px; margin: 0 0 24px 0;">
+            Your Phylax account is ready. You can pair devices anytime from your dashboard.
+          </p>
+
+          <button class="btn btn-primary" style="width: 100%; padding: 14px; font-size: 16px;" onclick="finishOnboarding()">
+            Open Dashboard Demo
+          </button>
+
+          <button class="btn" style="width: 100%; padding: 12px; font-size: 14px; margin-top: 10px;" onclick="closeModal()">
+            Close
+          </button>
+        </div>
+      </div>
+
     </div>
   </div>
 
   <script>
+    // --- Supabase Init ---
+    const SUPABASE_URL = 'https://tzvvvvkwpstukliklbnx.supabase.co';
+    const SUPABASE_ANON_KEY = 'sb_publishable_cTUr0NXE7UKgGU52JTgI1w_7Frd4U_G';
+    const supabase = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+
+    let currentPairingCode = '';
+    let countdownInterval = null;
+    let countdownSeconds = 600; // 10 minutes
+
+    // --- Modal open/close ---
     function openModal() {
       document.getElementById('accessModal').classList.add('open');
+      resetOnboarding();
     }
+
     function closeModal() {
       document.getElementById('accessModal').classList.remove('open');
+      if (countdownInterval) clearInterval(countdownInterval);
+    }
+
+    function resetOnboarding() {
+      goToStep(1);
+      document.getElementById('onboardName').value = '';
+      document.getElementById('onboardEmail').value = '';
+      document.getElementById('onboardPassword').value = '';
+      hideError('step1Error');
+      hideError('step2Error');
+      if (countdownInterval) clearInterval(countdownInterval);
+    }
+
+    // --- Step navigation ---
+    function goToStep(step) {
+      // Update step indicators
+      for (let i = 1; i <= 3; i++) {
+        const ind = document.getElementById('stepInd' + i);
+        const panel = document.getElementById('onboardStep' + i);
+        ind.classList.remove('active', 'done');
+        panel.classList.remove('active');
+        if (i < step) ind.classList.add('done');
+        if (i === step) ind.classList.add('active');
+        if (i === step) panel.classList.add('active');
+      }
+    }
+
+    // --- Error helpers ---
+    function showError(id, msg) {
+      const el = document.getElementById(id);
+      el.textContent = msg;
+      el.classList.add('visible');
+    }
+
+    function hideError(id) {
+      const el = document.getElementById(id);
+      el.textContent = '';
+      el.classList.remove('visible');
+    }
+
+    // --- Step 1: Create Account ---
+    async function submitStep1() {
+      const name = document.getElementById('onboardName').value.trim();
+      const email = document.getElementById('onboardEmail').value.trim();
+      const password = document.getElementById('onboardPassword').value;
+      const btn = document.getElementById('step1Btn');
+
+      hideError('step1Error');
+
+      if (!name) { showError('step1Error', 'Please enter your name.'); return; }
+      if (!email || !email.includes('@')) { showError('step1Error', 'Please enter a valid email.'); return; }
+      if (!password || password.length < 6) { showError('step1Error', 'Password must be at least 6 characters.'); return; }
+
+      btn.textContent = 'Creating account...';
+      btn.disabled = true;
+
+      try {
+        if (supabase) {
+          // Sign up via Supabase Auth
+          const { data, error } = await supabase.auth.signUp({
+            email: email,
+            password: password,
+            options: { data: { full_name: name } }
+          });
+
+          if (error) {
+            showError('step1Error', error.message);
+            btn.innerHTML = 'Create Account &amp; Continue';
+            btn.disabled = false;
+            return;
+          }
+        }
+
+        // Generate pairing code and move to step 2
+        await generateAndStorePairingCode(email, name);
+        goToStep(2);
+      } catch (err) {
+        showError('step1Error', 'Connection error. Please try again.');
+        console.error(err);
+      }
+
+      btn.innerHTML = 'Create Account &amp; Continue';
+      btn.disabled = false;
+    }
+
+    // --- Pairing Code Generation ---
+    function generateCode() {
+      const chars = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; // exclude ambiguous: 0/O, 1/I/L
+      let code = '';
+      for (let i = 0; i < 6; i++) {
+        code += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      return code;
+    }
+
+    function displayCode(code) {
+      const chars = document.querySelectorAll('#pairingCodeDisplay .pairing-code-char');
+      for (let i = 0; i < 6; i++) {
+        chars[i].textContent = code[i] || '-';
+      }
+    }
+
+    async function generateAndStorePairingCode(email, name) {
+      currentPairingCode = generateCode();
+      displayCode(currentPairingCode);
+
+      const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+
+      if (supabase) {
+        try {
+          const { error } = await supabase.from('pairing_codes').insert({
+            code: currentPairingCode,
+            user_email: email,
+            user_name: name || null,
+            expires_at: expiresAt,
+            used: false
+          });
+
+          if (error) {
+            console.error('Supabase insert error:', error);
+            showError('step2Error', 'Could not store pairing code: ' + error.message);
+          }
+        } catch (err) {
+          console.error('Supabase connection error:', err);
+        }
+      }
+
+      // Start countdown
+      startCountdown();
+
+      // Poll for pairing completion
+      pollForPairing();
+    }
+
+    async function regenerateCode() {
+      const btn = document.getElementById('regenBtn');
+      btn.textContent = 'Generating...';
+      btn.disabled = true;
+      hideError('step2Error');
+
+      // Invalidate old code in Supabase
+      if (supabase && currentPairingCode) {
+        await supabase.from('pairing_codes')
+          .update({ used: true })
+          .eq('code', currentPairingCode);
+      }
+
+      const email = document.getElementById('onboardEmail').value.trim();
+      const name = document.getElementById('onboardName').value.trim();
+      await generateAndStorePairingCode(email, name);
+
+      btn.textContent = 'Regenerate Code';
+      btn.disabled = false;
+    }
+
+    // --- Countdown Timer ---
+    function startCountdown() {
+      if (countdownInterval) clearInterval(countdownInterval);
+      countdownSeconds = 600;
+      updateCountdownDisplay();
+
+      countdownInterval = setInterval(function () {
+        countdownSeconds--;
+        if (countdownSeconds <= 0) {
+          clearInterval(countdownInterval);
+          document.getElementById('countdownValue').textContent = 'Expired';
+          document.getElementById('countdownTimer').classList.add('expiring');
+          showError('step2Error', 'Code expired. Click "Regenerate Code" to get a new one.');
+          return;
+        }
+        if (countdownSeconds <= 60) {
+          document.getElementById('countdownTimer').classList.add('expiring');
+        }
+        updateCountdownDisplay();
+      }, 1000);
+    }
+
+    function updateCountdownDisplay() {
+      const m = Math.floor(countdownSeconds / 60);
+      const s = countdownSeconds % 60;
+      document.getElementById('countdownValue').textContent =
+        m + ':' + (s < 10 ? '0' : '') + s;
+    }
+
+    // --- Poll for pairing (auto-advance to step 3 when extension validates) ---
+    function pollForPairing() {
+      if (!supabase || !currentPairingCode) return;
+
+      const pollId = setInterval(async function () {
+        try {
+          const { data } = await supabase.from('pairing_codes')
+            .select('used')
+            .eq('code', currentPairingCode)
+            .single();
+
+          if (data && data.used) {
+            clearInterval(pollId);
+            if (countdownInterval) clearInterval(countdownInterval);
+            goToStep(3);
+          }
+        } catch (e) {
+          // Silently ignore poll errors
+        }
+      }, 3000); // poll every 3s
+
+      // Stop polling after 10 minutes
+      setTimeout(function () { clearInterval(pollId); }, 600000);
+    }
+
+    function skipToStep3() {
+      if (countdownInterval) clearInterval(countdownInterval);
+      goToStep(3);
+    }
+
+    function finishOnboarding() {
+      closeModal();
+      openDemo();
     }
 
     // Close on click outside
