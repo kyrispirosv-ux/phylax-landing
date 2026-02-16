@@ -44,7 +44,8 @@ export async function updateSession(request: NextRequest) {
             !path.startsWith("/onboarding") && // Onboarding flow
             !path.startsWith("/_next") && // Next.js internals
             !path.startsWith("/static") && // Static files
-            path !== "/" // Landing page
+            path !== "/" && // Landing page
+            path !== "/landing.html" // Legacy landing page
         ) {
             const url = request.nextUrl.clone();
             url.pathname = "/auth/signup"; // Defaulting to signup since login might be missing logic
