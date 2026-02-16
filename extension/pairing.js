@@ -139,6 +139,12 @@ async function pair(payload) {
       ? `${result.policy_pack.child_name}'s device is now protected by Phylax.`
       : 'Your device is now protected by Phylax.';
 
+    // Redirect to dashboard after 2 seconds
+    setTimeout(async () => {
+      const base = await getApiBase();
+      window.location.href = `${base}/dashboard`;
+    }, 2000);
+
   } catch (err) {
     setStatus(err.message || 'Pairing failed', 'error');
   }
