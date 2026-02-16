@@ -1,3 +1,15 @@
 {
-  "framework": "nextjs"
+  "framework": "nextjs",
+  "redirects": [
+    {
+      "source": "/landing.html",
+      "destination": "/",
+      "permanent": false
+    },
+    {
+      "source": "/landing",
+      "destination": "/",
+      "permanent": false
+    }
+  ]
 }
