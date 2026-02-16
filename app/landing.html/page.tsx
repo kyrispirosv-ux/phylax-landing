@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
 
-export async function GET() {
+export default function LandingPage() {
     redirect('/');
 }
