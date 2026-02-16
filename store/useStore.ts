@@ -52,47 +52,22 @@ export const useStore = create<AppState>((set) => ({
     // Onboarding & Pairing
     pairingCode: null,
     generatePairingCode: async () => {
-        try {
-            // TODO: Get actual child_id from auth context or let API find default
-            // For now sending empty object, API handles default child lookup for parent
-            const res = await fetch('/api/pairing/generate', {
-                method: 'POST',
-                body: JSON.stringify({}),
-            });
-            if (res.ok) {
-                const data = await res.json();
-                set({ pairingCode: data.short_code, pairingStatus: 'waiting' });
-                return data.short_code;
-            }
-        } catch (error) {
-            console.error('Failed to generate code', error);
-        }
+        // Mock implementation for demo/frontend-only mode
+        const mockCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+        set({ pairingCode: mockCode, pairingStatus: 'waiting' });
+        return mockCode;
     },
     pairingStatus: 'waiting',
     setPairingStatus: (status) => set({ pairingStatus: status }),
 
     checkPairingStatus: async (code: string) => {
-        try {
-            const res = await fetch(`/api/pairing/status?code=${code}`);
-            if (res.ok) {
-                const data = await res.json();
-                if (data.paired) {
-                    set((state) => ({
-                        pairingStatus: 'connected',
-                        devices: [...state.devices, {
-                            id: data.device_id,
-                            name: 'New Device', // API doesn't return name in status, can fetch device details if needed
-                            type: 'chrome',
-                            lastSeen: 'Just now',
-                            status: 'active'
-                        }]
-                    }));
-                    return true;
-                }
-            }
-        } catch (error) {
-            console.error('Failed to check status', error);
-        }
+        // Mock implementation
+        // Simulate a successful pairing check occasionally or always for demo
+        // For now, let's just log it. The UI polls this.
+        console.log("Checking pairing status for", code);
+
+        // Return false by default so it doesn't auto-advance in demo unless we want it to
+        // or maybe simulate success after a few checks?
         return false;
     },
 
