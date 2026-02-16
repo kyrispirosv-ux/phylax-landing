@@ -6,6 +6,11 @@ export async function middleware(request: NextRequest) {
 
 
 
+    // Fail-safe redirect for landing pages
+    if (pathname === '/landing.html' || pathname === '/landing') {
+        return NextResponse.redirect(new URL('/', request.url));
+    }
+
     return await updateSession(request);
 }
 
