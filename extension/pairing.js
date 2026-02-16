@@ -64,6 +64,7 @@ async function getApiBase() {
   // Default API endpoints to try
   const candidates = [
     'https://app.phylax.ai',
+    'https://phylax2.vercel.app',
     'https://phylax-landing.vercel.app',
     'http://localhost:3000',
   ];

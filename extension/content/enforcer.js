@@ -9,7 +9,7 @@
 
   if (window.location.protocol === 'chrome-extension:') return;
   const host = window.location.hostname;
-  if (host === 'phylax-landing.vercel.app' || host === 'localhost' || host === '127.0.0.1') return;
+  if (host === 'phylax2.vercel.app' || host === 'phylax-landing.vercel.app' || host === 'localhost' || host === '127.0.0.1') return;
 
   // ── Exempt email / productivity domains ────────────────────────
   // Email clients must never be blocked — scanning email content
@@ -352,14 +352,14 @@
     // ── WhatsApp Web ──────────────────────────────────────────────
     if (domain.includes('whatsapp.com')) {
       const waPane = document.querySelector('#main .copyable-area') ||
-                     document.querySelector('#main');
+        document.querySelector('#main');
       if (waPane) return waPane;
     }
 
     // ── Discord ───────────────────────────────────────────────────
     if (domain.includes('discord.com')) {
       const dcChat = document.querySelector('[class*="chatContent-"]') ||
-                     document.querySelector('[class*="chat-"]');
+        document.querySelector('[class*="chat-"]');
       if (dcChat) return dcChat;
     }
 
@@ -367,15 +367,15 @@
     if (domain.includes('messenger.com')) {
       // Target the message thread, not the entire [role="main"] wrapper
       const msgThread = document.querySelector('[data-scope="messages_table"]') ||
-                        document.querySelector('[role="main"] [role="grid"]');
+        document.querySelector('[role="main"] [role="grid"]');
       if (msgThread) return msgThread;
     }
 
     // ── Twitter/X DMs ─────────────────────────────────────────────
     if (domain.includes('twitter.com') || domain.includes('x.com')) {
       const dmArea = document.querySelector('[data-testid="DmActivityViewport"]') ||
-                     document.querySelector('[data-testid="DMConversation"]') ||
-                     document.querySelector('[data-testid="DmScrollerContainer"]');
+        document.querySelector('[data-testid="DMConversation"]') ||
+        document.querySelector('[data-testid="DmScrollerContainer"]');
       if (dmArea) return dmArea;
     }
 
@@ -408,7 +408,7 @@
   function findInstagramChatPane() {
     // Strategy 1: Known semantic selectors
     const thread = document.querySelector('[role="listbox"]') ||
-                   document.querySelector('[role="grid"]');
+      document.querySelector('[role="grid"]');
     if (thread && thread.scrollHeight > 200) return thread;
 
     // Strategy 2: Layout-based detection
@@ -427,8 +427,8 @@
       // Candidate must be: tall (>400px), reasonable width (250-75% viewport),
       // and positioned in the right portion of the screen (left > 25% viewport)
       if (rect.height > 400 && rect.width > 250 &&
-          rect.width < vw * 0.75 &&
-          rect.left > vw * 0.25) {
+        rect.width < vw * 0.75 &&
+        rect.left > vw * 0.25) {
         // Prefer scrollable panels (message threads scroll)
         const scrollBonus = el.scrollHeight > el.clientHeight + 50 ? 3 : 1;
         // Prefer panels further right (conversation is rightmost column)
@@ -532,15 +532,15 @@
       // Shorts: the reel renderer is the player
       if (window.location.pathname.startsWith('/shorts')) {
         const shortsPlayer = document.querySelector('ytd-reel-video-renderer[is-active]') ||
-                             document.querySelector('ytd-reel-video-renderer');
+          document.querySelector('ytd-reel-video-renderer');
         if (shortsPlayer) return shortsPlayer;
       }
       // Regular video: find the player container
       const player = document.querySelector('#movie_player') ||
-                     document.querySelector('ytd-player#ytd-player') ||
-                     document.querySelector('#player-container-inner') ||
-                     document.querySelector('#player-container') ||
-                     document.querySelector('#player');
+        document.querySelector('ytd-player#ytd-player') ||
+        document.querySelector('#player-container-inner') ||
+        document.querySelector('#player-container') ||
+        document.querySelector('#player');
       if (player) {
         const rect = player.getBoundingClientRect();
         if (rect.width > 200 && rect.height > 150) return player;
@@ -550,7 +550,7 @@
     // ── TikTok ────────────────────────────────────────────────────
     if (domain.includes('tiktok.com')) {
       const player = document.querySelector('[class*="DivVideoContainer"]') ||
-                     document.querySelector('[class*="VideoPlayer"]');
+        document.querySelector('[class*="VideoPlayer"]');
       if (player) return player;
     }
 

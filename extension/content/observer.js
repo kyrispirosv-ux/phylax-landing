@@ -11,7 +11,7 @@
 
   if (window.location.protocol === 'chrome-extension:') return;
   const host = window.location.hostname;
-  if (host === 'phylax-landing.vercel.app' || host === 'localhost' || host === '127.0.0.1') return;
+  if (host === 'phylax2.vercel.app' || host === 'phylax-landing.vercel.app' || host === 'localhost' || host === '127.0.0.1') return;
 
   // ── Exempt email / productivity domains ────────────────────────
   // Email is personal communication — scanning it produces rampant
@@ -140,7 +140,7 @@
     // the recommendation sidebar (#secondary) and comments — these contain text from OTHER
     // videos and cause false positives (e.g., gambling recs bleeding into a music video's score).
     if (co.platform?.name === 'youtube' &&
-        (co.content_type === 'video' || co.platform?.object_kind === 'video' || co.platform?.object_kind === 'short')) {
+      (co.content_type === 'video' || co.platform?.object_kind === 'video' || co.platform?.object_kind === 'short')) {
       const ytText = extractYouTubeMainText();
       if (ytText.length > 0) {
         co.main_text = ytText;
@@ -456,7 +456,7 @@
         if (!text) continue;
         // Discord marks the current user's messages with a specific class
         const isOwn = el.querySelector('[class*="mentioned"]') !== null ||
-                      el.classList.toString().includes('backgroundFlash');
+          el.classList.toString().includes('backgroundFlash');
         messages.push({ sender: isOwn ? 'CHILD' : 'CONTACT', text });
       }
       // If we couldn't reliably detect ownership, fall back to alignment
@@ -599,8 +599,8 @@
     const divs = main.querySelectorAll('div');
     for (const div of divs) {
       if (div.scrollHeight > div.clientHeight + 100 &&
-          div.scrollHeight > bestHeight &&
-          div.childElementCount > 3) {
+        div.scrollHeight > bestHeight &&
+        div.childElementCount > 3) {
         bestHeight = div.scrollHeight;
         best = div;
       }
@@ -770,7 +770,7 @@
       content_object: content,
       title: content.title,
       text: content.title + ' ' + content.description + ' ' + (content.og?.desc || '') + ' ' +
-            (content.keywords || []).join(' ') + ' ' + (content.main_text || '').slice(0, 3000),
+        (content.keywords || []).join(' ') + ' ' + (content.main_text || '').slice(0, 3000),
       lang: content.language,
       content_type_hint: content.content_type,
       _phase: phase,
@@ -831,10 +831,10 @@
   function isPlatformPage() {
     const d = host;
     return d.includes('youtube.com') || d.includes('youtu.be') ||
-           d.includes('tiktok.com') || d.includes('instagram.com') ||
-           d.includes('twitter.com') || d.includes('x.com') ||
-           d.includes('reddit.com') || d.includes('discord.com') ||
-           d.includes('facebook.com') || d.includes('twitch.tv');
+      d.includes('tiktok.com') || d.includes('instagram.com') ||
+      d.includes('twitter.com') || d.includes('x.com') ||
+      d.includes('reddit.com') || d.includes('discord.com') ||
+      d.includes('facebook.com') || d.includes('twitch.tv');
   }
 
   /**

@@ -16,6 +16,7 @@ import { startSync } from './backend-sync.js';
 // ── State ───────────────────────────────────────────────────────
 
 const PHYLAX_ORIGINS = [
+  'https://phylax2.vercel.app',
   'https://phylax-landing.vercel.app',
   'http://localhost',
   'http://127.0.0.1'
@@ -604,7 +605,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         chrome.tabs.sendMessage(tabId, {
           type: 'PHYLAX_PREDICTIVE_WARNING',
           decision: result,
-        }).catch(() => {});
+        }).catch(() => { });
       }
     }
 
@@ -836,7 +837,7 @@ chrome.webNavigation.onCommitted.addListener(async (details) => {
 
   try {
     const domain = new URL(url).hostname;
-    if (['phylax-landing.vercel.app', 'localhost', '127.0.0.1'].includes(domain)) return;
+    if (['phylax2.vercel.app', 'phylax-landing.vercel.app', 'localhost', '127.0.0.1'].includes(domain)) return;
     if (isExemptDomain(domain)) return;
 
     // Quick domain gate check from the current policy
@@ -878,7 +879,7 @@ chrome.webNavigation.onCompleted.addListener(async (details) => {
   let domain;
   try {
     domain = new URL(url).hostname;
-    if (['phylax-landing.vercel.app', 'localhost', '127.0.0.1'].includes(domain)) return;
+    if (['phylax2.vercel.app', 'phylax-landing.vercel.app', 'localhost', '127.0.0.1'].includes(domain)) return;
     if (isExemptDomain(domain)) return;
   } catch { return; }
 

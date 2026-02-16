@@ -3,42 +3,46 @@
   "name": "Phylax SafeGuard",
   "version": "7.0",
   "description": "Child safety with video blocking, grooming detection, risk scoring, and parent dashboard.",
-
   "permissions": [
     "storage",
     "declarativeNetRequest",
     "tabs",
     "webNavigation"
   ],
-
   "host_permissions": [
     "<all_urls>"
   ],
-
   "externally_connectable": {
     "matches": [
       "https://phylax-landing.vercel.app/*",
+      "https://phylax2.vercel.app/*",
       "https://app.phylax.ai/*"
     ]
   },
-
   "background": {
     "service_worker": "background.js",
     "type": "module"
   },
-
   "content_scripts": [
     {
       "matches": [
         "https://phylax-landing.vercel.app/*",
+        "https://phylax2.vercel.app/*",
         "https://app.phylax.ai/*"
       ],
-      "js": ["bridge.js"],
+      "js": [
+        "bridge.js"
+      ],
       "run_at": "document_idle"
     },
     {
-      "matches": ["<all_urls>"],
-      "js": ["content/observer.js", "content/enforcer.js"],
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "content/observer.js",
+        "content/enforcer.js"
+      ],
       "run_at": "document_start"
     },
     {
@@ -47,16 +51,16 @@
         "https://youtube.com/*",
         "https://m.youtube.com/*"
       ],
-      "js": ["content/youtube-scanner.js"],
+      "js": [
+        "content/youtube-scanner.js"
+      ],
       "run_at": "document_idle"
     }
   ],
-
   "icons": {
     "48": "icon48.png",
     "128": "icon128.png"
   },
-
   "action": {
     "default_popup": "popup.html",
     "default_icon": "icon48.png"

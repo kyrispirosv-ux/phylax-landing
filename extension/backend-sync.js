@@ -24,6 +24,7 @@ async function getApiBase() {
 
   const candidates = [
     'https://app.phylax.ai',
+    'https://phylax2.vercel.app',
     'https://phylax-landing.vercel.app',
     'http://localhost:3000',
   ];
@@ -92,7 +93,7 @@ export async function syncPolicy() {
       });
 
       // Notify background to recompile
-      try { chrome.runtime.sendMessage({ type: 'PHYLAX_SYNC_RULES', rules }); } catch {}
+      try { chrome.runtime.sendMessage({ type: 'PHYLAX_SYNC_RULES', rules }); } catch { }
       return pack;
     }
   } catch (err) {

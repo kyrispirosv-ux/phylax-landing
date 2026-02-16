@@ -1,5 +1,5 @@
 // Phylax SafeGuard — Bridge Content Script
-// Injected ONLY on the Phylax web app (phylax-landing.vercel.app, localhost)
+// Injected ONLY on the Phylax web app (phylax2.vercel.app, phylax-landing.vercel.app, localhost)
 // Bridges messages between the web page and the extension's background service worker
 
 (function () {
@@ -82,7 +82,7 @@
         lastKnownRules = currentRules;
         console.log('[Phylax Bridge] Detected localStorage rule change, syncing...');
         const rules = JSON.parse(currentRules);
-        safeSendMessage({ type: 'PHYLAX_SYNC_RULES', rules }).catch(() => {});
+        safeSendMessage({ type: 'PHYLAX_SYNC_RULES', rules }).catch(() => { });
       }
     } catch {
       // Silent — will teardown on next tick if context is gone
@@ -94,7 +94,7 @@
     if (!isContextValid()) { teardown(); return; }
     try {
       const rules = JSON.parse(event.newValue || '[]');
-      safeSendMessage({ type: 'PHYLAX_SYNC_RULES', rules }).catch(() => {});
+      safeSendMessage({ type: 'PHYLAX_SYNC_RULES', rules }).catch(() => { });
       lastKnownRules = event.newValue || '[]';
     } catch {
       // Silent
