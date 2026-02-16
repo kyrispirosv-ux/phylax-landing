@@ -7,7 +7,7 @@ export default function NotFound() {
         if (typeof window !== 'undefined') {
             const path = window.location.pathname;
             // Aggressive check for landing page variants
-            if (path.includes('landing.html') || path === '/landing') {
+            if (path.includes('landing.html') || path === '/landing' || path.endsWith('.html')) {
                 window.location.replace('/');
             }
         }

@@ -4,6 +4,15 @@ const nextConfig: NextConfig = {
   output: 'standalone',
 
 
+  async rewrites() {
+    return [
+      {
+        source: '/landing.html',
+        destination: '/',
+      },
+    ];
+  },
+
   async headers() {
     return [
       {
