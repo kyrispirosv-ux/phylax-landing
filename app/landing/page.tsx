@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
 
-export default function LandingHtmlRedirect() {
+export default function LandingRedirect() {
     redirect('/');
 }
