@@ -4,6 +4,14 @@ import { NextResponse, type NextRequest } from "next/server";
 export async function updateSession(request: NextRequest) {
     let supabaseResponse = NextResponse.next({ request });
 
+    // Legacy redirect for landing.html
+    if (request.nextUrl.pathname === '/landing.html') {
+        const url = request.nextUrl.clone();
+        url.pathname = '/';
+        return NextResponse.redirect(url);
+    }
+
+
     try {
         const supabase = createServerClient(
             process.env.NEXT_PUBLIC_SUPABASE_URL!,
