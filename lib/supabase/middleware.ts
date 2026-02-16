@@ -46,7 +46,8 @@ export async function updateSession(request: NextRequest) {
         // Public paths that don't require auth
         if (
             !user &&
-            !path.startsWith("/auth") && // Login/Signup
+            !path.startsWith("/login") && // Login
+            !path.startsWith("/signup") && // Signup
             !path.startsWith("/api") && // API routes (handle their own auth or are public)
             !path.startsWith("/pair") && // Install/Pairing landing page
             !path.startsWith("/onboarding") && // Onboarding flow
@@ -56,13 +57,13 @@ export async function updateSession(request: NextRequest) {
             path !== "/landing.html" // Legacy landing page
         ) {
             const url = request.nextUrl.clone();
-            url.pathname = "/auth/signup"; // Defaulting to signup since login might be missing logic
+            url.pathname = "/login";
             return NextResponse.redirect(url);
         }
 
         // Redirect authenticated users away from auth pages?
         // Maybe not strict redirect for now to avoid loops if signup is the only page
-        if (user && path === "/auth/signup") {
+        if (user && (path === "/login" || path === "/signup")) {
             const url = request.nextUrl.clone();
             url.pathname = "/dashboard";
             return NextResponse.redirect(url);
