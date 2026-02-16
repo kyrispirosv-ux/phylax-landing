@@ -4,10 +4,7 @@ import { updateSession } from "@/lib/supabase/middleware";
 export async function middleware(request: NextRequest) {
     const { pathname } = request.nextUrl;
 
-    // Fail-safe redirect for landing pages
-    if (pathname === '/landing.html' || pathname === '/landing') {
-        return NextResponse.redirect(new URL('/', request.url));
-    }
+
 
     return await updateSession(request);
 }
