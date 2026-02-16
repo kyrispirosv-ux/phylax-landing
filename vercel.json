@@ -1,9 +1,10 @@
 {
   "framework": "nextjs",
-  "rewrites": [
+  "redirects": [
     {
       "source": "/landing.html",
-      "destination": "/"
+      "destination": "/",
+      "permanent": false
     }
   ]
 }
