@@ -2,9 +2,6 @@ import { NextResponse, type NextRequest } from "next/server";
 import { updateSession } from "@/lib/supabase/middleware";
 
 export async function middleware(request: NextRequest) {
-    if (request.nextUrl.pathname === '/landing.html') {
-        return NextResponse.redirect(new URL('/', request.url));
-    }
     return await updateSession(request);
 }
 
