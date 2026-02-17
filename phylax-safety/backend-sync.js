@@ -223,6 +223,11 @@ async function persistAlertLocally(evt) {
     reason_code: evt.reason_code,
   };
 
+  // Skip generic "Content Blocked" alerts to reduce noise
+  if (alert.title === 'Content Blocked' && alert.category === 'General') {
+    return;
+  }
+
   try {
     const stored = await chrome.storage.local.get(['phylaxActivityLog']);
     const log = stored.phylaxActivityLog || [];

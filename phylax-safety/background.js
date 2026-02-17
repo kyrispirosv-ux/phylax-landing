@@ -613,6 +613,17 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
+  if (message.type === 'PHYLAX_CLEAR_ACTIVITY') {
+    chrome.storage.local.remove(['phylaxActivityLog']).then(() => {
+      console.log('[Phylax] Activity log cleared by dashboard request');
+      sendResponse({ success: true });
+    }).catch(err => {
+      console.error('[Phylax] Failed to clear activity log:', err);
+      sendResponse({ success: false, error: err.message });
+    });
+    return true;
+  }
+
   // Check if a conversation is blocked (called by observer on DM page load)
   if (message.type === 'PHYLAX_CHECK_CONVERSATION_BLOCKED') {
     isConversationBlocked(message.domain, message.path).then(blocked => {
