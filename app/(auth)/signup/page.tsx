@@ -19,7 +19,7 @@ export default function SignupPage() {
         // Simulate API call
         setTimeout(() => {
             login('Parent User', 'parent@example.com');
-            router.push('/onboarding');
+            router.push('/dashboard');
         }, 1500);
     };
 
