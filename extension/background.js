@@ -595,6 +595,22 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
+  // ── Dashboard Activity Log Query ────────────────────────────────
+  // Called by the dashboard via bridge.js to get stored activity alerts
+  // directly from the extension — bypasses the server entirely for demo mode.
+  if (message.type === 'PHYLAX_GET_ACTIVITY') {
+    chrome.storage.local.get(['phylaxActivityLog']).then(stored => {
+      const log = stored.phylaxActivityLog || [];
+      const limit = message.limit || 50;
+      console.log(`[Phylax] Dashboard requested activity log: ${log.length} alerts stored, returning up to ${limit}`);
+      sendResponse({ success: true, alerts: log.slice(0, limit) });
+    }).catch(err => {
+      console.error('[Phylax] Failed to retrieve activity log:', err);
+      sendResponse({ success: false, alerts: [], error: err.message });
+    });
+    return true;
+  }
+
   // Check if a conversation is blocked (called by observer on DM page load)
   if (message.type === 'PHYLAX_CHECK_CONVERSATION_BLOCKED') {
     isConversationBlocked(message.domain, message.path).then(blocked => {

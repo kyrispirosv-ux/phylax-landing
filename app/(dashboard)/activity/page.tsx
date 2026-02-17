@@ -9,6 +9,9 @@ export default function ActivityPage() {
 
     useEffect(() => {
         fetchAlerts();
+        // Poll every 5 seconds so the activity log updates when new events arrive
+        const interval = setInterval(fetchAlerts, 5000);
+        return () => clearInterval(interval);
     }, [fetchAlerts]);
 
     return (

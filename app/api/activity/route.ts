@@ -1,37 +1,51 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabase } from '@/lib/supabase/server';
+import { MockAlertStore } from '@/lib/mockAlertStore';
 
 export async function GET(req: NextRequest) {
-    const supabase = await createServerSupabase();
+    // Try Supabase auth first (production mode)
+    let alerts: any[] = [];
+    let usedMockStore = false;
 
-    // Check auth
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    try {
+        const supabase = await createServerSupabase();
+        const { data: { session } } = await supabase.auth.getSession();
+
+        if (session) {
+            // Look up the parent's family_id
+            const { data: parent } = await supabase
+                .from('parents')
+                .select('family_id')
+                .eq('id', session.user.id)
+                .single() as { data: { family_id: string } | null; error: any };
+
+            if (parent?.family_id) {
+                const { data, error } = await supabase
+                    .from('alerts')
+                    .select('*')
+                    .eq('family_id', parent.family_id)
+                    .order('created_at', { ascending: false })
+                    .limit(50) as { data: any[] | null; error: any };
+
+                if (!error && data && data.length > 0) {
+                    alerts = data;
+                }
+            }
+        }
+    } catch {
+        // Supabase not configured or session check failed
+        console.warn('[Activity API] Supabase unavailable, falling back to mock store');
     }
 
-    // Look up the parent's family_id
-    const { data: parent } = await supabase
-        .from('parents')
-        .select('family_id')
-        .eq('id', session.user.id)
-        .single();
-
-    if (!parent?.family_id) {
-        return NextResponse.json({ alerts: [] });
-    }
-
-    // Fetch alerts for this family only
-    const { data: alerts, error } = await supabase
-        .from('alerts')
-        .select('*')
-        .eq('family_id', parent.family_id)
-        .order('created_at', { ascending: false })
-        .limit(50);
-
-    if (error || !alerts) {
-        return NextResponse.json({ error: error?.message || 'No data' }, { status: 500 });
+    // If no Supabase alerts, try mock store (demo mode)
+    if (alerts.length === 0) {
+        const mockAlerts = MockAlertStore.fetch(undefined, 50);
+        if (mockAlerts.length > 0) {
+            alerts = mockAlerts;
+            usedMockStore = true;
+            console.log(`[Activity API] Serving ${mockAlerts.length} alerts from mock store`);
+        }
     }
 
     // Map to dashboard format
