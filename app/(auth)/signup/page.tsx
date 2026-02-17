@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useStore } from '@/store/useStore';
 import { Shield, ArrowRight, Loader2 } from 'lucide-react';
 import Link from 'next/link';
+import { GreekKeyLogo } from '@/components/GreekKeyLogo';
 
 export default function SignupPage() {
     const router = useRouter();
@@ -26,8 +27,8 @@ export default function SignupPage() {
         <div className="min-h-screen flex items-center justify-center p-6">
             <div className="w-full max-w-md">
                 <div className="text-center mb-10">
-                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#7C5CFF] to-[#22D3EE] mx-auto flex items-center justify-center mb-6 shadow-lg shadow-[#7C5CFF]/30">
-                        <Shield className="w-6 h-6 text-white" />
+                    <div className="w-16 h-16 rounded-xl overflow-hidden mx-auto mb-6 shadow-lg shadow-[#7C5CFF]/30">
+                        <GreekKeyLogo className="w-full h-full" />
                     </div>
                     <h1 className="text-3xl font-bold text-white mb-2">Create your account</h1>
                     <p className="text-white/50">Start protecting your family in minutes.</p>
