@@ -175,7 +175,7 @@ const TOPICS = {
   },
   sports_video_games: {
     aliases: ['sports video games', 'sports games', 'sports gaming', 'video game sports', 'gaming sports'],
-    keywords: ['fifa', 'madden', 'nba 2k', '2k25', '2k24', '2k23', 'nba2k', 'mlb the show', 'nhl 2', 'ea sports fc', 'ea fc', 'pes', 'efootball', 'top spin', 'wwe 2k', 'ufc game', 'f1 game', 'gran turismo', 'forza', 'rocket league', 'mario strikers', 'sports video game', 'sports game review', 'sports game gameplay', 'virtual match', 'gaming sports', 'esports fifa', 'esports madden', 'video game football', 'video game basketball', 'video game soccer', 'video game baseball', 'game mode', 'ultimate team', 'myplayer', 'mycareer', 'franchise mode', 'pro clubs'],
+    keywords: ['fifa', 'madden', 'nba 2k', '2k25', '2k24', '2k23', '2k22', '2k21', '2k20', '2k19', '2k18', '2k17', '2k16', 'nba2k', 'mlb the show', 'nhl 2', 'ea sports fc', 'ea fc', 'pes', 'efootball', 'top spin', 'wwe 2k', 'ufc game', 'f1 game', 'f1 2', 'gran turismo', 'forza', 'rocket league', 'mario strikers', 'sports video game', 'sports game review', 'sports game gameplay', 'virtual match', 'gaming sports', 'esports fifa', 'esports madden', 'video game football', 'video game basketball', 'video game soccer', 'video game baseball', 'game mode', 'ultimate team', 'myplayer', 'mycareer', 'franchise mode', 'pro clubs', 'myteam', 'park mode', 'rec center', 'neighborhood 2k', 'gameplay 2k', 'build 2k', 'best build', 'dribble moves', 'badge grinding', 'vc glitch'],
     label: 'Sports Video Games',
   },
 };
@@ -982,7 +982,7 @@ function detectContentContext(content, domain, url) {
 // Score content against ANY label using the unified TOPICS vocabulary.
 // Returns 0..1, modulated by contextual reasoning.
 // skipContextReduction: true when the rule explicitly targets this domain
-function scoreContentForLabel(content, domain, url, label, skipContextReduction = false) {
+export function scoreContentForLabel(content, domain, url, label, skipContextReduction = false) {
   let score = 0;
 
   // 1. Domain reputation (known harmful domains)

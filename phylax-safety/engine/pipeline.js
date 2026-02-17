@@ -8,6 +8,7 @@ import { cacheGet, cacheSet } from './decision-cache.js';
 import { behaviorScores, evalBehaviorRules } from './behavior.js';
 import { detectGrooming, groomingResultToTopicScore, buildGroomingEvidence } from './grooming-detector.js';
 import { classifyIntent, isProtectiveIntent, intentThresholdModifier } from './intent-classifier.js';
+import { scoreContentForLabel, evaluateRules as evaluateCompiledRules } from './rule-compiler.js';
 
 // ── Helpers ───────────────────────────────────────────────────────
 
@@ -443,6 +444,48 @@ export function evaluate(content, policy, sessionState) {
     content._grooming_result = groomingResult;
   }
 
+  // Step 4c: Rule-compiler keyword scoring for custom topics
+  // Topics defined in rule-compiler (e.g., sports_video_games) may not have
+  // lexicons. For any policy topic that scored 0 from the lexicon, try the
+  // rule-compiler's keyword-based scorer as a fallback.
+  if (policy._compiledRules) {
+    const domain = (content.domain || '').toLowerCase();
+    const url = (content.url || '').toLowerCase();
+    for (const rule of (policy.topic_rules || [])) {
+      if (!localScores[rule.topic] || localScores[rule.topic] === 0) {
+        const ruleScore = scoreContentForLabel(text, domain, url, rule.topic, true);
+        if (ruleScore > 0) {
+          localScores[rule.topic] = ruleScore;
+        }
+      }
+    }
+
+    // Also evaluate the full compiled rules with exception handling
+    // This catches "block X but allow Y" patterns that scoreContentForLabel alone can't handle
+    const ruleResult = evaluateCompiledRules(policy._compiledRules, content.url || '', domain, text);
+    if (ruleResult.action === 'BLOCK_CONTENT') {
+      // The rule matched — inject the score for the matched topic
+      const matchedLabels = ruleResult.matchedRules?.[0]?.matched_labels || [];
+      for (const label of matchedLabels) {
+        localScores[label] = Math.max(localScores[label] || 0, ruleResult.confidence || 0.80);
+      }
+      // If no specific labels matched but we have a block, use the rule's block labels
+      if (matchedLabels.length === 0 && ruleResult.matchedRules?.[0]?.rule?._blockLabels) {
+        for (const label of ruleResult.matchedRules[0].rule._blockLabels) {
+          localScores[label] = Math.max(localScores[label] || 0, ruleResult.confidence || 0.80);
+        }
+      }
+    } else if (ruleResult.action === 'ALLOW') {
+      // Exception matched — suppress the score (e.g., "regular sports is okay")
+      const matchedRule = ruleResult.matchedRules?.[0]?.rule;
+      if (matchedRule?._blockLabels) {
+        for (const label of matchedRule._blockLabels) {
+          delete localScores[label];
+        }
+      }
+    }
+  }
+
   // Step 5: Remote semantic scoring (stub — no backend yet)
   // In the future, this calls an embedding service for topic vector scoring
   let remoteScores = null;
@@ -649,6 +692,9 @@ export function compileToPolicyObject(compiledRules, profileTier) {
       }
     }
   }
+
+  // Attach compiled rules for Step 4c (rule-compiler keyword scoring)
+  policy._compiledRules = compiledRules;
 
   return policy;
 }
