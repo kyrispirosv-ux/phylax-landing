@@ -30,7 +30,9 @@ export default function RulesPage() {
         gambling: true,
         weapons: false,
         social: false,
-        streaming: false
+        streaming: false,
+        drugs: true,
+        selfHarm: true
     });
 
     useEffect(() => {
@@ -40,9 +42,9 @@ export default function RulesPage() {
         // Auto-update categories based on age policy
         // This simulates the policy engine controlling the presets
         if (newPolicy.id === 0) { // Under 5
-            setCategories({ adult: true, gambling: true, weapons: true, social: true, streaming: true });
+            setCategories({ adult: true, gambling: true, weapons: true, social: true, streaming: true, drugs: true, selfHarm: true });
         } else if (newPolicy.id === 4) { // 14+
-            setCategories({ adult: true, gambling: true, weapons: false, social: false, streaming: false });
+            setCategories({ adult: true, gambling: true, weapons: false, social: false, streaming: false, drugs: true, selfHarm: true });
         }
         // ... other mapping logic would go here
     }, [ageGroup]);
