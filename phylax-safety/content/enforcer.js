@@ -297,9 +297,17 @@
       text-align: center; box-shadow: 0 16px 48px rgba(0,0,0,0.5);
     `;
     card.innerHTML = `
-      <div style="width:56px;height:56px;border-radius:14px;background:linear-gradient(135deg,#FF5050,#FF8C42);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;box-shadow:0 8px 24px rgba(255,80,80,0.3);">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 9v4M12 17h.01M3 3H21V21H3V7H17V17H7V11H13V13"/>
+      <div style="width:56px;height:56px;margin:0 auto 16px;">
+        <svg width="56" height="56" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="phylax-bg-e" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse"><stop stop-color="#2B1766"/><stop offset="1" stop-color="#0E2847"/></linearGradient>
+            <linearGradient id="phylax-spiral-e" x1="146" y1="86" x2="366" y2="306" gradientUnits="userSpaceOnUse"><stop stop-color="#FFFFFF"/><stop offset="0.65" stop-color="#E8D5A0"/><stop offset="1" stop-color="#C9A84C"/></linearGradient>
+            <linearGradient id="phylax-text-e" x1="120" y1="420" x2="392" y2="420" gradientUnits="userSpaceOnUse"><stop stop-color="#E8D5A0"/><stop offset="0.5" stop-color="#C9A84C"/><stop offset="1" stop-color="#E8D5A0"/></linearGradient>
+          </defs>
+          <rect width="512" height="512" rx="112" fill="url(#phylax-bg-e)"/>
+          <rect x="6" y="6" width="500" height="500" rx="108" stroke="#C9A84C" stroke-width="2" fill="none" opacity="0.35"/>
+          <path d="M146 86 H366 V306 H158 V98 H354 V294 H170 V110 H342 V282 H182 V122 H330 V270 H194 V134 H318 V258 H206 V146 H306 V246 H218 V158 H294 V234 H230 V170 H282 V222 H242 V182 H270 V210 H254 V194 H258 V198" stroke="url(#phylax-spiral-e)" stroke-width="4" stroke-linecap="square" stroke-linejoin="miter" fill="none"/>
+          <text x="256" y="425" text-anchor="middle" font-family="'Palatino Linotype','Book Antiqua',Palatino,Georgia,'Times New Roman',serif" font-weight="600" font-size="56" letter-spacing="18" fill="url(#phylax-text-e)">PHYLAX</text>
         </svg>
       </div>
       <h2 style="font-size:18px;font-weight:700;color:white;margin:0 0 8px;">This conversation was flagged</h2>

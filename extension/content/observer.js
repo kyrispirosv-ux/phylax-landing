@@ -468,6 +468,102 @@
       messages.push(...extractByAlignment(config.messageContainer, maxMessages));
     }
 
+    // Instagram-specific deep extraction fallback.
+    // Instagram DMs use deeply nested, obfuscated class names that change frequently.
+    // If alignment-based extraction found nothing, use a broader approach:
+    // walk all text-bearing elements in the conversation area and extract visible text.
+    if (messages.length === 0 && window.location.hostname.includes('instagram.com')) {
+      messages.push(...extractInstagramDMsFallback(maxMessages));
+    }
+
+    return messages;
+  }
+
+  /**
+   * Instagram DM deep extraction fallback.
+   * Instagram uses heavily obfuscated class names and deeply nested flex containers.
+   * This fallback finds the conversation thread area and extracts all visible text
+   * blocks that look like chat messages (short, text-only, in scroll containers).
+   */
+  function extractInstagramDMsFallback(maxMessages) {
+    const messages = [];
+    const seen = new Set();
+
+    // Strategy 1: Find the main scrollable area in the DM thread
+    // Instagram DMs typically have a tall scrollable div on the right side
+    const main = document.querySelector('[role="main"]') || document.querySelector('main') || document.body;
+    if (!main) return messages;
+
+    // Find all scrollable containers that could be the message thread
+    const scrollables = [];
+    const allDivs = main.querySelectorAll('div');
+    for (const div of allDivs) {
+      const sh = div.scrollHeight;
+      const ch = div.clientHeight;
+      if (sh > ch + 50 && ch > 200) {
+        const rect = div.getBoundingClientRect();
+        // DM thread is typically in the right half of the screen and tall
+        if (rect.width > 200 && rect.height > 300) {
+          scrollables.push({ el: div, score: sh + rect.height });
+        }
+      }
+    }
+    scrollables.sort((a, b) => b.score - a.score);
+
+    const chatContainer = scrollables[0]?.el;
+    if (!chatContainer) return messages;
+
+    // Strategy 2: Walk all text-bearing leaf elements in the container
+    // Message text in Instagram is in deeply nested <span> or <div> elements.
+    const walker = document.createTreeWalker(
+      chatContainer,
+      NodeFilter.SHOW_ELEMENT,
+      {
+        acceptNode(node) {
+          // Skip very large containers — they're wrappers, not message text
+          if (node.childElementCount > 5) return NodeFilter.FILTER_SKIP;
+          // Skip invisible elements
+          const style = window.getComputedStyle(node);
+          if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') {
+            return NodeFilter.FILTER_REJECT;
+          }
+          return NodeFilter.FILTER_ACCEPT;
+        }
+      }
+    );
+
+    const viewportCenter = window.innerWidth / 2;
+
+    while (walker.nextNode() && messages.length < maxMessages) {
+      const el = walker.currentNode;
+      // Only look at leaf-ish elements (0-2 children)
+      if (el.childElementCount > 2) continue;
+
+      const text = el.innerText?.trim();
+      if (!text || text.length < 3 || text.length > 1000) continue;
+      // Skip timestamps, date headers, and UI chrome
+      if (/^\d{1,2}:\d{2}\s*(?:AM|PM|am|pm)?$/.test(text)) continue;
+      if (/^(?:Today|Yesterday|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)/i.test(text)) continue;
+      if (/^(?:Active|Seen|Typing|Online|Offline)/i.test(text)) continue;
+      if (text.length < 5 && !/\w{3,}/.test(text)) continue;
+      if (seen.has(text)) continue;
+      seen.add(text);
+
+      // Determine sender by position relative to viewport center
+      const rect = el.getBoundingClientRect();
+      const elCenter = rect.left + rect.width / 2;
+      let sender = 'UNKNOWN';
+      if (rect.width < window.innerWidth * 0.6) {
+        if (elCenter > viewportCenter + 30) sender = 'CHILD';
+        else if (elCenter < viewportCenter - 30) sender = 'CONTACT';
+      }
+
+      messages.push({ sender, text: text.slice(0, 500) });
+    }
+
+    if (messages.length > 0) {
+      console.log(`[Phylax Observer] Instagram DM fallback extracted ${messages.length} messages`);
+    }
     return messages;
   }
 
@@ -820,6 +916,28 @@
           sendContentEvent(deferred, 'deferred');
         }
       }, 1500);
+    }
+
+    // Chat context deferred re-extraction.
+    // Chat SPAs (Instagram DMs, Discord, etc.) load messages asynchronously.
+    // The initial extraction at DOMContentLoaded often finds zero messages because
+    // the message thread hasn't rendered yet. Schedule multiple retries with
+    // increasing delays to catch late-loading chat content.
+    const isChatPage = content.content_type === 'chat';
+    const chatLen = (content.chat?.contact_text || '').length;
+    if (isChatPage && chatLen < 30) {
+      const chatRetryDelays = [2000, 4000, 7000];
+      for (const delay of chatRetryDelays) {
+        setTimeout(() => {
+          if (shouldPauseEvents()) return;
+          const retried = extractContentObject();
+          const retriedChatLen = (retried.chat?.contact_text || '').length;
+          if (retriedChatLen > chatLen + 20) {
+            console.log(`[Phylax] Chat deferred re-extraction at ${delay}ms: ${retriedChatLen} chars`);
+            sendContentEvent(retried, 'chat_deferred');
+          }
+        }, delay);
+      }
     }
   }
 

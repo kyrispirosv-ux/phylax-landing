@@ -37,11 +37,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                         const isActive = pathname === item.href;
                         return (
                             <Link
-                                key={item.href}
                                 href={item.href}
-                                className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${isActive
-                                    ? 'bg-[#7C5CFF]/10 text-[#7C5CFF] border border-[#7C5CFF]/20'
-                                    : 'text-white/60 hover:text-white hover:bg-white/5'
+                                className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all border ${isActive
+                                    ? 'bg-[#7C5CFF]/10 text-[#7C5CFF] border-[#7C5CFF]/20'
+                                    : 'text-white/60 hover:text-white hover:bg-white/5 border-transparent'
                                     }`}
                             >
                                 <item.icon className="w-5 h-5" />
