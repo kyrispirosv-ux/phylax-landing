@@ -56,7 +56,17 @@ export const useStore = create<AppState>((set) => ({
     // Onboarding & Pairing
     pairingCode: null,
     generatePairingCode: async () => {
-        // Mock implementation for demo/frontend-only mode
+        try {
+            const res = await fetch('/api/pairing/generate', { method: 'POST' });
+            if (res.ok) {
+                const data = await res.json();
+                set({ pairingCode: data.short_code, pairingStatus: 'waiting' });
+                return data.short_code;
+            }
+        } catch (e) {
+            console.error("Failed to generate code", e);
+        }
+        // Fallback
         const mockCode = Math.random().toString(36).substring(2, 8).toUpperCase();
         set({ pairingCode: mockCode, pairingStatus: 'waiting' });
         return mockCode;
@@ -65,18 +75,38 @@ export const useStore = create<AppState>((set) => ({
     setPairingStatus: (status) => set({ pairingStatus: status }),
 
     checkPairingStatus: async (code: string) => {
-        // Mock implementation
-        // Simulate a successful pairing check occasionally or always for demo
-        // For now, let's just log it. The UI polls this.
-        console.log("Checking pairing status for", code);
-
-        // Return false by default so it doesn't auto-advance in demo unless we want it to
-        // or maybe simulate success after a few checks?
+        try {
+            const res = await fetch(`/api/pairing/status?code=${code}`);
+            if (res.ok) {
+                const data = await res.json();
+                if (data.paired) {
+                    set((state) => ({
+                        pairingStatus: 'connected',
+                        devices: [...(state.devices || []), {
+                            id: data.device_id || 'dev_' + Date.now(),
+                            name: 'Chrome Extension',
+                            type: 'chrome',
+                            lastSeen: 'Just now',
+                            status: 'active'
+                        }]
+                    }));
+                    return true;
+                }
+            }
+        } catch (e) {
+            console.error("Check status failed", e);
+        }
         return false;
     },
 
     devices: [],
-    addDevice: (device) => set((state) => ({ devices: [...state.devices, device], pairingStatus: 'connected' })),
+    addDevice: (device) => {
+        console.log("Store: Adding device", device);
+        set((state) => ({
+            devices: [...(state.devices || []), device],
+            pairingStatus: 'connected'
+        }));
+    },
     removeDevice: (id) => set((state) => ({ devices: state.devices.filter(d => d.id !== id) })),
 
     alerts: [

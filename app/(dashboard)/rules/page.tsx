@@ -1,9 +1,10 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Shield, Save, AlertCircle, Check, Sparkles, User, Info, Lock, Send, Bot, X } from 'lucide-react';
+import { Shield, Save, AlertCircle, Check, Sparkles, User, Info, Lock, Send, Swords, X } from 'lucide-react';
 import { useStore } from '@/store/useStore';
 import { AGE_POLICIES, getPolicyForAge, AgeGroup } from '@/lib/policyEngine';
+import { SpartanHelmet } from '@/components/icons/SpartanHelmet';
 
 export default function RulesPage() {
     const { ageGroup, setAgeGroup } = useStore();
@@ -209,8 +210,8 @@ export default function RulesPage() {
                     {/* Header */}
                     <div className="p-4 border-b border-white/10 bg-[#0A1022]/50 flex items-center justify-between shrink-0">
                         <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#7C5CFF] to-[#22D3EE] flex items-center justify-center">
-                                <Bot className="w-4 h-4 text-white" />
+                            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#F59E0B] to-[#D97706] flex items-center justify-center shadow-lg shadow-orange-500/20">
+                                <SpartanHelmet className="w-5 h-5 text-white" />
                             </div>
                             <div>
                                 <div className="font-bold text-white text-sm leading-none mb-1">Phylax AI Agent</div>

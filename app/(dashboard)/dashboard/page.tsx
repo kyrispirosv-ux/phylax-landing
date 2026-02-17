@@ -39,7 +39,13 @@ export default function DashboardOverview() {
     };
 
     const handleManualVerify = () => {
-        if (manualCode.toUpperCase() === pairingCode) {
+        const cleanManual = manualCode.toUpperCase().trim();
+        const cleanPairing = pairingCode?.trim();
+
+        console.log(`Verifying: Input='${cleanManual}' vs Expected='${cleanPairing}'`);
+
+        if (cleanPairing && cleanManual === cleanPairing) {
+            console.log("Code match! Adding device...");
             addDevice({
                 id: 'dev_' + Date.now(),
                 name: 'Chrome on Mac',
@@ -47,6 +53,10 @@ export default function DashboardOverview() {
                 lastSeen: 'Just now',
                 status: 'active'
             });
+        } else {
+            console.error("Code mismatch");
+            // Optional: You could add a UI error state here
+            // alert("Invalid code"); 
         }
     };
 
