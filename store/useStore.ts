@@ -39,6 +39,10 @@ interface AppState {
 
     alerts: Alert[];
     addAlert: (alert: Alert) => void;
+
+    // Policy / Settings
+    ageGroup: number;
+    setAgeGroup: (age: number) => void;
 }
 
 export const useStore = create<AppState>((set) => ({
@@ -84,4 +88,7 @@ export const useStore = create<AppState>((set) => ({
         }
     ],
     addAlert: (alert) => set((state) => ({ alerts: [alert, ...state.alerts] })),
+
+    ageGroup: 2, // Default to 8-11 "Guided Internet"
+    setAgeGroup: (age) => set({ ageGroup: age }),
 }));
