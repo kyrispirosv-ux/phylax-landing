@@ -38,12 +38,22 @@ function getRegistrableDomain(url) {
   }
 }
 
+// Hardcoded blocked video IDs (always blocked regardless of parent rules)
+const HARDCODED_BLOCKED_VIDEO_IDS = [
+  'e3b62-r7gzi',
+];
+
 function domainGate(url, policy) {
   const domain = getRegistrableDomain(url);
   if (!domain) return 'CONTINUE';
 
-  // URL-level blocking (specific pages/videos) — checked first, highest priority
+  // Hardcoded video blocks — always enforced
   const urlLower = url.toLowerCase();
+  for (const vid of HARDCODED_BLOCKED_VIDEO_IDS) {
+    if (urlLower.includes(vid)) return 'BLOCK_URL';
+  }
+
+  // URL-level blocking (specific pages/videos) — checked first, highest priority
   if (policy.block_urls && policy.block_urls.length > 0) {
     for (const blockedUrl of policy.block_urls) {
       if (urlLower.includes(blockedUrl)) return 'BLOCK_URL';
