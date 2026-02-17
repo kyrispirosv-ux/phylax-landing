@@ -50,9 +50,18 @@ const EMOJI_SEMANTIC_MAP = {
  * Normalize text to defeat obfuscation.
  * Handles: leetspeak, homoglyphs, emoji insertion, spacing tricks,
  * unicode abuse, zero-width chars, mixed scripts.
+ * Results are cached (LRU, 200 entries) since the same text may be
+ * normalized multiple times during conversation analysis.
  */
+const _normalizeCache = new Map();
+const _NORMALIZE_CACHE_MAX = 200;
+
 export function normalizeText(text) {
   if (!text) return '';
+
+  // Check cache first — avoids re-running regex chain on repeated text
+  const cached = _normalizeCache.get(text);
+  if (cached !== undefined) return cached;
 
   let t = text;
 
@@ -89,6 +98,13 @@ export function normalizeText(text) {
 
   // 9. Lowercase for matching
   t = t.toLowerCase();
+
+  // Store in cache (evict oldest if full)
+  if (_normalizeCache.size >= _NORMALIZE_CACHE_MAX) {
+    const firstKey = _normalizeCache.keys().next().value;
+    _normalizeCache.delete(firstKey);
+  }
+  _normalizeCache.set(text, t);
 
   return t;
 }

@@ -1123,8 +1123,9 @@
     const chatLen = (content.chat?.contact_text || '').length;
     if (isChatPage && chatLen < 30) {
       console.log(`[Phylax] Chat page with insufficient text (${chatLen} chars), scheduling retries...`);
-      // Aggressive retry schedule — Instagram DMs can be very slow to render
-      const chatRetryDelays = [1500, 3000, 5000, 8000, 12000, 18000, 25000];
+      // Ultra-aggressive retry schedule for low latency:
+      // Start at 200ms with rapid retries, then taper off for slow-loading pages.
+      const chatRetryDelays = [200, 400, 700, 1000, 1500, 2500, 4000, 7000, 12000, 20000];
       let chatExtracted = false;
       for (const delay of chatRetryDelays) {
         setTimeout(() => {
@@ -1142,7 +1143,8 @@
       }
 
       // MutationObserver fallback: watch for new message nodes appearing
-      // This catches messages that load after our retry schedule
+      // This catches messages that load after our retry schedule.
+      // Uses a very short debounce (100ms) to minimize detection latency.
       const chatObserverTarget = document.querySelector('[role="main"]') || document.body;
       if (chatObserverTarget && !chatExtracted) {
         let chatMutationTimer = null;
@@ -1151,7 +1153,7 @@
             chatMutationObserver.disconnect();
             return;
           }
-          // Debounce: wait 500ms after last mutation before re-extracting
+          // Short debounce: 100ms to react quickly to new messages
           if (chatMutationTimer) clearTimeout(chatMutationTimer);
           chatMutationTimer = setTimeout(() => {
             const retried = extractContentObject();
@@ -1162,10 +1164,10 @@
               console.log(`[Phylax] Chat MutationObserver extraction: ${retriedChatLen} chars`);
               sendContentEvent(retried, 'chat_mutation');
             }
-          }, 500);
+          }, 100);
         });
         chatMutationObserver.observe(chatObserverTarget, { childList: true, subtree: true });
-        // Auto-disconnect after 45s to prevent memory leaks (extended from 30s)
+        // Auto-disconnect after 45s to prevent memory leaks
         setTimeout(() => chatMutationObserver.disconnect(), 45000);
       }
     }
@@ -1392,8 +1394,10 @@
   // ── MutationObserver for dynamic content ────────────────────────
   let mutationDebounce = null;
   const domObserver = new MutationObserver(() => {
+    // Use shorter debounce on chat pages for faster grooming detection
+    const debounceTime = isChatContext(host, window.location.pathname) ? 150 : MUTATION_DEBOUNCE_MS;
     clearTimeout(mutationDebounce);
-    mutationDebounce = setTimeout(() => { takeSnapshot(); }, MUTATION_DEBOUNCE_MS);
+    mutationDebounce = setTimeout(() => { takeSnapshot(); }, debounceTime);
   });
 
   // ── Idle/Active ─────────────────────────────────────────────────

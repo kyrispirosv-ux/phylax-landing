@@ -204,8 +204,14 @@ function shouldThrottleDecision(tabId, action, url) {
   const now = Date.now();
   const urlPath = extractThrottlePath(url);
 
+  // Use shorter throttle for chat/DM pages — grooming detection must react fast
+  const isChatUrl = url && (url.includes('/direct') || url.includes('/messages') ||
+    url.includes('messenger.com') || url.includes('whatsapp.com') ||
+    url.includes('discord.com/channels'));
+  const throttleMs = isChatUrl ? 800 : TAB_DECISION_THROTTLE_MS;
+
   if (cached.action === action && cached.path === urlPath &&
-    (now - cached.timestamp) < TAB_DECISION_THROTTLE_MS) {
+    (now - cached.timestamp) < throttleMs) {
     return true;
   }
   return false;
