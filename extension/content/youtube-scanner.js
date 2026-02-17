@@ -77,14 +77,39 @@
     if (!videoId) return null;
 
     // Primary title selectors (YouTube changes these periodically)
-    const titleEl = document.querySelector(
-      'h1.ytd-watch-metadata yt-formatted-string, ' +
-      'h1.title yt-formatted-string, ' +
-      '#title h1 yt-formatted-string, ' +
-      'ytd-watch-metadata h1, ' +
-      '#info-contents h1'
-    );
-    const title = titleEl?.textContent?.trim() || '';
+    // Try multiple selector strategies — YouTube's DOM varies across layouts
+    const titleSelectors = [
+      'h1.ytd-watch-metadata yt-formatted-string',
+      'h1.title yt-formatted-string',
+      '#title h1 yt-formatted-string',
+      'ytd-watch-metadata h1',
+      '#info-contents h1',
+      '#above-the-fold h1',
+      '#title yt-formatted-string',
+      'ytd-watch-metadata yt-formatted-string',
+      '#above-the-fold yt-formatted-string.ytd-watch-metadata',
+      'h1.ytd-video-primary-info-renderer',
+      '#container h1',
+    ];
+    let title = '';
+    for (const sel of titleSelectors) {
+      const el = document.querySelector(sel);
+      if (el) {
+        title = el.textContent?.trim() || '';
+        if (title.length >= 3) break;
+      }
+    }
+
+    // Fallback: YouTube sets document.title to "VideoTitle - YouTube"
+    if (!title || title.length < 3) {
+      const docTitle = document.title || '';
+      if (docTitle.endsWith(' - YouTube')) {
+        title = docTitle.slice(0, -' - YouTube'.length).trim();
+      } else if (docTitle.length > 3 && docTitle !== 'YouTube') {
+        title = docTitle.trim();
+      }
+    }
+
     if (!title || title.length < 3) return null;
 
     // Channel name
@@ -111,12 +136,23 @@
    * Classify the currently playing video on a watch page.
    * If blocked, shows a full-page overlay covering the video player.
    */
+  // Track watch page classification state separately from lastCheckedWatchId.
+  // lastCheckedWatchId is ONLY set on successful classification to allow retries.
+  let watchPageClassifyAttempts = 0;
+  const MAX_WATCH_CLASSIFY_ATTEMPTS = 5;
+
   async function checkWatchPageVideo() {
     if (!isContextValid()) return;
     if (!checkIfWatchPage()) return;
 
     const videoId = getWatchVideoId();
-    if (!videoId || videoId === lastCheckedWatchId) return;
+    if (!videoId) return;
+
+    // Skip if this video was already successfully classified
+    if (videoId === lastCheckedWatchId) return;
+
+    watchPageClassifyAttempts++;
+    if (watchPageClassifyAttempts > MAX_WATCH_CLASSIFY_ATTEMPTS) return;
 
     // Wait for title to load (YouTube SPA loads async)
     let metadata = null;
@@ -127,11 +163,13 @@
     }
 
     if (!metadata) {
-      console.log('[Phylax YT Scanner] Could not extract watch page metadata');
+      console.log('[Phylax YT Scanner] Could not extract watch page metadata (attempt ' + watchPageClassifyAttempts + ')');
+      // Schedule retry — don't give up
+      if (watchPageClassifyAttempts < MAX_WATCH_CLASSIFY_ATTEMPTS) {
+        setTimeout(() => checkWatchPageVideo(), 2000);
+      }
       return;
     }
-
-    lastCheckedWatchId = videoId;
 
     const contentText = [metadata.title, metadata.description, metadata.channel]
       .filter(Boolean).join(' | ');
@@ -151,7 +189,18 @@
       });
 
       const classification = response?.classification;
-      if (!classification) return;
+      if (!classification) {
+        console.warn('[Phylax YT Scanner] No classification returned (attempt ' + watchPageClassifyAttempts + ')');
+        // Retry if classification came back null
+        if (watchPageClassifyAttempts < MAX_WATCH_CLASSIFY_ATTEMPTS) {
+          setTimeout(() => checkWatchPageVideo(), 2000);
+        }
+        return;
+      }
+
+      // SUCCESS — mark this video as classified so we don't recheck
+      lastCheckedWatchId = videoId;
+      watchPageClassifyAttempts = 0;
 
       console.log(`[Phylax YT Scanner] Watch page: "${metadata.title}" → ${classification.decision} (${classification.category}, risk: ${classification.risk_score})`);
 
@@ -160,6 +209,10 @@
       }
     } catch (err) {
       console.warn('[Phylax YT Scanner] Watch page classification failed:', err.message);
+      // Retry on error
+      if (watchPageClassifyAttempts < MAX_WATCH_CLASSIFY_ATTEMPTS) {
+        setTimeout(() => checkWatchPageVideo(), 2000);
+      }
     }
   }
 
@@ -726,6 +779,8 @@
     } else if (isWatchPage) {
       // Watch page — classify the current video
       stopRescanInterval();
+      // Reset retry counter for new navigation
+      watchPageClassifyAttempts = 0;
       checkWatchPageVideo();
     } else {
       stopRescanInterval();
@@ -790,9 +845,12 @@
             }
           }
         }
-      } else if (isWatchPage && !lastCheckedWatchId) {
-        // Watch page: retry classification when title loads
-        checkWatchPageVideo();
+      } else if (isWatchPage) {
+        // Watch page: retry classification when DOM updates and video hasn't been classified yet
+        const currentVideoId = getWatchVideoId();
+        if (currentVideoId && currentVideoId !== lastCheckedWatchId) {
+          checkWatchPageVideo();
+        }
       }
     });
 
@@ -820,6 +878,7 @@
 
     // Initial check if already on watch page
     if (isWatchPage) {
+      watchPageClassifyAttempts = 0;
       if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', () => {
           setTimeout(checkWatchPageVideo, 1500);

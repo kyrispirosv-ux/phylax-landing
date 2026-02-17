@@ -482,87 +482,129 @@
   /**
    * Instagram DM deep extraction fallback.
    * Instagram uses heavily obfuscated class names and deeply nested flex containers.
-   * This fallback finds the conversation thread area and extracts all visible text
-   * blocks that look like chat messages (short, text-only, in scroll containers).
+   * Uses multiple aggressive strategies to find message text.
    */
   function extractInstagramDMsFallback(maxMessages) {
     const messages = [];
     const seen = new Set();
-
-    // Strategy 1: Find the main scrollable area in the DM thread
-    // Instagram DMs typically have a tall scrollable div on the right side
-    const main = document.querySelector('[role="main"]') || document.querySelector('main') || document.body;
-    if (!main) return messages;
-
-    // Find all scrollable containers that could be the message thread
-    const scrollables = [];
-    const allDivs = main.querySelectorAll('div');
-    for (const div of allDivs) {
-      const sh = div.scrollHeight;
-      const ch = div.clientHeight;
-      if (sh > ch + 50 && ch > 200) {
-        const rect = div.getBoundingClientRect();
-        // DM thread is typically in the right half of the screen and tall
-        if (rect.width > 200 && rect.height > 300) {
-          scrollables.push({ el: div, score: sh + rect.height });
-        }
-      }
-    }
-    scrollables.sort((a, b) => b.score - a.score);
-
-    const chatContainer = scrollables[0]?.el;
-    if (!chatContainer) return messages;
-
-    // Strategy 2: Walk all text-bearing leaf elements in the container
-    // Message text in Instagram is in deeply nested <span> or <div> elements.
-    const walker = document.createTreeWalker(
-      chatContainer,
-      NodeFilter.SHOW_ELEMENT,
-      {
-        acceptNode(node) {
-          // Skip very large containers — they're wrappers, not message text
-          if (node.childElementCount > 5) return NodeFilter.FILTER_SKIP;
-          // Skip invisible elements
-          const style = window.getComputedStyle(node);
-          if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') {
-            return NodeFilter.FILTER_REJECT;
-          }
-          return NodeFilter.FILTER_ACCEPT;
-        }
-      }
-    );
-
     const viewportCenter = window.innerWidth / 2;
 
-    while (walker.nextNode() && messages.length < maxMessages) {
-      const el = walker.currentNode;
-      // Only look at leaf-ish elements (0-2 children)
-      if (el.childElementCount > 2) continue;
+    // Skip patterns — timestamps, dates, UI chrome, names in header
+    const SKIP_PATTERNS = [
+      /^\d{1,2}:\d{2}\s*(?:AM|PM|am|pm)?$/,
+      /^(?:Today|Yesterday|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)/i,
+      /^(?:Active|Seen|Typing|Online|Offline|Send|Message|Photo|Video|Voice|Audio|GIF|Like|Reply)/i,
+      /^(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d/i,
+      /^(?:Delivered|Sent|Read)\s*$/i,
+      /^@\w+$/,  // Mentions
+    ];
 
-      const text = el.innerText?.trim();
-      if (!text || text.length < 3 || text.length > 1000) continue;
-      // Skip timestamps, date headers, and UI chrome
-      if (/^\d{1,2}:\d{2}\s*(?:AM|PM|am|pm)?$/.test(text)) continue;
-      if (/^(?:Today|Yesterday|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)/i.test(text)) continue;
-      if (/^(?:Active|Seen|Typing|Online|Offline)/i.test(text)) continue;
-      if (text.length < 5 && !/\w{3,}/.test(text)) continue;
-      if (seen.has(text)) continue;
-      seen.add(text);
-
-      // Determine sender by position relative to viewport center
-      const rect = el.getBoundingClientRect();
-      const elCenter = rect.left + rect.width / 2;
-      let sender = 'UNKNOWN';
-      if (rect.width < window.innerWidth * 0.6) {
-        if (elCenter > viewportCenter + 30) sender = 'CHILD';
-        else if (elCenter < viewportCenter - 30) sender = 'CONTACT';
+    function isSkipText(text) {
+      if (text.length < 3 || text.length > 1000) return true;
+      for (const pat of SKIP_PATTERNS) {
+        if (pat.test(text)) return true;
       }
+      if (text.length < 5 && !/\w{3,}/.test(text)) return true;
+      return false;
+    }
 
+    function classifySender(el) {
+      // Walk up to find the message row/bubble container for positioning
+      let target = el;
+      for (let i = 0; i < 8 && target; i++) {
+        const rect = target.getBoundingClientRect();
+        if (rect.width > 100 && rect.width < window.innerWidth * 0.7) {
+          const elCenter = rect.left + rect.width / 2;
+          if (elCenter > viewportCenter + 50) return 'CHILD';
+          if (elCenter < viewportCenter - 50) return 'CONTACT';
+        }
+        target = target.parentElement;
+      }
+      return 'UNKNOWN';
+    }
+
+    function addMessage(text, el) {
+      if (seen.has(text)) return;
+      seen.add(text);
+      const sender = classifySender(el);
       messages.push({ sender, text: text.slice(0, 500) });
     }
 
+    // ── Strategy 1: div[dir="auto"] ──────────────────────────────
+    // Instagram wraps all user-generated text in dir="auto" divs.
+    // This is the most reliable selector for message bubbles.
+    const dirAutoDivs = document.querySelectorAll('div[dir="auto"]');
+    for (const div of dirAutoDivs) {
+      if (messages.length >= maxMessages) break;
+      const text = div.innerText?.trim();
+      if (!text || isSkipText(text)) continue;
+      addMessage(text, div);
+    }
+
+    // ── Strategy 2: span elements with substantial text ──────────
+    // Some messages are in <span> elements without dir="auto"
+    if (messages.length === 0) {
+      const main = document.querySelector('[role="main"]') || document.body;
+      if (main) {
+        const spans = main.querySelectorAll('span');
+        for (const span of spans) {
+          if (messages.length >= maxMessages) break;
+          // Only leaf-ish spans
+          if (span.childElementCount > 1) continue;
+          const text = span.innerText?.trim();
+          if (!text || isSkipText(text)) continue;
+          // Must be at least a sentence-ish length (avoid labels)
+          if (text.length < 8) continue;
+          addMessage(text, span);
+        }
+      }
+    }
+
+    // ── Strategy 3: Scrollable container deep walk ───────────────
+    // Find the largest scrollable container and extract all text blocks
+    if (messages.length === 0) {
+      const main = document.querySelector('[role="main"]') || document.body;
+      if (main) {
+        const scrollables = [];
+        const allDivs = main.querySelectorAll('div');
+        for (const div of allDivs) {
+          const sh = div.scrollHeight;
+          const ch = div.clientHeight;
+          if (sh > ch + 50 && ch > 200) {
+            const rect = div.getBoundingClientRect();
+            if (rect.width > 200 && rect.height > 200) {
+              scrollables.push({ el: div, score: sh + rect.height });
+            }
+          }
+        }
+        scrollables.sort((a, b) => b.score - a.score);
+
+        const chatContainer = scrollables[0]?.el;
+        if (chatContainer) {
+          const walker = document.createTreeWalker(
+            chatContainer,
+            NodeFilter.SHOW_ELEMENT,
+            {
+              acceptNode(node) {
+                if (node.childElementCount > 8) return NodeFilter.FILTER_SKIP;
+                return NodeFilter.FILTER_ACCEPT;
+              }
+            }
+          );
+
+          while (walker.nextNode() && messages.length < maxMessages) {
+            const el = walker.currentNode;
+            if (el.childElementCount > 3) continue;
+            const text = el.innerText?.trim();
+            if (!text || isSkipText(text)) continue;
+            addMessage(text, el);
+          }
+        }
+      }
+    }
+
     if (messages.length > 0) {
-      console.log(`[Phylax Observer] Instagram DM fallback extracted ${messages.length} messages`);
+      console.log(`[Phylax Observer] Instagram DM fallback extracted ${messages.length} messages (strategies: dir-auto, span, scroll-walk)`);
     }
     return messages;
   }
@@ -926,17 +968,48 @@
     const isChatPage = content.content_type === 'chat';
     const chatLen = (content.chat?.contact_text || '').length;
     if (isChatPage && chatLen < 30) {
-      const chatRetryDelays = [2000, 4000, 7000];
+      // Aggressive retry schedule — Instagram DMs can be very slow to render
+      const chatRetryDelays = [2000, 4000, 7000, 10000, 15000];
+      let chatExtracted = false;
       for (const delay of chatRetryDelays) {
         setTimeout(() => {
-          if (shouldPauseEvents()) return;
+          if (chatExtracted || shouldPauseEvents()) return;
           const retried = extractContentObject();
           const retriedChatLen = (retried.chat?.contact_text || '').length;
-          if (retriedChatLen > chatLen + 20) {
+          if (retriedChatLen > 20) {
+            chatExtracted = true;
             console.log(`[Phylax] Chat deferred re-extraction at ${delay}ms: ${retriedChatLen} chars`);
             sendContentEvent(retried, 'chat_deferred');
           }
         }, delay);
+      }
+
+      // MutationObserver fallback: watch for new message nodes appearing
+      // This catches messages that load after our retry schedule
+      const chatObserverTarget = document.querySelector('[role="main"]') || document.body;
+      if (chatObserverTarget && !chatExtracted) {
+        let chatMutationTimer = null;
+        const chatMutationObserver = new MutationObserver(() => {
+          if (chatExtracted || shouldPauseEvents()) {
+            chatMutationObserver.disconnect();
+            return;
+          }
+          // Debounce: wait 500ms after last mutation before re-extracting
+          if (chatMutationTimer) clearTimeout(chatMutationTimer);
+          chatMutationTimer = setTimeout(() => {
+            const retried = extractContentObject();
+            const retriedChatLen = (retried.chat?.contact_text || '').length;
+            if (retriedChatLen > 20) {
+              chatExtracted = true;
+              chatMutationObserver.disconnect();
+              console.log(`[Phylax] Chat MutationObserver extraction: ${retriedChatLen} chars`);
+              sendContentEvent(retried, 'chat_mutation');
+            }
+          }, 500);
+        });
+        chatMutationObserver.observe(chatObserverTarget, { childList: true, subtree: true });
+        // Auto-disconnect after 30s to prevent memory leaks
+        setTimeout(() => chatMutationObserver.disconnect(), 30000);
       }
     }
   }

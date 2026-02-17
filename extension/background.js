@@ -11,7 +11,7 @@ import { createSessionState, updateSessionState } from './engine/behavior.js';
 import { cacheClear, cacheStats } from './engine/decision-cache.js';
 import { createConversationState } from './engine/grooming-detector.js';
 import { classify_video_risk, analyze_message_risk, predict_conversation_risk, classify_search_risk } from './engine/risk-classifier.js';
-import { startSync, queueEvent } from './backend-sync.js';
+import { startSync, queueEvent, getDeviceId } from './backend-sync.js';
 
 // ── State ───────────────────────────────────────────────────────
 
@@ -236,8 +236,12 @@ function extractThrottlePath(url) {
 // CORE EVENT PROCESSING — runs the 12-step pipeline
 // ═════════════════════════════════════════════════════════════════
 
+// Helper to create a new event object
+
+
 async function processEvent(rawEvent, tabId) {
   const startTime = performance.now();
+  const deviceId = await getDeviceId();
 
   // 1. Create typed event for logging + session tracking
   const event = createEvent({
@@ -247,6 +251,7 @@ async function processEvent(rawEvent, tabId) {
     domain: rawEvent.domain,
     payload: rawEvent.payload || {},
     profileId: profileTier,
+    deviceId,
   });
 
   // 2. Update session state (for behavior scoring)

@@ -40,7 +40,7 @@ async function getApiBase() {
 
 // ── Device Identity ──
 
-async function getDeviceId() {
+export async function getDeviceId() {
   const s = await chrome.storage.local.get(['phylaxDeviceId']);
   return s.phylaxDeviceId || null;
 }
@@ -131,7 +131,10 @@ export function queueEvent(evt) {
 export async function flushEvents() {
   if (eventBuffer.length === 0) return;
   const deviceId = await getDeviceId();
-  if (!deviceId) return;
+  if (!deviceId) {
+    console.warn('[Phylax Sync] Cannot flush events: Device not paired. Please pair in extension popup.');
+    return;
+  }
 
   const batch = eventBuffer.splice(0, MAX_EVENT_BUFFER);
   const base = await getApiBase();

@@ -116,7 +116,16 @@ export function queueEvent(evt) {
     metadata: evt.metadata || null,
     timestamp: new Date().toISOString(),
   });
-  if (eventBuffer.length >= MAX_EVENT_BUFFER) flushEvents();
+
+  // Instant flush for blocks/alerts to give immediate feedback
+  const isUrgent = evt.event_type === 'PARENT_ALERT' ||
+    evt.event_type.includes('BLOCK') ||
+    (evt.reason_code && evt.reason_code.includes('BLOCK')) ||
+    evt.confidence > 0.8;
+
+  if (eventBuffer.length >= MAX_EVENT_BUFFER || isUrgent) {
+    flushEvents();
+  }
 }
 
 export async function flushEvents() {

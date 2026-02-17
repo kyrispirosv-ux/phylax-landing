@@ -11,7 +11,7 @@ import { createSessionState, updateSessionState } from './engine/behavior.js';
 import { cacheClear, cacheStats } from './engine/decision-cache.js';
 import { createConversationState } from './engine/grooming-detector.js';
 import { classify_video_risk, analyze_message_risk, predict_conversation_risk, classify_search_risk } from './engine/risk-classifier.js';
-import { startSync } from './backend-sync.js';
+import { startSync, queueEvent } from './backend-sync.js';
 
 // ── State ───────────────────────────────────────────────────────
 
@@ -306,7 +306,24 @@ async function processEvent(rawEvent, tabId) {
   const logRecord = logger.log(event, normalized);
   logRecord.model.latency_ms = Math.round(performance.now() - startTime);
   event._decision = normalized;
-  eventBuffer.push(event);
+  // eventBuffer.push(event); // REMOVED local buffer
+
+  // Send to backend
+  queueEvent({
+    event_type: event.event_type,
+    domain: event.domain || normalized.domain,
+    url: event.url || normalized.url,
+    category: normalized.category || 'General',
+    rule_id: normalized.rule_id || null,
+    reason_code: normalized.reason_code,
+    confidence: normalized.confidence,
+    metadata: {
+      ...event.payload,
+      decision: normalized.decision,
+      scores: normalized.scores,
+      evidence: normalized.evidence
+    }
+  });
 
   const latency = Math.round(performance.now() - startTime);
   console.log(`[Phylax] ${event.event_type} on ${rawEvent.domain}: ${decision.decision} (${decision.reason_code}) [${latency}ms]`);
@@ -407,7 +424,16 @@ async function handleParentAlert(alert) {
     payload: alert,
     profileId: profileTier,
   });
-  eventBuffer.push(logEvent);
+  // eventBuffer.push(logEvent);
+  queueEvent({
+    event_type: 'PARENT_ALERT',
+    domain: alert.domain,
+    url: alert.url,
+    category: alert.category || 'Safety',
+    reason_code: alert.reason_code,
+    confidence: alert.confidence,
+    metadata: alert
+  });
 }
 
 // ═════════════════════════════════════════════════════════════════
@@ -573,7 +599,20 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           },
           profileId: profileTier,
         });
-        eventBuffer.push(logEvent);
+        // eventBuffer.push(logEvent);
+        queueEvent({
+          event_type: 'VIDEO_BLOCK',
+          domain: 'youtube.com',
+          url: `https://youtube.com/watch?v=${video.videoId}`,
+          category: classification.category,
+          reason_code: classification.decision === 'block' ? 'VIDEO_BLOCKED' : 'VIDEO_WARNED',
+          confidence: classification.risk_score / 100,
+          metadata: {
+            title: video.title,
+            channel: video.channel,
+            reasoning: classification.reasoning
+          }
+        });
       }
 
       sendResponse({ classification });
@@ -645,7 +684,19 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       },
       profileId: profileTier,
     });
-    eventBuffer.push(logEvent);
+    // eventBuffer.push(logEvent);
+    queueEvent({
+      event_type: 'SEARCH_BLOCKED',
+      domain: message.domain,
+      url: message.url,
+      category: classification.category,
+      reason_code: 'SEARCH_RISK',
+      confidence: classification.risk_score / 100,
+      metadata: {
+        query: message.query,
+        blocked_reason: classification.blocked_reason
+      }
+    });
 
     // Send parent alert
     handleParentAlert({
