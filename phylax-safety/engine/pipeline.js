@@ -42,6 +42,14 @@ function domainGate(url, policy) {
   const domain = getRegistrableDomain(url);
   if (!domain) return 'CONTINUE';
 
+  // URL-level blocking (specific pages/videos) — checked first, highest priority
+  const urlLower = url.toLowerCase();
+  if (policy.block_urls && policy.block_urls.length > 0) {
+    for (const blockedUrl of policy.block_urls) {
+      if (urlLower.includes(blockedUrl)) return 'BLOCK_URL';
+    }
+  }
+
   const dr = policy.domain_rules;
   if (dr.block_domains.some(d => domain.includes(d) || domain.endsWith(d))) return 'BLOCK';
   if (dr.allow_domains.some(d => domain.includes(d) || domain.endsWith(d))) return 'CONTINUE';
@@ -390,8 +398,18 @@ function selectEnforcement(decision, content, wasDomainGate) {
  * @returns {DecisionObject}
  */
 export function evaluate(content, policy, sessionState) {
-  // Step 1: Domain gate
+  // Step 1: Domain gate (also checks URL-level blocks)
   const gate = domainGate(content.url, policy);
+  if (gate === 'BLOCK_URL') {
+    return {
+      decision: 'BLOCK',
+      reason_code: 'URL_BLOCK',
+      confidence: 1.0,
+      evidence: ['This specific page/video has been blocked by your parent.'],
+      enforcement: { layer: 'OVERLAY', technique: 'full_block' },
+      debug: { topic_scores: {}, cache_hit: false },
+    };
+  }
   if (gate === 'BLOCK') {
     return {
       decision: 'BLOCK',
@@ -588,6 +606,7 @@ export function compileToPolicyObject(compiledRules, profileTier) {
       block_domains: [],
       domain_mode: 'default_allow',
     },
+    block_urls: [],
     topic_rules: [],
     behavior_rules: DEFAULT_BEHAVIOR_RULES,
     explainability: { mode: 'standard' },
@@ -646,6 +665,15 @@ export function compileToPolicyObject(compiledRules, profileTier) {
               seenTopics.add(topic);
             }
           }
+        }
+      }
+    }
+
+    // BLOCK_URL rules → block_urls (specific page/video blocking)
+    if (rule.action?.type === 'BLOCK_URL' && rule._blockUrls) {
+      for (const url of rule._blockUrls) {
+        if (!policy.block_urls.includes(url)) {
+          policy.block_urls.push(url);
         }
       }
     }

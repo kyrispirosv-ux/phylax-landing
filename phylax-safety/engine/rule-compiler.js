@@ -11,6 +11,7 @@
 // ── Action Types ────────────────────────────────────────────────
 export const RULE_ACTIONS = {
   BLOCK_DOMAIN:   'BLOCK_DOMAIN',
+  BLOCK_URL:      'BLOCK_URL',
   ALLOW_DOMAIN:   'ALLOW_DOMAIN',
   BLOCK_CONTENT:  'BLOCK_CONTENT',
   WARN_CONTENT:   'WARN_CONTENT',
@@ -339,6 +340,25 @@ export function compileRule(ruleText) {
   const textLower = text.toLowerCase();
 
   debug(id, 'input', { raw_text: text });
+
+  // Step -1: Check for specific URL blocking (e.g., YouTube video links)
+  const urlRule = tryBuildUrlBlockRule(id, text, textLower);
+  if (urlRule) {
+    debug(id, 'url_block_rule_built', { urls: urlRule._blockUrls });
+    return {
+      ...urlRule,
+      parsed_intent: 'URL_BLOCK',
+      parsed_intent_model: {
+        user_intent_type: 'BLOCK_URL',
+        strength: 'hard',
+        confidence: 1.0,
+        scope_granularity: 'url',
+      },
+      debug_reason_codes: [],
+      _compiled: true,
+      _errors: [],
+    };
+  }
 
   // Step 0: Check for exception patterns FIRST ("no X but Y is okay")
   // These require special handling: block X + allow Y as exclusion
@@ -711,6 +731,58 @@ function resolveCategoryName(rawName) {
 // ═════════════════════════════════════════════════════════════════
 // EXCEPTION RULE BUILDER ("no X but Y is okay")
 // ═════════════════════════════════════════════════════════════════
+
+/**
+ * Try to build a URL-level block rule when the rule text contains specific URLs.
+ * Supports YouTube video URLs, general URLs, and YouTube video IDs.
+ * Examples:
+ *   "block https://www.youtube.com/watch?v=E3b62-R7GzI"
+ *   "block this video: youtube.com/watch?v=abc123"
+ *   "no access to https://example.com/some-page"
+ */
+function tryBuildUrlBlockRule(id, sourceText, textLower) {
+  const blockUrls = [];
+
+  // Extract YouTube video IDs from URLs or standalone
+  // Matches: youtube.com/watch?v=ID, youtu.be/ID, youtube.com/shorts/ID
+  const ytPatterns = [
+    /(?:youtube\.com\/watch\?[^&\s]*v=|youtu\.be\/|youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/gi,
+  ];
+  for (const pattern of ytPatterns) {
+    let match;
+    while ((match = pattern.exec(sourceText)) !== null) {
+      const videoId = match[1];
+      // Use the video ID as the blocking key — matches any YouTube URL with this ID
+      blockUrls.push(`v=${videoId.toLowerCase()}`);
+    }
+  }
+
+  // Extract full URLs (https://... or http://...)
+  const urlPattern = /https?:\/\/[^\s"'<>]+/gi;
+  let urlMatch;
+  while ((urlMatch = urlPattern.exec(sourceText)) !== null) {
+    const rawUrl = urlMatch[0].replace(/[.,;!?)]+$/, ''); // strip trailing punctuation
+    // If it's a YouTube URL, we already extracted the video ID above
+    if (rawUrl.includes('youtube.com') || rawUrl.includes('youtu.be')) continue;
+    blockUrls.push(rawUrl.toLowerCase());
+  }
+
+  if (blockUrls.length === 0) return null;
+
+  return {
+    id,
+    priority: 100, // Highest priority — explicit URL blocks are unambiguous
+    source_text: sourceText,
+    scope: { global: true },
+    condition: { url_match: blockUrls },
+    action: { type: RULE_ACTIONS.BLOCK_URL },
+    explain: {
+      child: 'This page has been blocked by your family rules.',
+      parent: `URL blocked: ${blockUrls.join(', ')}`,
+    },
+    _blockUrls: blockUrls,
+  };
+}
 
 /**
  * Try to build an exception-based rule from natural language like:
