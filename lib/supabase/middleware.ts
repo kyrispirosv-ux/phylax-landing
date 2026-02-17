@@ -54,7 +54,9 @@ export async function updateSession(request: NextRequest) {
             !path.startsWith("/_next") && // Next.js internals
             !path.startsWith("/static") && // Static files
             path !== "/" && // Landing page
-            path !== "/landing.html" // Legacy landing page
+            path !== "/landing.html" && // Legacy landing page
+            path !== "/privacy-policy" && // Privacy policy
+            path !== "/safety-stance" // Safety Stance
         ) {
             const url = request.nextUrl.clone();
             url.pathname = "/login";
