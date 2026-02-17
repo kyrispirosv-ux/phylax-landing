@@ -178,6 +178,13 @@ const TOPICS = {
     // Strong keywords: uniquely identify sports video games (high weight)
     strong_keywords: [
       'nba 2k', 'nba2k', '2k25', '2k24', '2k23', '2k22', '2k21', '2k20', '2k19', '2k18', '2k17', '2k16',
+      '2k gameplay', '2k build', '2k park', '2k rec', '2k comp', '2k next gen', '2k current gen',
+      '2k mycareer', '2k myteam', '2k myplayer', '2k mypark',
+      '2k best', '2k dribble', '2k jumpshot', '2k badge', '2k demigod',
+      '2k update', '2k patch', '2k season', '2k rating', '2k face scan',
+      '2k is broken', '2k is dead', '2k is trash', '2k rant', '2k review',
+      '2k tips', '2k tutorial', '2k guide', '2k montage', '2k highlights',
+      'play 2k', 'playing 2k', 'played 2k', 'new 2k', 'old 2k',
       'madden 2', 'madden nfl', 'madden ultimate',
       'ea sports fc', 'ea fc 2', 'ea fc24', 'ea fc25',
       'efootball', 'pes 202',
@@ -190,6 +197,8 @@ const TOPICS = {
       'badge grinding', 'vc glitch', 'vc coins',
       'park mode', 'rec center', 'neighborhood 2k',
       'gameplay 2k', 'build 2k',
+      'best jumpshot', 'best dribble moves', 'dribble god', 'demigod build',
+      'comp stage', 'stage games', 'ante up',
       'sports video game', 'sports game gameplay', 'sports game review',
     ],
     // Weak keywords: need 2+ matches or corroboration with strong (low weight)
@@ -199,6 +208,7 @@ const TOPICS = {
       'virtual match', 'gaming sports',
       'esports fifa', 'esports madden',
       'video game football', 'video game basketball', 'video game soccer', 'video game baseball',
+      'controller settings', 'pro stick', 'shot meter', 'shot timing',
     ],
     // Real sports signals that SUPPRESS the score (prevent false positives)
     negative_keywords: [
@@ -208,8 +218,11 @@ const TOPICS = {
       'playoff', 'championship', 'world cup', 'super bowl', 'world series',
       'premier league', 'la liga', 'bundesliga', 'serie a', 'ligue 1',
       'real madrid', 'barcelona', 'manchester', 'liverpool', 'arsenal',
-      'lebron', 'curry', 'mahomes', 'messi', 'ronaldo', 'haaland',
+      'lebron', 'steph curry', 'mahomes', 'messi', 'ronaldo', 'haaland',
+      'lakers', 'celtics', 'warriors', 'bulls', 'heat', 'knicks', 'nets',
       'training camp', 'preseason', 'regular season', 'postseason',
+      'slam dunk', 'triple double', 'buzzer beater', 'game winner',
+      'nba finals', 'mvp race', 'all star game', 'dunk contest',
     ],
     label: 'Sports Video Games',
   },
@@ -1049,10 +1062,10 @@ export function scoreContentForLabel(content, domain, url, label, skipContextRed
       let baseScore;
       if (strongMatchCount >= 2) {
         // 2+ strong matches = very high confidence
-        baseScore = Math.min(0.92, 0.65 + strongMatchCount * 0.10);
+        baseScore = Math.min(0.95, 0.75 + strongMatchCount * 0.08);
       } else if (strongMatchCount === 1) {
-        // 1 strong match = good confidence
-        baseScore = Math.min(0.85, 0.55 + weakMatchCount * 0.08);
+        // 1 strong match = high confidence (strong keywords are unique identifiers)
+        baseScore = Math.min(0.88, 0.70 + weakMatchCount * 0.06);
       } else if (weakMatchCount >= 3) {
         // 3+ weak matches with no strong = moderate confidence
         baseScore = Math.min(0.75, 0.40 + weakMatchCount * 0.10);
