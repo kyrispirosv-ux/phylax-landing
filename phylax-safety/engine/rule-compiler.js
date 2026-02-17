@@ -174,7 +174,13 @@ const TOPICS = {
     label: 'Profanity',
   },
   sports_video_games: {
-    aliases: ['sports video games', 'sports games', 'sports gaming', 'video game sports', 'gaming sports'],
+    aliases: [
+      'sports video games', 'sports games', 'sports gaming', 'video game sports', 'gaming sports',
+      'sports content relating to video games', 'sports content about video games',
+      'sports relating to video games', 'sports about video games',
+      'content relating to video games', 'content about video games',
+      'video game content', 'video games content',
+    ],
     // Strong keywords: uniquely identify sports video games (high weight)
     strong_keywords: [
       'nba 2k', 'nba2k', '2k25', '2k24', '2k23', '2k22', '2k21', '2k20', '2k19', '2k18', '2k17', '2k16',
@@ -192,7 +198,7 @@ const TOPICS = {
       'wwe 2k', 'ufc game', 'ufc undisputed',
       'gran turismo', 'forza motorsport', 'forza horizon',
       'rocket league', 'mario strikers',
-      'myplayer', 'mycareer', 'myteam', 'mypark',
+      'myplayer', 'mycareer', 'my career', 'myteam', 'my team', 'mypark', 'my player',
       'ultimate team', 'franchise mode', 'pro clubs',
       'badge grinding', 'vc glitch', 'vc coins',
       'park mode', 'rec center', 'neighborhood 2k',
@@ -264,6 +270,8 @@ const EXCEPTION_PATTERNS = [
   { pattern: /no\s+(?:content|videos?|posts?)\s+about\s+(.+?)\s+but\s+(?:regular\s+|normal\s+|real\s+|actual\s+)?(.+?)\s+(?:is\s+)?(?:ok(?:ay)?|fine|allowed)/i, blockGroup: 1, allowGroup: 2 },
   // "block X but allow/permit Y"
   { pattern: /block\s+(.+?)\s+but\s+(?:allow|permit|keep)\s+(.+)/i, blockGroup: 1, allowGroup: 2 },
+  // "block X but not Y" / "block X but not real/regular Y"
+  { pattern: /block\s+(.+?)\s+but\s+not\s+(?:regular\s+|normal\s+|real\s+|actual\s+)?(.+)/i, blockGroup: 1, allowGroup: 2 },
   // "no X but Y is okay/fine/allowed"
   { pattern: /no\s+(.+?)\s+but\s+(?:regular\s+|normal\s+|real\s+|actual\s+)?(.+?)\s+(?:is\s+)?(?:ok(?:ay)?|fine|allowed)/i, blockGroup: 1, allowGroup: 2 },
 ];
