@@ -57,6 +57,10 @@ export async function POST(req: NextRequest) {
                 return (
                     evt.event_type === 'PARENT_ALERT' ||
                     evt.reason_code === 'DOMAIN_BLOCK' ||
+                    evt.reason_code === 'VIDEO_BLOCKED' ||
+                    evt.reason_code === 'VIDEO_WARNED' ||
+                    evt.reason_code === 'SEARCH_RISK' ||
+                    evt.reason_code === 'SEARCH_BLOCKED' ||
                     evt.category === 'Gambling' ||
                     evt.category === 'Adult' ||
                     evt.category === 'Self-Harm'
