@@ -15,7 +15,7 @@ export default function Home() {
           <div className="hidden md:flex items-center gap-8 text-sm font-medium text-white/70">
             <Link href="#how-it-works" className="hover:text-white transition-colors">How it Works</Link>
             <Link href="#pricing" className="hover:text-white transition-colors">Pricing</Link>
-            <Link href="/safety-stance" className="hover:text-white transition-colors">Privacy</Link>
+            <Link href="/privacy-policy" className="hover:text-white transition-colors">Privacy</Link>
             <Link href="#faq" className="hover:text-white transition-colors">FAQ</Link>
           </div>
 
@@ -277,8 +277,8 @@ export default function Home() {
 
       <footer className="border-t border-white/10 py-12 text-center text-white/40 text-sm">
         <div className="flex flex-col items-center gap-4">
-          <Link href="/safety-stance" className="hover:text-white transition-colors">
-            Read our Safety Stance
+          <Link href="/privacy-policy" className="hover:text-white transition-colors">
+            Privacy Policy
           </Link>
           <p>&copy; {new Date().getFullYear()} Phylax Inc. All rights reserved.</p>
         </div>
