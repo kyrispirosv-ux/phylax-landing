@@ -52,6 +52,10 @@ export async function updateSession(request: NextRequest) {
             !path.startsWith("/pair") && // Install/Pairing landing page
             !path.startsWith("/onboarding") && // Onboarding flow
             !path.startsWith("/dashboard") && // Dashboard (allowed for mock/demo auth)
+            !path.startsWith("/rules") && // Rules page
+            !path.startsWith("/activity") && // Activity page
+            !path.startsWith("/devices") && // Devices page
+            !path.startsWith("/settings") && // Settings page
             !path.startsWith("/_next") && // Next.js internals
             !path.startsWith("/static") && // Static files
             path !== "/" && // Landing page

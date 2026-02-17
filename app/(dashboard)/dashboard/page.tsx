@@ -7,9 +7,10 @@ import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function DashboardOverview() {
-    const { devices, alerts, pairingCode, generatePairingCode, checkPairingStatus } = useStore();
+    const { devices, alerts, pairingCode, generatePairingCode, checkPairingStatus, addDevice } = useStore();
     const activeDeviceCount = devices.length;
     const [copied, setCopied] = useState(false);
+    const [manualCode, setManualCode] = useState('');
 
     // Initial code generation if needed
     useEffect(() => {
@@ -34,6 +35,18 @@ export default function DashboardOverview() {
             navigator.clipboard.writeText(pairingCode);
             setCopied(true);
             setTimeout(() => setCopied(false), 2000);
+        }
+    };
+
+    const handleManualVerify = () => {
+        if (manualCode.toUpperCase() === pairingCode) {
+            addDevice({
+                id: 'dev_' + Date.now(),
+                name: 'Chrome on Mac',
+                type: 'chrome',
+                lastSeen: 'Just now',
+                status: 'active'
+            });
         }
     };
 
@@ -102,6 +115,27 @@ export default function DashboardOverview() {
                             <div className="mt-6 flex items-center justify-center gap-2 text-white/30 text-xs animate-pulse">
                                 <div className="w-1.5 h-1.5 rounded-full bg-[#22D3EE]" />
                                 Waiting for connection...
+                            </div>
+
+                            <div className="mt-6 pt-6 border-t border-white/10">
+                                <p className="text-center text-xs text-white/40 mb-3">Or confirm code manually</p>
+                                <div className="flex gap-2 max-w-[200px] mx-auto">
+                                    <input
+                                        type="text"
+                                        value={manualCode}
+                                        onChange={(e) => setManualCode(e.target.value.toUpperCase())}
+                                        placeholder="ENTER CODE"
+                                        className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-center text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-[#7C5CFF]"
+                                        maxLength={6}
+                                    />
+                                    <button
+                                        onClick={handleManualVerify}
+                                        disabled={!manualCode || manualCode.length < 6}
+                                        className="px-3 py-2 rounded-lg bg-[#7C5CFF] text-white text-xs font-bold hover:bg-[#7C5CFF]/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        VERIFY
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
