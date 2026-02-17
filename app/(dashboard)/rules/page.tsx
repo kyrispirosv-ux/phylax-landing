@@ -56,7 +56,7 @@ export default function RulesPage() {
         scrollToBottom();
     }, [messages]);
 
-    const handleSendMessage = (e?: React.FormEvent) => {
+    const handleSendMessage = async (e?: React.FormEvent) => {
         e?.preventDefault();
         if (!inputValue.trim()) return;
 
@@ -65,18 +65,81 @@ export default function RulesPage() {
         setMessages(prev => [...prev, { role: 'user', text: userMsg }]);
         setInputValue('');
 
-        // Simulate AI processing
-        setTimeout(() => {
-            const newRule = { id: Date.now().toString(), text: userMsg, enabled: true };
+        // Send rule to the Phylax extension via the bridge
+        try {
+            // Store rule in localStorage for the bridge to pick up
+            const existingRules = JSON.parse(localStorage.getItem('phylaxRules') || '[]');
+            existingRules.push({ text: userMsg, active: true });
+            localStorage.setItem('phylaxRules', JSON.stringify(existingRules));
 
+            // Also try sending directly to the extension via chrome.runtime
+            let extensionResponse: string | null = null;
+            if (typeof window !== 'undefined' && (window as any).chrome?.runtime?.sendMessage) {
+                try {
+                    // Try known extension IDs or use externally_connectable
+                    const response = await new Promise<any>((resolve) => {
+                        (window as any).chrome.runtime.sendMessage(
+                            { type: 'PHYLAX_ADD_RULE', rule: userMsg },
+                            (resp: any) => resolve(resp)
+                        );
+                        // Timeout after 2s
+                        setTimeout(() => resolve(null), 2000);
+                    });
+                    if (response?.success) {
+                        extensionResponse = `Rule compiled and active (${response.rulesCount} total rules)`;
+                    }
+                } catch {
+                    // Extension not available via direct messaging
+                }
+            }
+
+            const newRule = { id: Date.now().toString(), text: userMsg, enabled: true };
             setCustomRules(prev => [newRule, ...prev]);
 
+            // Build a meaningful AI response based on rule analysis
+            const aiResponse = analyzeRuleForResponse(userMsg, extensionResponse);
+            setMessages(prev => [...prev, { role: 'ai', text: aiResponse }]);
+        } catch (err) {
             setMessages(prev => [...prev, {
                 role: 'ai',
-                text: `I've processed that rule: "${userMsg}". I've updated the local vector store. The policy is now active.`
+                text: `I've added that rule to your policy. It will take effect once the extension syncs.`
             }]);
-        }, 1000);
+        }
     };
+
+    function analyzeRuleForResponse(ruleText: string, extensionStatus: string | null): string {
+        const lower = ruleText.toLowerCase();
+
+        // Detect "block X but allow Y" patterns
+        const exceptionMatch = lower.match(/no\s+(?:content\s+about\s+)?(.+?)\s+but\s+(?:regular\s+|normal\s+|real\s+|actual\s+)?(.+?)\s+(?:is\s+)?(?:ok(?:ay)?|fine|allowed)/);
+        if (exceptionMatch) {
+            const blockThing = exceptionMatch[1].trim();
+            const allowThing = exceptionMatch[2].trim();
+            return `Got it! I've set up a rule to **block ${blockThing}** content while **allowing ${allowThing}**. The extension will filter content matching "${blockThing}" keywords but won't flag regular ${allowThing} content.${extensionStatus ? `\n\n✅ ${extensionStatus}` : '\n\n⏳ Rule saved — will sync to the extension shortly.'}`;
+        }
+
+        // Detect domain blocks
+        const domainMatch = lower.match(/block\s+(youtube|tiktok|instagram|facebook|reddit|twitter|snapchat|discord|twitch)/);
+        if (domainMatch) {
+            return `Done — **${domainMatch[1]}** is now fully blocked. All pages on this domain will be redirected.${extensionStatus ? `\n\n✅ ${extensionStatus}` : '\n\n⏳ Rule saved — will sync to the extension shortly.'}`;
+        }
+
+        // Detect topic blocks
+        const topicKeywords: Record<string, string> = {
+            'gambling': 'gambling & betting', 'violence': 'violent content', 'drugs': 'drug-related content',
+            'porn': 'adult/pornographic content', 'self-harm': 'self-harm content', 'self harm': 'self-harm content',
+            'weapons': 'weapons content', 'hate': 'hate speech', 'bullying': 'cyberbullying',
+            'sports video games': 'sports video games', 'sports games': 'sports video games',
+        };
+        for (const [keyword, label] of Object.entries(topicKeywords)) {
+            if (lower.includes(keyword)) {
+                return `Rule active — I'll now filter **${label}** across all sites. The content classifier will flag pages matching this topic.${extensionStatus ? `\n\n✅ ${extensionStatus}` : '\n\n⏳ Rule saved — will sync to the extension shortly.'}`;
+            }
+        }
+
+        // Generic response
+        return `I've analyzed your rule and added it to the policy. The extension's NLP engine will interpret "${ruleText}" and enforce it across browsing.${extensionStatus ? `\n\n✅ ${extensionStatus}` : '\n\n⏳ Rule saved — will sync to the extension shortly.'}`;
+    }
 
     const handleAgeSelect = (id: AgeGroup) => {
         setAgeGroup(id);

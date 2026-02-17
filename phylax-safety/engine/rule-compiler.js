@@ -173,6 +173,11 @@ const TOPICS = {
     keywords: ['fuck', 'shit', 'ass', 'damn', 'bitch', 'bastard', 'crap', 'piss'],
     label: 'Profanity',
   },
+  sports_video_games: {
+    aliases: ['sports video games', 'sports games', 'sports gaming', 'video game sports', 'gaming sports'],
+    keywords: ['fifa', 'madden', 'nba 2k', '2k25', '2k24', '2k23', 'nba2k', 'mlb the show', 'nhl 2', 'ea sports fc', 'ea fc', 'pes', 'efootball', 'top spin', 'wwe 2k', 'ufc game', 'f1 game', 'gran turismo', 'forza', 'rocket league', 'mario strikers', 'sports video game', 'sports game review', 'sports game gameplay', 'virtual match', 'gaming sports', 'esports fifa', 'esports madden', 'video game football', 'video game basketball', 'video game soccer', 'video game baseball', 'game mode', 'ultimate team', 'myplayer', 'mycareer', 'franchise mode', 'pro clubs'],
+    label: 'Sports Video Games',
+  },
 };
 
 // ═════════════════════════════════════════════════════════════════
@@ -199,6 +204,20 @@ const CONDITIONAL_PATTERNS = [
   /allow\s+\w+\s+but\s+block/i,
   // "X but not Y" / "X but block Y"
   /\w+\s+but\s+(?:not|block|warn|flag)/i,
+  // "no content about X but Y is okay/fine/allowed"
+  /no\s+(?:content|videos?|posts?)\s+about\s+.+\s+but\s+.+\s+(?:is\s+)?(?:ok(?:ay)?|fine|allowed)/i,
+  // "no X but regular/normal Y is okay"
+  /no\s+.+\s+but\s+(?:regular|normal|real|actual)\s+.+\s+(?:is\s+)?(?:ok(?:ay)?|fine|allowed)/i,
+];
+
+// Patterns indicating "block X but allow Y" (content with exceptions)
+const EXCEPTION_PATTERNS = [
+  // "no <content> about X but Y is okay/fine/allowed"
+  { pattern: /no\s+(?:content|videos?|posts?)\s+about\s+(.+?)\s+but\s+(?:regular\s+|normal\s+|real\s+|actual\s+)?(.+?)\s+(?:is\s+)?(?:ok(?:ay)?|fine|allowed)/i, blockGroup: 1, allowGroup: 2 },
+  // "block X but allow/permit Y"
+  { pattern: /block\s+(.+?)\s+but\s+(?:allow|permit|keep)\s+(.+)/i, blockGroup: 1, allowGroup: 2 },
+  // "no X but Y is okay/fine/allowed"
+  { pattern: /no\s+(.+?)\s+but\s+(?:regular\s+|normal\s+|real\s+|actual\s+)?(.+?)\s+(?:is\s+)?(?:ok(?:ay)?|fine|allowed)/i, blockGroup: 1, allowGroup: 2 },
 ];
 
 // Patterns indicating explicit full domain block
@@ -264,6 +283,30 @@ export function compileRule(ruleText) {
   const textLower = text.toLowerCase();
 
   debug(id, 'input', { raw_text: text });
+
+  // Step 0: Check for exception patterns FIRST ("no X but Y is okay")
+  // These require special handling: block X + allow Y as exclusion
+  const exceptionRule = tryBuildExceptionRule(id, text, textLower);
+  if (exceptionRule) {
+    debug(id, 'exception_rule_built', { block: exceptionRule._blockLabels, allow: exceptionRule._allowLabels });
+    // Skip to validation
+    const validation = validateRule(exceptionRule);
+    if (validation.valid) {
+      return {
+        ...exceptionRule,
+        parsed_intent: 'EXCEPTION_CONTENT_BLOCK',
+        parsed_intent_model: {
+          user_intent_type: INTENT_TYPES.BLOCK_TOPIC_GLOBAL,
+          strength: 'hard',
+          confidence: 0.90,
+          scope_granularity: 'global',
+        },
+        debug_reason_codes: [],
+        _compiled: true,
+        _errors: [],
+      };
+    }
+  }
 
   // Step 1: Extract mentioned sites
   const mentionedSites = extractMentionedSites(textLower);
@@ -607,6 +650,95 @@ function resolveCategoryName(rawName) {
     if (cat.startsWith(rawName) || rawName.startsWith(cat)) return cat;
   }
   return rawName;
+}
+
+// ═════════════════════════════════════════════════════════════════
+// EXCEPTION RULE BUILDER ("no X but Y is okay")
+// ═════════════════════════════════════════════════════════════════
+
+/**
+ * Try to build an exception-based rule from natural language like:
+ *   "no content about sports video games but regular sports is okay"
+ *   "block gambling content but sports betting news is fine"
+ *
+ * Returns null if the text doesn't match exception patterns.
+ */
+function tryBuildExceptionRule(id, sourceText, textLower) {
+  for (const { pattern, blockGroup, allowGroup } of EXCEPTION_PATTERNS) {
+    const match = textLower.match(pattern);
+    if (!match) continue;
+
+    const blockPhrase = match[blockGroup].trim();
+    const allowPhrase = match[allowGroup].trim();
+
+    debug(id, 'exception_pattern_match', { blockPhrase, allowPhrase, pattern: pattern.toString() });
+
+    // Extract topic labels from block and allow phrases
+    const blockLabels = extractLabels(blockPhrase);
+    const allowLabels = extractLabels(allowPhrase);
+
+    // If we found structured labels for the block phrase, great
+    // If not, try to match the raw phrase against topics using keyword search
+    if (blockLabels.length === 0) {
+      // Try to find the best matching topic by checking if the phrase contains topic keywords
+      for (const [topicKey, topic] of Object.entries(TOPICS)) {
+        for (const alias of topic.aliases) {
+          if (blockPhrase.includes(alias)) {
+            blockLabels.push(topicKey);
+            break;
+          }
+        }
+        if (blockLabels.length > 0) break;
+        // Also check if the phrase IS an alias with extra words
+        for (const alias of topic.aliases) {
+          if (alias.split(' ').every(word => blockPhrase.includes(word))) {
+            blockLabels.push(topicKey);
+            break;
+          }
+        }
+        if (blockLabels.length > 0) break;
+      }
+    }
+
+    // Build the rule with block labels and exception keywords
+    const blockTopicLabels = blockLabels.map(l => TOPICS[l]?.label || l).join(', ');
+    const allowTopicLabels = allowLabels.length > 0
+      ? allowLabels.map(l => TOPICS[l]?.label || l).join(', ')
+      : allowPhrase;
+
+    // Build classifier with labels_any (block) and optional labels_not (allow)
+    const classifier = {
+      labels_any: blockLabels.length > 0 ? blockLabels : undefined,
+      threshold: 0.55,
+    };
+    if (allowLabels.length > 0) {
+      classifier.labels_not = allowLabels;
+    }
+
+    // If no block labels were found, use raw text matching with the block phrase
+    // enhanced with the allow phrase as an exclusion
+    const condition = blockLabels.length > 0
+      ? { classifier }
+      : { raw_text: blockPhrase, exception_text: allowPhrase };
+
+    return {
+      id,
+      priority: 60,
+      source_text: sourceText,
+      scope: { global: true },
+      condition,
+      action: { type: RULE_ACTIONS.BLOCK_CONTENT, fallback: 'WARN_IF_UNCERTAIN' },
+      explain: {
+        child: `Content about ${blockTopicLabels || blockPhrase} is restricted. ${allowTopicLabels || allowPhrase} content is allowed.`,
+        parent: `Block: "${blockPhrase}" | Allow exception: "${allowPhrase}"`,
+      },
+      _blockLabels: blockLabels,
+      _allowLabels: allowLabels,
+      _blockPhrase: blockPhrase,
+      _allowPhrase: allowPhrase,
+    };
+  }
+  return null;
 }
 
 // ═════════════════════════════════════════════════════════════════
@@ -1100,6 +1232,7 @@ function evaluateCondition(condition, content, domain, url, isExplicitlyScoped =
       'block', 'allow', 'warn', 'flag', 'restrict', 'limit', 'ban',
       'content', 'site', 'sites', 'page', 'pages', 'videos', 'posts',
       'only', 'just', 'about', 'from', 'that', 'this', 'with', 'dont',
+      'okay', 'fine', 'allowed', 'regular', 'normal', 'real', 'actual',
     ]);
     const words = condition.raw_text.split(/\s+/)
       .filter(w => w.length > 3 && !stopWords.has(w));
@@ -1108,6 +1241,23 @@ function evaluateCondition(condition, content, domain, url, isExplicitlyScoped =
     }
     const matchCount = words.filter(w => content.includes(w)).length;
     const ratio = matchCount / (words.length || 1);
+
+    // Exception handling: if we have exception_text and the content matches it,
+    // suppress the block (the content is in the "allowed" exception category)
+    if (condition.exception_text && ratio >= 0.3) {
+      const exceptionWords = condition.exception_text.split(/\s+/)
+        .filter(w => w.length > 3 && !stopWords.has(w));
+      if (exceptionWords.length > 0) {
+        const exceptionMatchCount = exceptionWords.filter(w => content.includes(w)).length;
+        const exceptionRatio = exceptionMatchCount / exceptionWords.length;
+        // If content matches the exception AND doesn't strongly match the block terms,
+        // then this is the "allowed" category — don't block
+        if (exceptionRatio >= 0.5 && ratio < 0.8) {
+          return { matched: false, uncertain: false, reason: `exception_override:${condition.exception_text}:${exceptionRatio.toFixed(2)}`, confidence: 0 };
+        }
+      }
+    }
+
     // Apply contextual threshold: require higher confidence on search/educational pages
     // (but not for rules that explicitly target this domain)
     let requiredRatio = 0.5;
