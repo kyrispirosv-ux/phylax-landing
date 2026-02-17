@@ -40,6 +40,7 @@ interface AppState {
     alerts: Alert[];
     fetchAlerts: () => Promise<void>;
     addAlert: (alert: Alert) => void;
+    clearAlerts: () => Promise<void>;
 
     // Policy / Settings
     ageGroup: number;
@@ -202,7 +203,22 @@ export const useStore = create<AppState>((set) => ({
             console.error("Failed to fetch alerts from server", e);
         }
     },
-    addAlert: (alert) => set((state) => ({ alerts: [alert, ...state.alerts] })),
+    addAlert: (alert: Alert) => set((state) => ({ alerts: [alert, ...state.alerts] })),
+    clearAlerts: async () => {
+        set({ alerts: [] });
+
+        // Clear extension storage if present
+        if (typeof window !== 'undefined' && document.documentElement.hasAttribute('data-phylax-extension')) {
+            window.postMessage({ type: 'PHYLAX_CLEAR_ACTIVITY' }, '*');
+        }
+
+        // Clear server/mock storage
+        try {
+            await fetch('/api/activity', { method: 'DELETE' });
+        } catch (e) {
+            console.error("Failed to clear server alerts", e);
+        }
+    },
 
     ageGroup: 2, // Default to 8-11 "Guided Internet"
     setAgeGroup: (age) => set({ ageGroup: age }),

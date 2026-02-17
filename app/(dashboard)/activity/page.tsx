@@ -2,10 +2,10 @@
 
 import { useEffect } from 'react';
 import { useStore } from '@/store/useStore';
-import { AlertTriangle, Clock, Filter, Search } from 'lucide-react';
+import { AlertTriangle, Clock, Filter, Search, Trash2 } from 'lucide-react';
 
 export default function ActivityPage() {
-    const { alerts, fetchAlerts } = useStore();
+    const { alerts, fetchAlerts, clearAlerts } = useStore();
 
     useEffect(() => {
         fetchAlerts();
@@ -24,6 +24,17 @@ export default function ActivityPage() {
                     </button>
                     <button className="bg-white/5 hover:bg-white/10 text-white p-2 rounded-lg border border-white/10">
                         <Filter className="w-5 h-5" />
+                    </button>
+                    <button
+                        onClick={() => {
+                            if (confirm('Are you sure you want to clear all activity logs?')) {
+                                clearAlerts();
+                            }
+                        }}
+                        className="bg-white/5 hover:bg-red-500/20 text-white hover:text-red-400 p-2 rounded-lg border border-white/10 transition-colors"
+                        title="Clear History"
+                    >
+                        <Trash2 className="w-5 h-5" />
                     </button>
                 </div>
             </div>

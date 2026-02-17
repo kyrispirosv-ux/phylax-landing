@@ -62,6 +62,44 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ alerts: formattedAlerts });
 }
 
+export async function DELETE(req: NextRequest) {
+    try {
+        const supabase = await createServerSupabase();
+        const { data: { session } } = await supabase.auth.getSession();
+
+        if (session) {
+            // Authenticated: Clear from Supabase for this family
+            const { data: parent } = await supabase
+                .from('parents')
+                .select('family_id')
+                .eq('id', session.user.id)
+                .single() as { data: { family_id: string } | null; error: any };
+
+            if (parent?.family_id) {
+                const { error } = await supabase
+                    .from('alerts')
+                    .delete()
+                    .eq('family_id', parent.family_id);
+
+                if (error) {
+                    console.error('[Activity API] Supabase delete error:', error);
+                    throw error;
+                }
+            }
+        } else {
+            // Demo mode: Clear mock store
+            // This is a global clear for the demo instance
+            (MockAlertStore as any).clear();
+            console.log('[Activity API] Cleared mock alert store');
+        }
+
+        return NextResponse.json({ success: true });
+    } catch (e) {
+        console.error('[Activity API] Failed to clear alerts:', e);
+        return NextResponse.json({ error: 'Failed to clear alerts' }, { status: 500 });
+    }
+}
+
 function getCategoryFromAlert(alert: any) {
     // Map reason_code to human-readable category
     if (alert.reason_code === 'VIDEO_BLOCKED' || alert.reason_code === 'VIDEO_WARNED') return 'Video';
