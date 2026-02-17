@@ -159,13 +159,25 @@
         }
         // Also clear any source elements inside
         el.querySelectorAll('source').forEach(s => s.remove());
+        // Hide the element completely
+        el.style.display = 'none';
+        el.style.visibility = 'hidden';
       } catch { /* ignore */ }
     });
-    // Also hide the YouTube player to prevent visual playback
+    // Hide the YouTube player to prevent visual playback
     const player = document.querySelector('#movie_player, .html5-video-player');
     if (player) {
       player.style.visibility = 'hidden';
+      // Use YouTube's internal API
+      if (typeof player.stopVideo === 'function') player.stopVideo();
+      if (typeof player.pauseVideo === 'function') player.pauseVideo();
     }
+    // Kill the mini player
+    const miniPlayer = document.querySelector('ytd-miniplayer');
+    if (miniPlayer) miniPlayer.style.display = 'none';
+    // Kill autoplay
+    const autoplayBtn = document.querySelector('.ytp-autonav-toggle-button[aria-checked="true"]');
+    if (autoplayBtn) autoplayBtn.click();
   }
 
   async function checkWatchPageVideo() {
@@ -373,11 +385,19 @@
     // Restore body scrolling
     document.documentElement.style.overflow = '';
     document.body.style.overflow = '';
+    // Restore video/audio element visibility
+    document.querySelectorAll('video, audio').forEach(el => {
+      el.style.display = '';
+      el.style.visibility = '';
+    });
     // Restore player visibility
     const player = document.querySelector('#movie_player, .html5-video-player');
     if (player) {
       player.style.visibility = '';
     }
+    // Restore mini player
+    const miniPlayer = document.querySelector('ytd-miniplayer');
+    if (miniPlayer) miniPlayer.style.display = '';
   }
 
   // ═════════════════════════════════════════════════════════════════

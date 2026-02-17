@@ -175,7 +175,42 @@ const TOPICS = {
   },
   sports_video_games: {
     aliases: ['sports video games', 'sports games', 'sports gaming', 'video game sports', 'gaming sports'],
-    keywords: ['fifa', 'madden', 'nba 2k', '2k25', '2k24', '2k23', '2k22', '2k21', '2k20', '2k19', '2k18', '2k17', '2k16', 'nba2k', 'mlb the show', 'nhl 2', 'ea sports fc', 'ea fc', 'pes', 'efootball', 'top spin', 'wwe 2k', 'ufc game', 'f1 game', 'f1 2', 'gran turismo', 'forza', 'rocket league', 'mario strikers', 'sports video game', 'sports game review', 'sports game gameplay', 'virtual match', 'gaming sports', 'esports fifa', 'esports madden', 'video game football', 'video game basketball', 'video game soccer', 'video game baseball', 'game mode', 'ultimate team', 'myplayer', 'mycareer', 'franchise mode', 'pro clubs', 'myteam', 'park mode', 'rec center', 'neighborhood 2k', 'gameplay 2k', 'build 2k', 'best build', 'dribble moves', 'badge grinding', 'vc glitch'],
+    // Strong keywords: uniquely identify sports video games (high weight)
+    strong_keywords: [
+      'nba 2k', 'nba2k', '2k25', '2k24', '2k23', '2k22', '2k21', '2k20', '2k19', '2k18', '2k17', '2k16',
+      'madden 2', 'madden nfl', 'madden ultimate',
+      'ea sports fc', 'ea fc 2', 'ea fc24', 'ea fc25',
+      'efootball', 'pes 202',
+      'mlb the show', 'nhl 2k', 'nhl 25', 'nhl 24', 'nhl 23',
+      'wwe 2k', 'ufc game', 'ufc undisputed',
+      'gran turismo', 'forza motorsport', 'forza horizon',
+      'rocket league', 'mario strikers',
+      'myplayer', 'mycareer', 'myteam', 'mypark',
+      'ultimate team', 'franchise mode', 'pro clubs',
+      'badge grinding', 'vc glitch', 'vc coins',
+      'park mode', 'rec center', 'neighborhood 2k',
+      'gameplay 2k', 'build 2k',
+      'sports video game', 'sports game gameplay', 'sports game review',
+    ],
+    // Weak keywords: need 2+ matches or corroboration with strong (low weight)
+    keywords: [
+      'fifa', 'madden', 'f1 game', 'f1 2', 'top spin',
+      'game mode', 'best build', 'dribble moves',
+      'virtual match', 'gaming sports',
+      'esports fifa', 'esports madden',
+      'video game football', 'video game basketball', 'video game soccer', 'video game baseball',
+    ],
+    // Real sports signals that SUPPRESS the score (prevent false positives)
+    negative_keywords: [
+      'highlights', 'recap', 'live game', 'final score', 'postgame',
+      'press conference', 'interview', 'draft pick', 'trade deadline',
+      'injury report', 'starting lineup', 'box score', 'standings',
+      'playoff', 'championship', 'world cup', 'super bowl', 'world series',
+      'premier league', 'la liga', 'bundesliga', 'serie a', 'ligue 1',
+      'real madrid', 'barcelona', 'manchester', 'liverpool', 'arsenal',
+      'lebron', 'curry', 'mahomes', 'messi', 'ronaldo', 'haaland',
+      'training camp', 'preseason', 'regular season', 'postseason',
+    ],
     label: 'Sports Video Games',
   },
 };
@@ -991,27 +1026,67 @@ export function scoreContentForLabel(content, domain, url, label, skipContextRed
     score = Math.max(score, 0.95);
   }
 
-  // 2. Content keyword matching
+  // 2. Content keyword matching (supports strong_keywords + negative_keywords)
   const topic = TOPICS[label];
   if (topic) {
-    let matchCount = 0;
-    const matchedKeywords = [];
-    for (const kw of topic.keywords) {
-      if (content.includes(kw)) {
-        matchCount++;
-        matchedKeywords.push(kw);
-      }
+    let strongMatchCount = 0;
+    let weakMatchCount = 0;
+
+    // Check strong keywords first (high-confidence, unique identifiers)
+    const strongKws = topic.strong_keywords || [];
+    for (const kw of strongKws) {
+      if (content.includes(kw)) strongMatchCount++;
     }
-    if (matchCount > 0) {
-      // Require multiple keyword matches for higher confidence
-      const baseScore = matchCount === 1 ? 0.35 : Math.min(0.90, 0.40 + matchCount * 0.12);
+
+    // Check regular (weak) keywords
+    for (const kw of topic.keywords) {
+      if (content.includes(kw)) weakMatchCount++;
+    }
+
+    const totalMatches = strongMatchCount + weakMatchCount;
+
+    if (totalMatches > 0) {
+      let baseScore;
+      if (strongMatchCount >= 2) {
+        // 2+ strong matches = very high confidence
+        baseScore = Math.min(0.92, 0.65 + strongMatchCount * 0.10);
+      } else if (strongMatchCount === 1) {
+        // 1 strong match = good confidence
+        baseScore = Math.min(0.85, 0.55 + weakMatchCount * 0.08);
+      } else if (weakMatchCount >= 3) {
+        // 3+ weak matches with no strong = moderate confidence
+        baseScore = Math.min(0.75, 0.40 + weakMatchCount * 0.10);
+      } else if (weakMatchCount === 2) {
+        // 2 weak matches = low confidence
+        baseScore = 0.40;
+      } else {
+        // 1 weak match only = very low confidence (likely false positive)
+        baseScore = 0.20;
+      }
       score = Math.max(score, baseScore);
+    }
+
+    // Check negative keywords (suppress score for real sports content)
+    const negKws = topic.negative_keywords || [];
+    if (negKws.length > 0 && score > 0) {
+      let negMatchCount = 0;
+      for (const kw of negKws) {
+        if (content.includes(kw)) negMatchCount++;
+      }
+      if (negMatchCount > 0 && strongMatchCount === 0) {
+        // Real sports signals + no strong video game signals → suppress entirely
+        score = 0;
+      } else if (negMatchCount >= 2 && strongMatchCount <= 1) {
+        // Multiple real sports signals + weak video game signal → heavy reduction
+        score *= 0.3;
+      }
     }
   }
 
   // 3. URL keyword signals
   if (topic) {
-    for (const kw of topic.keywords) {
+    const urlKws = [...(topic.strong_keywords || []), ...topic.keywords];
+    for (const kw of urlKws) {
       if (kw.length >= 5 && url.includes(kw)) {
         score = Math.max(score, 0.7);
         break;

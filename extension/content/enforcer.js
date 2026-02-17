@@ -684,17 +684,51 @@
   // ═════════════════════════════════════════════════════════════════
 
   function killAllMedia() {
+    // Kill all video/audio elements — pause, mute, remove src, and HIDE
     document.querySelectorAll('video, audio').forEach(el => {
       try {
         el.pause();
         el.muted = true;
         el.volume = 0;
+        el.currentTime = 0;
         if (el.src) {
           el.removeAttribute('src');
           el.load();
         }
+        // Remove all source children too
+        el.querySelectorAll('source').forEach(s => s.remove());
+        // Hide the element to prevent visual playback
+        el.style.display = 'none';
+        el.style.visibility = 'hidden';
       } catch { /* ignore */ }
     });
+
+    // YouTube-specific: kill mini player, autoplay, and player visibility
+    const domain = window.location.hostname;
+    if (domain.includes('youtube.com')) {
+      try {
+        // Dismiss YouTube mini player
+        const miniPlayer = document.querySelector('ytd-miniplayer');
+        if (miniPlayer) miniPlayer.style.display = 'none';
+        // Hide the main player area
+        const moviePlayer = document.querySelector('#movie_player');
+        if (moviePlayer) {
+          moviePlayer.style.visibility = 'hidden';
+          // Try to use YouTube's internal API to stop
+          if (typeof moviePlayer.stopVideo === 'function') moviePlayer.stopVideo();
+          if (typeof moviePlayer.pauseVideo === 'function') moviePlayer.pauseVideo();
+        }
+        // Hide shorts player
+        const shortsPlayer = document.querySelector('ytd-reel-video-renderer[is-active] video');
+        if (shortsPlayer) {
+          shortsPlayer.pause();
+          shortsPlayer.style.display = 'none';
+        }
+        // Kill autoplay
+        const autoplayToggle = document.querySelector('.ytp-autonav-toggle-button[aria-checked="true"]');
+        if (autoplayToggle) autoplayToggle.click();
+      } catch { /* ignore */ }
+    }
   }
 
   // ═════════════════════════════════════════════════════════════════
@@ -803,6 +837,17 @@
     // Restore body scrolling
     document.documentElement.style.overflow = '';
     document.body.style.overflow = '';
+
+    // Restore video/audio element visibility (hidden by killAllMedia)
+    document.querySelectorAll('video, audio').forEach(el => {
+      el.style.display = '';
+      el.style.visibility = '';
+    });
+    // Restore YouTube-specific elements
+    const miniPlayer = document.querySelector('ytd-miniplayer');
+    if (miniPlayer) miniPlayer.style.display = '';
+    const moviePlayer = document.querySelector('#movie_player');
+    if (moviePlayer) moviePlayer.style.visibility = '';
 
     if (currentOverlay) {
       currentOverlay.remove();
