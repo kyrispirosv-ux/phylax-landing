@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createServerSupabase, createServiceClient } from "@/lib/supabase/server";
+import { MockPairingStore } from "@/lib/mockPairingStore";
 import crypto from "crypto";
 
 /** SHA-256 hex hash for one-way storage */
@@ -12,27 +13,38 @@ function sha256(value: string): string {
  * Parent generates a pairing token for a child.
  * Returns: token_id, secret, short_code, install_link, expires_at
  *
- * Security: raw secret and short_code are NEVER stored —
- * only their SHA-256 hashes are persisted in the database.
+ * In demo mode (no auth), returns a mock code stored in MockPairingStore.
  */
 export async function POST(request: Request) {
-    // Authenticate the parent
-    const supabase = await createServerSupabase();
-    const { data: { user } } = await supabase.auth.getUser();
+    // Try to authenticate the parent
+    let user = null;
+    try {
+        const supabase = await createServerSupabase();
+        const { data } = await supabase.auth.getUser();
+        user = data?.user;
+    } catch {
+        // Supabase not configured — demo mode
+    }
+
     if (!user) {
-        // For demo/dev purposes, if no user is found, we might want to bypass or mock.
-        // However, strictly speaking, pairing requires a user.
-        // If we are in the landing page flow without auth, we might need a dummy user or handle this differently.
-        // Given the context of "Link this Device" in existing code, let's assume valid user or handle error.
+        // Demo mode: generate a mock pairing code
+        const ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+        let shortCode = "";
+        for (let i = 0; i < 6; i++) {
+            shortCode += ALPHABET[Math.floor(Math.random() * ALPHABET.length)];
+        }
 
-        // Check if we are in a dev environment/demo mode where we can use a service role to find *any* parent to bind to?
-        // No, that is unsafe. 
-        // If the user is on the onboarding page, they might NOT be logged in yet?
-        // The onboarding flow seems to be "Install Extension -> Link Device -> Dashboard".
-        // If they aren't logged in, who are we checking?
+        MockPairingStore.create(shortCode);
+        console.log(`[Pairing Generate] Demo mode: created mock code ${shortCode}`);
 
-        // For now, let's return 401. The frontend should handle this.
-        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        return NextResponse.json({
+            token_id: `mock_${Date.now()}`,
+            secret: "demo",
+            short_code: shortCode,
+            install_link: "",
+            expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
+            child_id: "child_demo",
+        });
     }
 
     const body = await request.json();
