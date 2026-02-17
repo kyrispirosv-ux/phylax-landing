@@ -1,217 +1,232 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Shield, Save, AlertCircle, Check, Sparkles, User, Info, Lock } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Shield, Save, AlertCircle, Check, Sparkles, User, Info, Lock, Send, Bot, X } from 'lucide-react';
 import { useStore } from '@/store/useStore';
 import { AGE_POLICIES, getPolicyForAge, AgeGroup } from '@/lib/policyEngine';
 
 export default function RulesPage() {
     const { ageGroup, setAgeGroup } = useStore();
     const [policy, setPolicy] = useState(getPolicyForAge(ageGroup));
-    const [localThreshold, setLocalThreshold] = useState(policy.blockThreshold * 100);
-    const [intent, setIntent] = useState('');
+    const [messages, setMessages] = useState<Array<{ role: 'user' | 'ai', text: string }>>([
+        { role: 'ai', text: "Hi, I'm Phylax. I manage your family's safety policy. Determine a new rule in plain English, and I will translate it into enforcement logic." }
+    ]);
+    const [inputValue, setInputValue] = useState('');
+    const messagesEndRef = useRef<HTMLDivElement>(null);
+
+    // Mock category toggles state
+    const [categories, setCategories] = useState({
+        adult: true,
+        gambling: true,
+        weapons: false,
+        social: false,
+        streaming: false
+    });
 
     useEffect(() => {
         const newPolicy = getPolicyForAge(ageGroup);
         setPolicy(newPolicy);
-        setLocalThreshold(newPolicy.blockThreshold * 100);
+
+        // Auto-update categories based on age policy
+        // This simulates the policy engine controlling the presets
+        if (newPolicy.id === 0) { // Under 5
+            setCategories({ adult: true, gambling: true, weapons: true, social: true, streaming: true });
+        } else if (newPolicy.id === 4) { // 14+
+            setCategories({ adult: true, gambling: true, weapons: false, social: false, streaming: false });
+        }
+        // ... other mapping logic would go here
     }, [ageGroup]);
 
-    const handleSave = () => {
-        // In a real app, we would save overrides here
-        console.log("Saving policy overrides for age group", ageGroup);
+    const scrollToBottom = () => {
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    };
+
+    useEffect(() => {
+        scrollToBottom();
+    }, [messages]);
+
+    const handleSendMessage = (e?: React.FormEvent) => {
+        e?.preventDefault();
+        if (!inputValue.trim()) return;
+
+        // Add user message
+        const userMsg = inputValue;
+        setMessages(prev => [...prev, { role: 'user', text: userMsg }]);
+        setInputValue('');
+
+        // Simulate AI processing
+        setTimeout(() => {
+            setMessages(prev => [...prev, {
+                role: 'ai',
+                text: `I've processed that rule: "${userMsg}". I've updated the local vector store. The policy is now active.`
+            }]);
+        }, 1000);
+    };
+
+    const handleAgeSelect = (id: AgeGroup) => {
+        setAgeGroup(id);
+        const name = AGE_POLICIES[id].name;
+        setMessages(prev => [...prev, { role: 'ai', text: `Switched mode to ${name}. Global settings updated.` }]);
     };
 
     return (
-        <div className="max-w-5xl mx-auto space-y-8 pb-10">
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-2xl font-bold text-white mb-1">Protection Policy</h1>
-                    <p className="text-white/60 text-sm">Configure safety rules based on developmental stage.</p>
-                </div>
-                <button
-                    onClick={handleSave}
-                    className="bg-[#7C5CFF] hover:bg-[#7C5CFF]/90 text-white px-5 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 shadow-lg shadow-[#7C5CFF]/20 transition-all"
-                >
-                    <Save className="w-4 h-4" /> Save Changes
-                </button>
-            </div>
-
-            {/* Age Group Selector */}
-            <div className="glass-card p-2 rounded-2xl border border-white/10 flex p-1.5 overflow-x-auto">
-                {Object.values(AGE_POLICIES).map((p) => {
-                    const isActive = ageGroup === p.id;
-                    return (
-                        <button
-                            key={p.id}
-                            onClick={() => setAgeGroup(p.id)}
-                            className={`flex-1 min-w-[140px] px-4 py-4 rounded-xl transition-all relative group ${isActive
-                                    ? 'bg-[#7C5CFF] text-white shadow-lg'
-                                    : 'hover:bg-white/5 text-white/50 hover:text-white'
-                                }`}
-                        >
-                            <div className="text-xs font-bold uppercase tracking-wider mb-1 opacity-70">{p.range}</div>
-                            <div className={`font-bold text-sm ${isActive ? 'text-white' : 'text-white/80'}`}>{p.name}</div>
-                            {isActive && (
-                                <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-white rounded-full" />
-                            )}
-                        </button>
-                    );
-                })}
-            </div>
-
-            <div className="grid lg:grid-cols-3 gap-8">
-                {/* Main Config Column */}
-                <div className="lg:col-span-2 space-y-8">
-                    {/* Policy Overview Card */}
-                    <div className="glass-card p-8 rounded-2xl border border-white/10 relative overflow-hidden">
-                        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[#7C5CFF] to-[#22D3EE]" />
-
-                        <div className="flex items-start justify-between mb-6">
-                            <div>
-                                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#7C5CFF]/10 text-[#7C5CFF] text-xs font-bold uppercase tracking-wider mb-3">
-                                    <Shield className="w-3 h-3" /> {policy.mode}
-                                </div>
-                                <h2 className="text-2xl font-bold text-white mb-2">{policy.philosophy}</h2>
-                                <p className="text-white/60 text-sm leading-relaxed max-w-xl">
-                                    {policy.description}
-                                </p>
-                            </div>
-                            <div className="hidden sm:flex flex-col items-end text-right">
-                                <div className="text-xs text-white/40 uppercase font-bold tracking-wider mb-1">Risk Sensitivity</div>
-                                <div className="text-2xl font-bold text-[#22D3EE]">{policy.sensitivityMultiplier}x</div>
-                            </div>
-                        </div>
-
-                        <div className="grid sm:grid-cols-2 gap-6 pt-6 border-t border-white/10">
-                            <div>
-                                <div className="text-sm font-medium text-white/80 mb-3 flex items-center gap-2">
-                                    <Lock className="w-4 h-4 text-[#FB7185]" /> Automatically Blocked
-                                </div>
-                                <div className="flex flex-wrap gap-2">
-                                    {policy.blockedCategories.map((cat, i) => (
-                                        <span key={i} className="px-2.5 py-1 rounded-lg bg-[#FB7185]/10 text-[#FB7185] text-xs font-medium border border-[#FB7185]/20">
-                                            {cat}
-                                        </span>
-                                    ))}
-                                </div>
-                            </div>
-                            <div>
-                                <div className="text-sm font-medium text-white/80 mb-3 flex items-center gap-2">
-                                    <AlertCircle className="w-4 h-4 text-[#FBBF24]" /> Intervention Style
-                                </div>
-                                <div className="bg-white/5 rounded-xl p-4 border border-white/5">
-                                    <div className="flex items-center justify-between mb-2">
-                                        <span className="text-xs text-white/50 uppercase font-bold">Action</span>
-                                        <span className={`text-xs font-bold px-2 py-0.5 rounded capitalize ${policy.intervention.style === 'block' ? 'bg-red-500/20 text-red-500' :
-                                                policy.intervention.style === 'warn' ? 'bg-yellow-500/20 text-yellow-500' :
-                                                    'bg-blue-500/20 text-blue-500'
-                                            }`}>
-                                            {policy.intervention.style}
-                                        </span>
+        <div className="h-[calc(100vh-140px)] flex flex-col lg:flex-row gap-6">
+            {/* LEFT COLUMN: Presets & Age Control */}
+            <div className="w-full lg:w-1/3 flex flex-col gap-6">
+                {/* Age Selector Card */}
+                <div className="glass-card p-6 rounded-2xl border border-white/10 shrink-0">
+                    <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                        <User className="w-5 h-5 text-[#7C5CFF]" /> Age Profile
+                    </h2>
+                    <div className="space-y-2">
+                        {Object.values(AGE_POLICIES).map((p) => {
+                            const isActive = ageGroup === p.id;
+                            return (
+                                <button
+                                    key={p.id}
+                                    onClick={() => handleAgeSelect(p.id)}
+                                    className={`w-full text-left px-4 py-3 rounded-xl transition-all border ${isActive
+                                            ? 'bg-[#7C5CFF]/20 border-[#7C5CFF] text-white'
+                                            : 'bg-white/5 border-transparent text-white/50 hover:bg-white/10 hover:text-white'
+                                        }`}
+                                >
+                                    <div className="flex justify-between items-center mb-1">
+                                        <span className="font-bold text-sm">{p.name}</span>
+                                        <span className="text-xs font-mono opacity-70 bg-black/20 px-1.5 py-0.5 rounded">{p.range}</span>
                                     </div>
-                                    <div className="text-xs text-white/70 italic">
-                                        "{policy.intervention.message || 'No direct message shown.'}"
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* AI Configuration */}
-                    <div className="glass-card p-8 rounded-2xl border border-white/10">
-                        <h3 className="text-lg font-bold text-white mb-6 flex items-center gap-2">
-                            <Sparkles className="w-5 h-5 text-[#7C5CFF]" /> AI Configuration
-                        </h3>
-
-                        <div className="space-y-8">
-                            <div>
-                                <div className="flex justify-between mb-2">
-                                    <label className="text-sm font-medium text-white/70">Blocking Threshold</label>
-                                    <span className="text-sm text-[#7C5CFF] font-bold">{localThreshold}%</span>
-                                </div>
-                                <input
-                                    type="range"
-                                    min="10" max="90"
-                                    value={localThreshold}
-                                    onChange={(e) => setLocalThreshold(Number(e.target.value))}
-                                    className="w-full h-2 bg-white/10 rounded-lg appearance-none cursor-pointer accent-[#7C5CFF]"
-                                />
-                                <div className="flex justify-between text-xs text-white/30 mt-2">
-                                    <span>Strict (Blocks more)</span>
-                                    <span>Lenient (Blocks less)</span>
-                                </div>
-                                <p className="text-xs text-white/40 mt-3 bg-white/5 p-3 rounded-lg">
-                                    Content with a risk score above <strong>{localThreshold / 100}</strong> will trigger the configured intervention.
-                                </p>
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-white/70 mb-2 flex items-center gap-2">
-                                    Parent Intention <Sparkles className="w-3 h-3 text-[#22D3EE]" />
-                                </label>
-                                <textarea
-                                    rows={3}
-                                    value={intent}
-                                    onChange={(e) => setIntent(e.target.value)}
-                                    placeholder='e.g., "Allow educational YouTube channels but block gaming videos on school nights."'
-                                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder:text-white/20 focus:outline-none focus:border-[#22D3EE] transition-colors resize-none text-sm"
-                                />
-                                <p className="text-xs text-white/30 mt-2">
-                                    Phylax AI interprets this plain text to fine-tune the strictness for this age group.
-                                </p>
-                            </div>
-                        </div>
+                                    <div className="text-xs opacity-60 line-clamp-1">{p.mode}</div>
+                                </button>
+                            );
+                        })}
                     </div>
                 </div>
 
-                {/* Sidebar / Active Rules */}
-                <div className="space-y-6">
-                    <div className="glass-card p-6 rounded-2xl border border-white/10">
-                        <h3 className="text-sm font-bold text-white mb-4 uppercase tracking-wider opacity-70">Active Rules</h3>
-                        <div className="space-y-3">
-                            {/* Dynamically generated dummy rules based on policy */}
-                            <div className="p-3 rounded-xl bg-white/5 border border-white/5 flex gap-3">
-                                <div className={`w-1.5 rounded-full ${policy.intervention.style === 'block' ? 'bg-red-500' : 'bg-yellow-500'}`} />
-                                <div>
-                                    <div className="text-sm font-bold text-white mb-0.5">
-                                        {policy.intervention.style === 'block' ? 'Block' : 'Filter'} High Risk
-                                    </div>
-                                    <div className="text-xs text-white/50">
-                                        Score &gt; {policy.blockThreshold} on {policy.blockedCategories[0]}
-                                    </div>
-                                </div>
-                            </div>
+                {/* Categories Presets */}
+                <div className="glass-card p-6 rounded-2xl border border-white/10 flex-1 overflow-y-auto">
+                    <div className="flex items-center justify-between mb-6">
+                        <h2 className="text-lg font-bold text-white">Content Categories</h2>
+                        <span className="text-xs px-2 py-1 rounded bg-white/10 text-white/50">Standard Mode</span>
+                    </div>
 
-                            {policy.blockedCategories.slice(1, 4).map((cat, i) => (
-                                <div key={i} className="p-3 rounded-xl bg-white/5 border border-white/5 flex gap-3">
-                                    <div className="w-1.5 rounded-full bg-red-500/50" />
-                                    <div>
-                                        <div className="text-sm font-medium text-white mb-0.5">
-                                            Block {cat}
-                                        </div>
-                                        <div className="text-xs text-white/50">
-                                            Auto-enforced by Age Policy
-                                        </div>
-                                    </div>
+                    <div className="space-y-6">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <div className="font-bold text-white text-sm">Adult & Pornography</div>
+                                <div className="text-xs text-white/50">Explicit vision & text detection</div>
+                            </div>
+                            <button
+                                onClick={() => setCategories(p => ({ ...p, adult: !p.adult }))}
+                                className={`w-12 h-6 rounded-full relative transition-colors ${categories.adult ? 'bg-[#22D3EE]' : 'bg-white/10'}`}
+                            >
+                                <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all shadow-sm ${categories.adult ? 'left-7' : 'left-1'}`} />
+                            </button>
+                        </div>
+
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <div className="font-bold text-white text-sm">Gambling / High Risk</div>
+                                <div className="text-xs text-white/50">Poker, betting, crypto scams</div>
+                            </div>
+                            <button
+                                onClick={() => setCategories(p => ({ ...p, gambling: !p.gambling }))}
+                                className={`w-12 h-6 rounded-full relative transition-colors ${categories.gambling ? 'bg-[#22D3EE]' : 'bg-white/10'}`}
+                            >
+                                <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all shadow-sm ${categories.gambling ? 'left-7' : 'left-1'}`} />
+                            </button>
+                        </div>
+
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <div className="font-bold text-white text-sm">Weapons / Violence</div>
+                                <div className="text-xs text-white/50">Graphic imagery & shopping</div>
+                            </div>
+                            <button
+                                onClick={() => setCategories(p => ({ ...p, weapons: !p.weapons }))}
+                                className={`w-12 h-6 rounded-full relative transition-colors ${categories.weapons ? 'bg-[#22D3EE]' : 'bg-white/10'}`}
+                            >
+                                <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all shadow-sm ${categories.weapons ? 'left-7' : 'left-1'}`} />
+                            </button>
+                        </div>
+
+                        <div className="pt-4 border-t border-white/5 opacity-50">
+                            <div className="text-xs font-bold text-white/40 mb-3 uppercase">Age Restricted ({policy.range})</div>
+                            {policy.blockedCategories.slice(0, 3).map((cat, i) => (
+                                <div key={i} className="flex items-center justify-between mb-3 last:mb-0">
+                                    <span className="text-sm text-white/60">{cat}</span>
+                                    <Lock className="w-3 h-3 text-red-400" />
                                 </div>
                             ))}
                         </div>
-                        <button className="w-full mt-4 py-2 rounded-lg border border-dashed border-white/20 text-white/40 text-xs font-medium hover:bg-white/5 hover:text-white transition-colors">
-                            + Add Custom Override
-                        </button>
+                    </div>
+                </div>
+            </div>
+
+            {/* RIGHT COLUMN: AI Chat */}
+            <div className="w-full lg:w-2/3 h-full flex flex-col">
+                <div className="glass-card flex-1 flex flex-col rounded-2xl border border-white/10 overflow-hidden relative">
+                    {/* Header */}
+                    <div className="p-4 border-b border-white/10 bg-[#0A1022]/50 flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#7C5CFF] to-[#22D3EE] flex items-center justify-center">
+                                <Bot className="w-4 h-4 text-white" />
+                            </div>
+                            <div>
+                                <div className="font-bold text-white text-sm leading-none mb-1">Phylax AI Agent</div>
+                                <div className="text-xs text-[#34D399] flex items-center gap-1">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-[#34D399]" /> Online
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
-                    <div className="glass-card p-6 rounded-2xl border border-white/10 bg-gradient-to-b from-[#7C5CFF]/10 to-transparent">
-                        <User className="w-8 h-8 text-[#7C5CFF] mb-3" />
-                        <h3 className="text-lg font-bold text-white mb-1">Age Profile: {policy.name}</h3>
-                        <p className="text-sm text-white/60 mb-4">
-                            You are currently viewing settings for the <strong>{policy.range}</strong> age group.
-                        </p>
-                        <div className="flex items-center gap-2 text-xs text-[#22D3EE] bg-[#22D3EE]/10 p-2 rounded-lg">
-                            <Info className="w-4 h-4" />
-                            <span>Changes apply to all devices linked to this profile.</span>
+                    {/* Chat Area */}
+                    <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-black/20">
+                        {messages.map((msg, idx) => (
+                            <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                                <div className={`max-w-[80%] rounded-2xl px-5 py-4 text-sm leading-relaxed ${msg.role === 'user'
+                                        ? 'bg-[#7C5CFF] text-white rounded-br-none'
+                                        : 'bg-white/5 border border-white/10 text-white/90 rounded-bl-none'
+                                    }`}>
+                                    {msg.text}
+                                </div>
+                            </div>
+                        ))}
+                        <div ref={messagesEndRef} />
+                    </div>
+
+                    {/* Input Area */}
+                    <div className="p-4 border-t border-white/10 bg-[#0A1022]/80 backdrop-blur-sm">
+
+                        {/* Active Rules Mini-view */}
+                        <div className="mb-4 flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+                            <div className="whitespace-nowrap px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs text-white/60 flex items-center gap-2">
+                                <div className="w-1.5 h-1.5 rounded-full bg-[#22D3EE]" />
+                                restrict gaming sites on school nights
+                                <X className="w-3 h-3 hover:text-white cursor-pointer" />
+                            </div>
+                            <div className="whitespace-nowrap px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs text-white/60 flex items-center gap-2">
+                                <div className="w-1.5 h-1.5 rounded-full bg-[#22D3EE]" />
+                                Block content that promotes self-harm
+                                <X className="w-3 h-3 hover:text-white cursor-pointer" />
+                            </div>
                         </div>
+
+                        <form onSubmit={handleSendMessage} className="relative">
+                            <input
+                                type="text"
+                                value={inputValue}
+                                onChange={(e) => setInputValue(e.target.value)}
+                                placeholder="Type a rule..."
+                                className="w-full bg-white/5 border border-white/10 rounded-xl pl-4 pr-12 py-3 text-white placeholder:text-white/20 focus:outline-none focus:border-[#7C5CFF] transition-all"
+                            />
+                            <button
+                                type="submit"
+                                disabled={!inputValue.trim()}
+                                className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-lg bg-[#7C5CFF] text-white disabled:opacity-50 disabled:bg-transparent disabled:text-white/20 hover:bg-[#7C5CFF]/90 transition-all"
+                            >
+                                <Send className="w-4 h-4" />
+                            </button>
+                        </form>
                     </div>
                 </div>
             </div>
