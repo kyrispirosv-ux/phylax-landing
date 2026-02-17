@@ -14,6 +14,16 @@ export default function RulesPage() {
     const [inputValue, setInputValue] = useState('');
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
+    // Custom Rules State
+    const [customRules, setCustomRules] = useState<{ id: string, text: string, enabled: boolean }[]>([
+        { id: '1', text: 'Restrict gaming sites on school nights', enabled: true },
+        { id: '2', text: 'Block content that promotes self-harm', enabled: true }
+    ]);
+
+    const toggleRule = (id: string) => {
+        setCustomRules(prev => prev.map(r => r.id === id ? { ...r, enabled: !r.enabled } : r));
+    };
+
     // Mock category toggles state
     const [categories, setCategories] = useState({
         adult: true,
@@ -86,8 +96,8 @@ export default function RulesPage() {
                                     key={p.id}
                                     onClick={() => handleAgeSelect(p.id)}
                                     className={`w-full text-left px-4 py-3 rounded-xl transition-all border ${isActive
-                                            ? 'bg-[#7C5CFF]/20 border-[#7C5CFF] text-white'
-                                            : 'bg-white/5 border-transparent text-white/50 hover:bg-white/10 hover:text-white'
+                                        ? 'bg-[#7C5CFF]/20 border-[#7C5CFF] text-white'
+                                        : 'bg-white/5 border-transparent text-white/50 hover:bg-white/10 hover:text-white'
                                         }`}
                                 >
                                     <div className="flex justify-between items-center mb-1">
@@ -184,8 +194,8 @@ export default function RulesPage() {
                         {messages.map((msg, idx) => (
                             <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                                 <div className={`max-w-[80%] rounded-2xl px-5 py-4 text-sm leading-relaxed ${msg.role === 'user'
-                                        ? 'bg-[#7C5CFF] text-white rounded-br-none'
-                                        : 'bg-white/5 border border-white/10 text-white/90 rounded-bl-none'
+                                    ? 'bg-[#7C5CFF] text-white rounded-br-none'
+                                    : 'bg-white/5 border border-white/10 text-white/90 rounded-bl-none'
                                     }`}>
                                     {msg.text}
                                 </div>
