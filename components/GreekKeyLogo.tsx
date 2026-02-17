@@ -1,5 +1,5 @@
 
-export function GreekKeyLogo({ className = "w-16 h-16" }: { className?: string }) {
+export function GreekKeyLogo({ className = "w-16 h-16", transparent = false }: { className?: string, transparent?: boolean }) {
     return (
         <svg
             viewBox="0 0 512 512"
@@ -19,9 +19,13 @@ export function GreekKeyLogo({ className = "w-16 h-16" }: { className?: string }
                 </linearGradient>
             </defs>
 
-            {/* Background: Rounded Square with Gold Border */}
-            <rect width="512" height="512" rx="100" fill="url(#bg)" />
-            <rect x="10" y="10" width="492" height="492" rx="90" stroke="url(#gold)" strokeWidth="4" opacity="0.5" />
+            {/* Background: Rounded Square with Gold Border - Only if not transparent */}
+            {!transparent && (
+                <>
+                    <rect width="512" height="512" rx="100" fill="url(#bg)" />
+                    <rect x="10" y="10" width="492" height="492" rx="90" stroke="url(#gold)" strokeWidth="4" opacity="0.5" />
+                </>
+            )}
 
             {/* Simpler Spiral Path (Center) */}
             {/* Centered around 256, 256. Size approx 240x240 */}

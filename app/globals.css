@@ -1,30 +1,35 @@
 @import "tailwindcss";
 
 :root {
-  --background: #070A12;
+  --background: #0F172A;
+  /* Deep slate base */
   --foreground: #ffffff;
-  
-  /* Brand Colors from original */
-  --accent-1: #7C5CFF;
-  --accent-2: #22D3EE;
-  --accent-3: #34D399;
-  
+
+  /* Brand Colors */
+  --accent-1: #6366F1;
+  /* Indigo */
+  --accent-2: #F59E0B;
+  /* Gold/Amber */
+  --accent-3: #10B981;
+  /* Emerald */
+
   /* Semantic Colors */
-  --card: rgba(255, 255, 255, 0.06);
-  --card-hover: rgba(255, 255, 255, 0.085);
-  --stroke: rgba(255, 255, 255, 0.10);
-  --stroke-strong: rgba(255, 255, 255, 0.16);
-  --muted: rgba(255, 255, 255, 0.70);
-  --muted-dim: rgba(255, 255, 255, 0.55);
+  --card: rgba(30, 27, 75, 0.4);
+  /* Deep Indigo with opacity */
+  --card-hover: rgba(49, 46, 129, 0.4);
+  --stroke: rgba(255, 255, 255, 0.08);
+  --stroke-strong: rgba(245, 158, 11, 0.2);
+  /* Gold hint */
+  --muted: rgba(255, 255, 255, 0.60);
+  --muted-dim: rgba(255, 255, 255, 0.40);
 }
 
 body {
   color: var(--foreground);
-  background: 
-    radial-gradient(1200px 700px at 20% 10%, rgba(124, 92, 255, 0.15), transparent 60%),
-    radial-gradient(1000px 650px at 85% 15%, rgba(34, 211, 238, 0.12), transparent 58%),
-    radial-gradient(900px 600px at 55% 90%, rgba(52, 211, 153, 0.08), transparent 58%),
-    linear-gradient(180deg, #070A12, #0A1022);
+  background:
+    radial-gradient(circle at 15% 50%, rgba(67, 56, 202, 0.15), transparent 25%),
+    radial-gradient(circle at 85% 30%, rgba(245, 158, 11, 0.08), transparent 25%),
+    linear-gradient(to bottom, #0F172A, #020617);
   min-height: 100vh;
   font-family: Arial, Helvetica, sans-serif;
   overflow-x: hidden;
@@ -34,13 +39,13 @@ body {
   .text-balance {
     text-wrap: balance;
   }
-  
+
   .glass-card {
     background: var(--card);
     border: 1px solid var(--stroke);
     backdrop-filter: blur(12px);
   }
-  
+
   .glass-card:hover {
     background: var(--card-hover);
     border-color: var(--stroke-strong);

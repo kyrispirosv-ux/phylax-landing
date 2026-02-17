@@ -99,8 +99,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
                 <main className="flex-1 p-6 md:p-10 overflow-auto relative">
                     {/* Greek Key motif background */}
-                    <div className="absolute top-0 right-0 pointer-events-none opacity-5">
-                        <GreekKeyLogo className="w-96 h-96 text-white" />
+                    <div className="absolute top-10 right-10 pointer-events-none opacity-[0.03]">
+                        <GreekKeyLogo className="w-[500px] h-[500px]" transparent={true} />
                     </div>
                     {children}
                 </main>
