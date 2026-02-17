@@ -184,14 +184,19 @@
     dismissOverlay();
     blockedUrl = window.location.pathname + window.location.search.split('&t=')[0];
 
+    // Prevent scrolling behind the overlay
+    document.documentElement.style.overflow = 'hidden';
+    document.body.style.overflow = 'hidden';
+
     const overlay = document.createElement('div');
     overlay.id = 'phylax-overlay';
     overlay.style.cssText = `
-      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-      background: rgba(5, 5, 10, 0.95); backdrop-filter: blur(12px);
+      position: fixed; inset: 0; width: 100vw; height: 100vh;
+      background: rgba(5, 5, 10, 0.98); backdrop-filter: blur(16px);
       z-index: 2147483647; display: flex; align-items: center;
       justify-content: center; font-family: -apple-system, BlinkMacSystemFont,
       "Segoe UI", Roboto, sans-serif; animation: phylaxFadeIn 0.3s ease;
+      overflow: hidden;
     `;
 
     const style = document.createElement('style');
@@ -251,51 +256,22 @@
     dismissOverlay();
     blockedUrl = window.location.pathname + window.location.search.split('&t=')[0];
 
-    // Find the chat/conversation area to cover
-    const chatArea = findChatArea();
+    // Prevent scrolling behind the overlay
+    document.documentElement.style.overflow = 'hidden';
+    document.body.style.overflow = 'hidden';
 
-    // Build the overlay — covers just the chat area, not the full page
+    // Build the overlay — covers the full screen so no content sticks out
     const overlay = document.createElement('div');
     overlay.id = 'phylax-overlay';
 
-    if (chatArea) {
-      // Position overlay exactly over the chat area
-      const rect = chatArea.getBoundingClientRect();
-      overlay.style.cssText = `
-        position: fixed;
-        top: ${rect.top}px; left: ${rect.left}px;
-        width: ${rect.width}px; height: ${rect.height}px;
-        background: rgba(5, 5, 10, 0.96); backdrop-filter: blur(16px);
-        z-index: 2147483647; display: flex; align-items: center;
-        justify-content: center; font-family: -apple-system, BlinkMacSystemFont,
-        "Segoe UI", Roboto, sans-serif; animation: phylaxFadeIn 0.3s ease;
-        border-radius: 12px;
-      `;
-    } else {
-      // Fallback: cover only the estimated conversation pane, NOT the full page.
-      // DM/chat UIs use multi-column layouts — the conversation thread is
-      // typically on the right side. Cover just that area so the user
-      // can still see the conversation list and navigate away.
-      const domain = window.location.hostname;
-      let leftPct = '30%';
-      let widthPct = '70%';
-      if (domain.includes('instagram.com')) {
-        // Instagram DMs: conversation list ~33% left, thread ~67% right
-        leftPct = '33%'; widthPct = '67%';
-      } else if (domain.includes('twitter.com') || domain.includes('x.com')) {
-        leftPct = '35%'; widthPct = '65%';
-      } else if (domain.includes('messenger.com')) {
-        leftPct = '30%'; widthPct = '70%';
-      }
-      overlay.style.cssText = `
-        position: fixed; top: 0; left: ${leftPct};
-        width: ${widthPct}; height: 100%;
-        background: rgba(5, 5, 10, 0.96); backdrop-filter: blur(16px);
-        z-index: 2147483647; display: flex; align-items: center;
-        justify-content: center; font-family: -apple-system, BlinkMacSystemFont,
-        "Segoe UI", Roboto, sans-serif; animation: phylaxFadeIn 0.3s ease;
-      `;
-    }
+    overlay.style.cssText = `
+      position: fixed; inset: 0; width: 100vw; height: 100vh;
+      background: rgba(5, 5, 10, 0.98); backdrop-filter: blur(16px);
+      z-index: 2147483647; display: flex; align-items: center;
+      justify-content: center; font-family: -apple-system, BlinkMacSystemFont,
+      "Segoe UI", Roboto, sans-serif; animation: phylaxFadeIn 0.3s ease;
+      overflow: hidden;
+    `;
 
     const style = document.createElement('style');
     style.textContent = `@keyframes phylaxFadeIn { from { opacity: 0; } to { opacity: 1; } }`;
@@ -473,37 +449,22 @@
     dismissOverlay();
     blockedUrl = window.location.pathname + window.location.search.split('&t=')[0];
 
-    const playerArea = findVideoPlayer();
+    // Prevent scrolling behind the overlay
+    document.documentElement.style.overflow = 'hidden';
+    document.body.style.overflow = 'hidden';
 
     const overlay = document.createElement('div');
     overlay.id = 'phylax-overlay';
 
-    if (playerArea) {
-      // Position overlay exactly over the video player
-      const rect = playerArea.getBoundingClientRect();
-      overlay.style.cssText = `
-        position: fixed;
-        top: ${rect.top}px; left: ${rect.left}px;
-        width: ${rect.width}px; height: ${rect.height}px;
-        background: rgba(5, 5, 10, 0.96); backdrop-filter: blur(16px);
-        z-index: 2147483647; display: flex; align-items: center;
-        justify-content: center; font-family: -apple-system, BlinkMacSystemFont,
-        "Segoe UI", Roboto, sans-serif; animation: phylaxFadeIn 0.3s ease;
-        border-radius: 12px;
-      `;
-    } else {
-      // Fallback: cover the primary content area but leave nav accessible.
-      // On most video sites the player occupies the top-left ~70% of the viewport.
-      // Leave sidebar and navigation visible so the user can navigate away.
-      overlay.style.cssText = `
-        position: fixed; top: 56px; left: 0;
-        width: 72%; height: calc(100% - 56px);
-        background: rgba(5, 5, 10, 0.96); backdrop-filter: blur(16px);
-        z-index: 2147483647; display: flex; align-items: center;
-        justify-content: center; font-family: -apple-system, BlinkMacSystemFont,
-        "Segoe UI", Roboto, sans-serif; animation: phylaxFadeIn 0.3s ease;
-      `;
-    }
+    // Always cover the full screen — content should not be visible at all
+    overlay.style.cssText = `
+      position: fixed; inset: 0; width: 100vw; height: 100vh;
+      background: rgba(5, 5, 10, 0.98); backdrop-filter: blur(16px);
+      z-index: 2147483647; display: flex; align-items: center;
+      justify-content: center; font-family: -apple-system, BlinkMacSystemFont,
+      "Segoe UI", Roboto, sans-serif; animation: phylaxFadeIn 0.3s ease;
+      overflow: hidden;
+    `;
 
     const style = document.createElement('style');
     style.textContent = `@keyframes phylaxFadeIn { from { opacity: 0; } to { opacity: 1; } }`;
@@ -838,6 +799,10 @@
     teardownNavWatchers();
     stopOverlayGuard();
     blockedUrl = null;
+
+    // Restore body scrolling
+    document.documentElement.style.overflow = '';
+    document.body.style.overflow = '';
 
     if (currentOverlay) {
       currentOverlay.remove();

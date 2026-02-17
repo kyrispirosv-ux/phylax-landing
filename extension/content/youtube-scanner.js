@@ -249,14 +249,18 @@
   function showWatchPageBlock(metadata, classification) {
     dismissWatchPageBlock();
 
+    // Prevent scrolling behind the overlay
+    document.documentElement.style.overflow = 'hidden';
+    document.body.style.overflow = 'hidden';
+
     const overlay = document.createElement('div');
     overlay.id = 'phylax-watch-overlay';
     overlay.style.cssText = `
-      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-      background: rgba(5, 5, 10, 0.96); backdrop-filter: blur(16px);
+      position: fixed; inset: 0; width: 100vw; height: 100vh;
+      background: rgba(5, 5, 10, 0.98); backdrop-filter: blur(16px);
       z-index: 2147483647; display: flex; align-items: center;
       justify-content: center; font-family: -apple-system, BlinkMacSystemFont,
-      "Segoe UI", Roboto, sans-serif;
+      "Segoe UI", Roboto, sans-serif; overflow: hidden;
     `;
 
     const style = document.createElement('style');
@@ -366,6 +370,9 @@
       watchPageBlockOverlay.remove();
       watchPageBlockOverlay = null;
     }
+    // Restore body scrolling
+    document.documentElement.style.overflow = '';
+    document.body.style.overflow = '';
     // Restore player visibility
     const player = document.querySelector('#movie_player, .html5-video-player');
     if (player) {
