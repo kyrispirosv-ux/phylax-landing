@@ -51,6 +51,7 @@ export async function updateSession(request: NextRequest) {
             !path.startsWith("/api") && // API routes (handle their own auth or are public)
             !path.startsWith("/pair") && // Install/Pairing landing page
             !path.startsWith("/onboarding") && // Onboarding flow
+            !path.startsWith("/dashboard") && // Dashboard (allowed for mock/demo auth)
             !path.startsWith("/_next") && // Next.js internals
             !path.startsWith("/static") && // Static files
             path !== "/" && // Landing page
