@@ -8,8 +8,11 @@ export async function POST(req: NextRequest) {
         const { device_id, events } = body;
 
         if (!device_id || !events || !Array.isArray(events)) {
+            console.error('[Events API] Invalid payload:', JSON.stringify(body).slice(0, 100));
             return NextResponse.json({ error: 'Invalid payload' }, { status: 400 });
         }
+
+        console.log(`[Events API] Received ${events.length} events from device ${device_id}`);
 
         const supabase = createServiceClient();
 
@@ -21,6 +24,7 @@ export async function POST(req: NextRequest) {
             .single();
 
         if (deviceError || !device) {
+            console.error('[Events API] Device lookup failed:', deviceError?.message || 'Device not found');
             return NextResponse.json({ error: 'Device not found' }, { status: 404 });
         }
 
@@ -45,9 +49,11 @@ export async function POST(req: NextRequest) {
             .insert(eventsToInsert);
 
         if (insertError) {
-            console.error('Error inserting events:', insertError);
+            console.error('[Events API] Insert events error:', insertError);
             return NextResponse.json({ error: 'Database error' }, { status: 500 });
         }
+
+        console.log('[Events API] Successfully inserted events');
 
         // 4. Create alerts for high-severity events or BLOCK actions
         // Filter events that should be alerts
