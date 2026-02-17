@@ -137,10 +137,43 @@ const INTENT_SIGNALS = {
       /\bstudy\b/i,
       /\bacademic\b/i,
       /\bencyclopedia\b/i,
+      // Documentary / historical / educational framing
+      /\bdocumentary\b/i,
+      /\bhistory\s+of\b/i,
+      /\bhistory\s*[-–:]\s/i,
+      /\bhistorical\b/i,
+      /\bthe\s+(?:rise|fall|story|origins?|causes?|impact)\s+of\b/i,
+      /\bworld\s+war\b/i,
+      /\bcivil\s+war\b/i,
+      /\b(?:ancient|medieval|modern)\s+history\b/i,
+      /\blecture\b/i,
+      /\bcourse\b/i,
+      /\blesson\b/i,
+      /\btutorial\b/i,
+      /\bfor\s+beginners?\b/i,
+      /\b101\b/,
+      /\bbasics?\s+of\b/i,
+      /\bintroduction\s+to\b/i,
+      /\bscience\s+of\b/i,
+      /\bhow\s+(?:does|do|did|is|are|was|were)\b/i,
+      /\bwhy\s+(?:does|do|did|is|are|was|were)\b/i,
+      /\boverviewe?\b/i,
+      /\bin\s+\d+\s+minutes?\b/i,
+      /\bfull\s+documentary\b/i,
+      // Prevention / awareness / safety education
+      /\bprevention\b/i,
+      /\bawareness\b/i,
+      /\beffects?\s+(?:of|on)\b/i,
+      /\bfor\s+(?:teens?|students?|kids?|children|parents?|educators?)\b/i,
+      /\bdangers?\s+of\b/i,
+      /\bwhat\s+(?:every|all|you)\s+(?:teen|parent|student|kid|child|person)\b/i,
+      /\b(?:drug|substance)\s+(?:abuse|prevention|education|awareness)\b/i,
+      /\bpsychology\s+of\b/i,
     ],
     url: [
       /wiki/, /edu/, /learn/, /course/, /lesson/, /definition/,
-      /research/, /academic/, /study/,
+      /research/, /academic/, /study/, /history/, /documentary/,
+      /lecture/, /tutorial/, /prevention/, /awareness/, /education/,
     ],
     text: [
       { pattern: /(?:research|study|studies)\s+(?:show|indicate|suggest|found)/gi, weight: 1.2 },
@@ -148,9 +181,27 @@ const INTENT_SIGNALS = {
       { pattern: /(?:journal|published)\s+(?:of|in|by)/gi, weight: 1.5 },
       { pattern: /abstract\s*:/gi, weight: 2.0 },
       { pattern: /doi\s*:/gi, weight: 2.0 },
-      { pattern: /\bhistory\s+of\b/gi, weight: 0.6 },
+      { pattern: /\bhistory\s+of\b/gi, weight: 1.5 },
       { pattern: /\bdefined\s+as\b/gi, weight: 0.8 },
       { pattern: /\baccording\s+to\s+(?:the\s+)?(?:national|world|american|british)/gi, weight: 1.0 },
+      // Documentary / historical context signals
+      { pattern: /\bdocumentary\b/gi, weight: 2.0 },
+      { pattern: /\bhistorical\s+(?:account|event|context|footage|record|analysis)/gi, weight: 1.8 },
+      { pattern: /\bworld\s+war\s+(?:i{1,2}|1|2|one|two)\b/gi, weight: 2.5 },
+      { pattern: /\bcivil\s+war\b/gi, weight: 1.5 },
+      { pattern: /\b(?:19|20)\d{2}s?\b/gi, weight: 0.3 },
+      { pattern: /\b(?:century|era|period|epoch|dynasty|empire|kingdom|civilization)\b/gi, weight: 1.0 },
+      { pattern: /\b(?:ancient|medieval|renaissance|colonial|victorian|industrial)\b/gi, weight: 1.0 },
+      { pattern: /\b(?:revolution|independence|liberation|reformation)\b/gi, weight: 0.8 },
+      { pattern: /\b(?:narrated|narrator|hosted)\s+by\b/gi, weight: 1.5 },
+      { pattern: /\b(?:museum|archive|library|university|professor|historian|scholar)\b/gi, weight: 1.5 },
+      { pattern: /\b(?:causes?\s+(?:of|and)\s+(?:effects?|consequences?|impact))\b/gi, weight: 1.2 },
+      { pattern: /\b(?:timeline|chronolog|overview)\b/gi, weight: 0.8 },
+      { pattern: /\b(?:explained|analysis|examined|explored|investigated)\b/gi, weight: 0.8 },
+      { pattern: /\blecture\s+(?:\d+|on|about|series)/gi, weight: 1.5 },
+      { pattern: /\b(?:lesson|chapter|part|episode)\s+\d+/gi, weight: 0.8 },
+      { pattern: /\b(?:harvard|stanford|mit|yale|oxford|cambridge|princeton)\b/gi, weight: 2.0 },
+      { pattern: /\b(?:ted\s*talk|tedx|khan\s*academy|crash\s*course|kurzgesagt)\b/gi, weight: 2.5 },
     ],
     baseWeight: 0,
   },
@@ -307,7 +358,11 @@ export function classifyIntent(content) {
  */
 export function isProtectiveIntent(intent) {
   if (!intent || intent.confidence < 0.50) return false;
-  return intent.label === 'recovery_support';
+  // Recovery support is always protective
+  if (intent.label === 'recovery_support') return true;
+  // High-confidence education intent is protective (prevents blocking educational content)
+  if (intent.label === 'education' && intent.confidence >= 0.70) return true;
+  return false;
 }
 
 /**

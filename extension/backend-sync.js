@@ -20,7 +20,11 @@ let flushTimer = null;
 async function getApiBase() {
   if (apiBase) return apiBase;
   const stored = await chrome.storage.local.get(['phylaxDashboardUrl']);
-  if (stored.phylaxDashboardUrl) { apiBase = stored.phylaxDashboardUrl; return apiBase; }
+  if (stored.phylaxDashboardUrl) {
+    apiBase = stored.phylaxDashboardUrl;
+    console.log('[Phylax Sync] Using stored API base:', apiBase);
+    return apiBase;
+  }
 
   const candidates = [
     'https://app.phylax.ai',
@@ -31,10 +35,16 @@ async function getApiBase() {
   for (const url of candidates) {
     try {
       const r = await fetch(`${url}/api/extension/ping`, { signal: AbortSignal.timeout(3000) });
-      if (r.ok) { apiBase = url; await chrome.storage.local.set({ phylaxDashboardUrl: url }); return url; }
+      if (r.ok) {
+        apiBase = url;
+        await chrome.storage.local.set({ phylaxDashboardUrl: url });
+        console.log('[Phylax Sync] Discovered API base:', url);
+        return url;
+      }
     } catch { /* next */ }
   }
   apiBase = candidates[0];
+  console.warn('[Phylax Sync] Could not reach any API. Defaulting to:', apiBase);
   return apiBase;
 }
 
@@ -147,10 +157,18 @@ export async function flushEvents() {
       body: JSON.stringify({ device_id: deviceId, events: batch }),
     });
     if (!res.ok) {
+      console.error(`[Phylax Sync] Failed to send events to ${base}: ${res.status} ${res.statusText}`);
+      try {
+        const errBody = await res.text();
+        console.error('[Phylax Sync] Error body:', errBody);
+      } catch (e) { }
       // Put events back on failure
       eventBuffer.unshift(...batch);
+    } else {
+      console.log(`[Phylax Sync] Successfully sent ${batch.length} events to ${base}`);
     }
-  } catch {
+  } catch (err) {
+    console.error(`[Phylax Sync] Network error sending events to ${base}:`, err);
     eventBuffer.unshift(...batch);
   }
 }

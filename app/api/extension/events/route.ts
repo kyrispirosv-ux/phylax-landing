@@ -72,20 +72,55 @@ export async function POST(req: NextRequest) {
                     evt.category === 'Self-Harm'
                 );
             })
-            .map((evt: any) => ({
-                family_id: device.family_id,
-                child_id: device.child_id,
-                device_id: device.id,
-                alert_type: evt.event_type === 'PARENT_ALERT' ? 'PARENT_ALERT' : 'BLOCK',
-                severity: evt.category === 'Self-Harm' ? 'critical' : 'warning',
-                title: evt.event_type === 'PARENT_ALERT' ? 'Safety Alert' : 'Content Blocked',
-                body: evt.metadata?.description || `Access to ${evt.domain} was blocked.`,
-                url: evt.url,
-                domain: evt.domain,
-                reason_code: evt.reason_code,
-                confidence: evt.confidence,
-                read: false
-            }));
+            .map((evt: any) => {
+                // Build descriptive title based on event type
+                let title = 'Content Blocked';
+                if (evt.event_type === 'PARENT_ALERT') {
+                    title = evt.metadata?.title || 'Safety Alert';
+                } else if (evt.event_type === 'VIDEO_BLOCK') {
+                    const videoTitle = evt.metadata?.title || evt.domain || 'Unknown video';
+                    title = `Video Blocked: ${videoTitle.slice(0, 80)}`;
+                } else if (evt.event_type === 'SEARCH_BLOCKED') {
+                    const query = evt.metadata?.query || 'Unknown query';
+                    title = `Search Blocked: ${query.slice(0, 80)}`;
+                } else if (evt.reason_code === 'CHAT_GROOMING_SIGNAL') {
+                    title = 'Chat Threat Detected';
+                }
+
+                // Build descriptive body from metadata
+                let body = `Access to ${evt.domain} was blocked.`;
+                if (evt.event_type === 'VIDEO_BLOCK' && evt.metadata?.title) {
+                    body = `"${evt.metadata.title}" on ${evt.domain}`;
+                    if (evt.metadata?.channel) body += ` (channel: ${evt.metadata.channel})`;
+                } else if (evt.event_type === 'SEARCH_BLOCKED' && evt.metadata?.query) {
+                    body = `Search query "${evt.metadata.query}" was intercepted.`;
+                } else if (evt.event_type === 'PARENT_ALERT' && evt.metadata?.body) {
+                    body = evt.metadata.body;
+                }
+                if (evt.metadata?.reasoning?.length) {
+                    body += ` Reason: ${evt.metadata.reasoning[0]}`;
+                }
+
+                // Determine severity
+                let severity = 'warning';
+                if (evt.category === 'Self-Harm' || evt.category === 'self_harm') severity = 'critical';
+                else if (evt.confidence >= 0.9) severity = 'critical';
+
+                return {
+                    family_id: device.family_id,
+                    child_id: device.child_id,
+                    device_id: device.id,
+                    alert_type: evt.event_type === 'PARENT_ALERT' ? 'PARENT_ALERT' : 'BLOCK',
+                    severity,
+                    title,
+                    body,
+                    url: evt.url,
+                    domain: evt.domain,
+                    reason_code: evt.reason_code,
+                    confidence: evt.confidence,
+                    read: false,
+                };
+            });
 
         if (alertsToInsert.length > 0) {
             await supabase.from('alerts').insert(alertsToInsert);

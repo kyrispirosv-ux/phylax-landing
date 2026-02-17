@@ -4,35 +4,35 @@
 // ── Event types ─────────────────────────────────────────────────
 
 export const EVENT_TYPES = {
-  PAGE_LOAD:              'PAGE_LOAD',
-  DOM_TEXT_SNAPSHOT:       'DOM_TEXT_SNAPSHOT',
-  SEARCH_QUERY:           'SEARCH_QUERY',
-  CHAT_MESSAGE_INCOMING:  'CHAT_MESSAGE_INCOMING',
-  CHAT_MESSAGE_OUTGOING:  'CHAT_MESSAGE_OUTGOING',
-  VIDEO_PLAY:             'VIDEO_PLAY',
-  FEED_SCROLL:            'FEED_SCROLL',
-  NOTIFICATION_RECEIVED:  'NOTIFICATION_RECEIVED',
-  NOTIFICATION_OPENED:    'NOTIFICATION_OPENED',
-  TAB_SWITCH:             'TAB_SWITCH',
-  IDLE:                   'IDLE',
-  ACTIVE:                 'ACTIVE',
-  CLICK:                  'CLICK',
-  FORM_SUBMIT:            'FORM_SUBMIT',
-  DOWNLOAD_INITIATED:     'DOWNLOAD_INITIATED',
-  LINK_CLICK:             'LINK_CLICK',
-  TIME_TICK:              'TIME_TICK',
+  PAGE_LOAD: 'PAGE_LOAD',
+  DOM_TEXT_SNAPSHOT: 'DOM_TEXT_SNAPSHOT',
+  SEARCH_QUERY: 'SEARCH_QUERY',
+  CHAT_MESSAGE_INCOMING: 'CHAT_MESSAGE_INCOMING',
+  CHAT_MESSAGE_OUTGOING: 'CHAT_MESSAGE_OUTGOING',
+  VIDEO_PLAY: 'VIDEO_PLAY',
+  FEED_SCROLL: 'FEED_SCROLL',
+  NOTIFICATION_RECEIVED: 'NOTIFICATION_RECEIVED',
+  NOTIFICATION_OPENED: 'NOTIFICATION_OPENED',
+  TAB_SWITCH: 'TAB_SWITCH',
+  IDLE: 'IDLE',
+  ACTIVE: 'ACTIVE',
+  CLICK: 'CLICK',
+  FORM_SUBMIT: 'FORM_SUBMIT',
+  DOWNLOAD_INITIATED: 'DOWNLOAD_INITIATED',
+  LINK_CLICK: 'LINK_CLICK',
+  TIME_TICK: 'TIME_TICK',
 };
 
 // ── Content type hints ──────────────────────────────────────────
 
 export const CONTENT_TYPE_HINTS = {
-  FEED:    'feed',
+  FEED: 'feed',
   ARTICLE: 'article',
-  CHAT:    'chat',
-  VIDEO:   'video',
-  SEARCH:  'search',
-  GAME:    'game',
-  SOCIAL:  'social',
+  CHAT: 'chat',
+  VIDEO: 'video',
+  SEARCH: 'search',
+  GAME: 'game',
+  SOCIAL: 'social',
   UNKNOWN: 'unknown',
 };
 
@@ -53,7 +53,7 @@ export function createEvent({
   return {
     event_id: generateEventId(),
     timestamp: Date.now(),
-    device_id: deviceId || getDeviceId(),
+    device_id: deviceId,
     profile_id: profileId,
     tab_id: tabId,
     frame_id: frameId,
@@ -151,10 +151,4 @@ function extractDomain(url) {
   }
 }
 
-let _deviceId = null;
-function getDeviceId() {
-  if (!_deviceId) {
-    _deviceId = 'dev_' + Math.random().toString(36).slice(2, 12);
-  }
-  return _deviceId;
-}
+

@@ -11,11 +11,22 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Fetch alerts/events for the dashboard
-    // We'll fetch from the 'alerts' table as that's what the dashboard "Activity Log" displays
+    // Look up the parent's family_id
+    const { data: parent } = await supabase
+        .from('parents')
+        .select('family_id')
+        .eq('id', session.user.id)
+        .single();
+
+    if (!parent?.family_id) {
+        return NextResponse.json({ alerts: [] });
+    }
+
+    // Fetch alerts for this family only
     const { data: alerts, error } = await supabase
         .from('alerts')
         .select('*')
+        .eq('family_id', parent.family_id)
         .order('created_at', { ascending: false })
         .limit(50);
 
@@ -38,10 +49,17 @@ export async function GET(req: NextRequest) {
 }
 
 function getCategoryFromAlert(alert: any) {
+    // Map reason_code to human-readable category
+    if (alert.reason_code === 'VIDEO_BLOCKED' || alert.reason_code === 'VIDEO_WARNED') return 'Video';
+    if (alert.reason_code === 'SEARCH_RISK' || alert.reason_code === 'SEARCH_BLOCKED') return 'Search';
+    if (alert.reason_code === 'CHAT_GROOMING_SIGNAL') return 'Chat Safety';
+    if (alert.reason_code === 'DOMAIN_BLOCK') return 'Website';
     if (alert.reason_code === 'GAMBLING') return 'Gambling';
     if (alert.reason_code === 'ADULT') return 'Adult';
-    // inference from payload if reason_code isn't specific
-    return 'General';
+    // Try alert_type for parent alerts
+    if (alert.alert_type === 'PARENT_ALERT') return 'Safety Alert';
+    // Fallback to domain or generic
+    return alert.domain || 'General';
 }
 
 function formatTimestamp(isoString: string) {

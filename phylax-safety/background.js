@@ -11,7 +11,7 @@ import { createSessionState, updateSessionState } from './engine/behavior.js';
 import { cacheClear, cacheStats } from './engine/decision-cache.js';
 import { createConversationState } from './engine/grooming-detector.js';
 import { classify_video_risk, analyze_message_risk, predict_conversation_risk, classify_search_risk } from './engine/risk-classifier.js';
-import { startSync, queueEvent } from './backend-sync.js';
+import { startSync, queueEvent, getDeviceId } from './backend-sync.js';
 
 // ── State ───────────────────────────────────────────────────────
 
@@ -236,8 +236,12 @@ function extractThrottlePath(url) {
 // CORE EVENT PROCESSING — runs the 12-step pipeline
 // ═════════════════════════════════════════════════════════════════
 
+// Helper to create a new event object
+
+
 async function processEvent(rawEvent, tabId) {
   const startTime = performance.now();
+  const deviceId = await getDeviceId();
 
   // 1. Create typed event for logging + session tracking
   const event = createEvent({
@@ -247,6 +251,7 @@ async function processEvent(rawEvent, tabId) {
     domain: rawEvent.domain,
     payload: rawEvent.payload || {},
     profileId: profileTier,
+    deviceId,
   });
 
   // 2. Update session state (for behavior scoring)
@@ -548,6 +553,44 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     handleParentAlert(message.alert);
     // Persist this conversation as blocked
     blockConversation(message.alert);
+    sendResponse({ success: true });
+    return true;
+  }
+
+  // Watch page video block notification from youtube-scanner.js
+  if (message.type === 'PHYLAX_VIDEO_BLOCKED') {
+    const { video, classification, url, domain } = message;
+    const riskScore = classification?.risk_score || 0;
+
+    // Queue event to backend
+    queueEvent({
+      event_type: 'VIDEO_BLOCK',
+      domain: domain || 'youtube.com',
+      url: url || '',
+      category: classification?.category || 'violence',
+      reason_code: classification?.decision === 'block' ? 'VIDEO_BLOCKED' : 'VIDEO_WARNED',
+      confidence: riskScore / 100,
+      metadata: {
+        videoId: video?.videoId,
+        title: video?.title,
+        channel: video?.channel,
+        reasoning: classification?.reasoning,
+      },
+    });
+
+    // Also send parent alert for video blocks
+    handleParentAlert({
+      alert_type: 'VIDEO_BLOCKED',
+      severity: riskScore >= 80 ? 'high' : 'medium',
+      title: `Blocked Video: ${(video?.title || '').slice(0, 60)}`,
+      body: `A ${classification?.category || 'harmful'} video was blocked on YouTube.`,
+      url: url || '',
+      domain: domain || 'youtube.com',
+      reason_code: 'VIDEO_BLOCKED',
+      confidence: riskScore / 100,
+      evidence: classification?.reasoning || [],
+    });
+
     sendResponse({ success: true });
     return true;
   }

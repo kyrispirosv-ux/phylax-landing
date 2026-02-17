@@ -557,6 +557,44 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
+  // Watch page video block notification from youtube-scanner.js
+  if (message.type === 'PHYLAX_VIDEO_BLOCKED') {
+    const { video, classification, url, domain } = message;
+    const riskScore = classification?.risk_score || 0;
+
+    // Queue event to backend
+    queueEvent({
+      event_type: 'VIDEO_BLOCK',
+      domain: domain || 'youtube.com',
+      url: url || '',
+      category: classification?.category || 'violence',
+      reason_code: classification?.decision === 'block' ? 'VIDEO_BLOCKED' : 'VIDEO_WARNED',
+      confidence: riskScore / 100,
+      metadata: {
+        videoId: video?.videoId,
+        title: video?.title,
+        channel: video?.channel,
+        reasoning: classification?.reasoning,
+      },
+    });
+
+    // Also send parent alert for video blocks
+    handleParentAlert({
+      alert_type: 'VIDEO_BLOCKED',
+      severity: riskScore >= 80 ? 'high' : 'medium',
+      title: `Blocked Video: ${(video?.title || '').slice(0, 60)}`,
+      body: `A ${classification?.category || 'harmful'} video was blocked on YouTube.`,
+      url: url || '',
+      domain: domain || 'youtube.com',
+      reason_code: 'VIDEO_BLOCKED',
+      confidence: riskScore / 100,
+      evidence: classification?.reasoning || [],
+    });
+
+    sendResponse({ success: true });
+    return true;
+  }
+
   // Check if a conversation is blocked (called by observer on DM page load)
   if (message.type === 'PHYLAX_CHECK_CONVERSATION_BLOCKED') {
     isConversationBlocked(message.domain, message.path).then(blocked => {

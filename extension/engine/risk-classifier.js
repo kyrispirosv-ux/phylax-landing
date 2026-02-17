@@ -96,18 +96,50 @@ const VIDEO_INTENT_MODIFIERS = {
  */
 const PROTECTIVE_PATTERNS = [
   // Financial literacy & investing
-  /\b(?:financial\s+literacy|personal\s+finance|investing\s+basics|how\s+to\s+invest|investment\s+guide)/,
-  /\b(?:stock\s+market|index\s+fund|retirement|compound\s+interest|savings?\s+account|budget(?:ing)?)/,
-  /\b(?:financial\s+education|money\s+management|financial\s+planning|wealth\s+building)/,
-  /\b(?:passive\s+income|real\s+estate\s+invest|business\s+(?:plan|model|strategy|idea))/,
-  /\b(?:entrepreneur|startup|side\s+hustle|freelanc)/,
+  /\b(?:financial\s+literacy|personal\s+finance|investing\s+basics|how\s+to\s+invest|investment\s+guide)/i,
+  /\b(?:stock\s+market|index\s+fund|retirement|compound\s+interest|savings?\s+account|budget(?:ing)?)/i,
+  /\b(?:financial\s+education|money\s+management|financial\s+planning|wealth\s+building)/i,
+  /\b(?:passive\s+income|real\s+estate\s+invest|business\s+(?:plan|model|strategy|idea))/i,
+  /\b(?:entrepreneur|startup|side\s+hustle|freelanc)/i,
   // Risk awareness / warnings
-  /\b(?:why\s+(?:you|people)\s+lose|scam\s+warning|avoid|beware|risk(?:s|y)?|danger(?:s|ous)?)/,
-  /\b(?:don'?t\s+(?:fall|get\s+scammed)|warning|truth\s+about|reality\s+of|exposed|debunk)/,
-  /\b(?:how\s+to\s+(?:spot|avoid|prevent|recognize)\s+scam)/,
+  /\b(?:why\s+(?:you|people)\s+lose|scam\s+warning|avoid|beware|risk(?:s|y)?|danger(?:s|ous)?)/i,
+  /\b(?:don'?t\s+(?:fall|get\s+scammed)|warning|truth\s+about|reality\s+of|exposed|debunk)/i,
+  /\b(?:how\s+to\s+(?:spot|avoid|prevent|recognize)\s+scam)/i,
   // Academic / educational markers
-  /\b(?:course|class|lesson|tutorial|explained|for\s+beginners|101|basics|fundamentals)/,
-  /\b(?:professor|university|harvard|stanford|mit|lecture|research|study|academic)/,
+  /\b(?:course|class|lesson|tutorial|explained|for\s+beginners|101|basics|fundamentals)/i,
+  /\b(?:professor|university|harvard|stanford|mit|yale|oxford|cambridge|princeton|lecture|research|study|academic)/i,
+  // Documentary / historical / educational context (KEY for semantic classification)
+  /\bhistory\s+of\b/i,
+  /\bhistorical\s+(?:account|event|context|footage|record|analysis|documentary|overview|perspective)/i,
+  /\bdocumentary\b/i,
+  /\bworld\s+war\s+(?:i{1,2}|1|2|one|two)\b/i,
+  /\bcivil\s+war\b/i,
+  /\b(?:ancient|medieval|modern|colonial|industrial)\s+history\b/i,
+  /\bthe\s+(?:rise|fall|story|origins?|causes?|impact|legacy|aftermath)\s+of\b/i,
+  /\b(?:narrated|narrator|hosted)\s+by\b/i,
+  /\b(?:museum|archive|library|historian|scholar|archaeolog)/i,
+  /\b(?:ted\s*talk|tedx|khan\s*academy|crash\s*course|kurzgesagt|national\s+geographic|smithsonian|pbs|bbc\s+(?:earth|history))/i,
+  /\b(?:century|era|period|epoch|dynasty|empire|kingdom|civilization)\b/i,
+  /\b(?:revolution|independence|liberation|reformation|enlightenment|renaissance)\b/i,
+  /\b(?:battle\s+of|siege\s+of|treaty\s+of|war\s+of)\b/i,
+  /\b(?:causes?\s+and\s+(?:effects?|consequences?|impact)|timeline|chronolog)/i,
+  /\bfull\s+documentary\b/i,
+  /\bhow\s+(?:did|does|do|was|were|is|are)\b/i,
+  /\bwhy\s+(?:did|does|do|was|were|is|are)\b/i,
+  /\bexplained\b/i,
+  /\bscience\s+(?:of|behind)\b/i,
+  /\blesson\s+\d+\b/i,
+  /\blecture\s+(?:\d+|on|about|series)\b/i,
+  /\b(?:educational|informational|instructional)\b/i,
+  // Prevention / awareness / anti-drug / safety education
+  /\b(?:prevention|awareness|effects?\s+(?:of|on))\b/i,
+  /\b(?:what\s+(?:every|all)\s+(?:teen|parent|student|kid|child))\b/i,
+  /\b(?:drug\s+(?:abuse|prevention|education|awareness|effects?)|substance\s+abuse\s+(?:prevention|education))/i,
+  /\b(?:dangers?\s+of|risks?\s+of|harm\s+of|impact\s+of|consequences?\s+of)\b/i,
+  /\b(?:stay\s+safe|protect\s+(?:yourself|your\s+child)|say\s+no\s+to)\b/i,
+  /\b(?:anti[-\s]?(?:drug|violence|bullying|gambling))\b/i,
+  /\b(?:for\s+(?:students?|teens?|parents?|kids?|children|educators?|teachers?))\b/i,
+  /\b(?:health\s+(?:education|class|lesson)|mental\s+health)\b/i,
 ];
 
 /**
@@ -136,7 +168,40 @@ const HARMFUL_VIDEO_PATTERNS = [
 ];
 
 /**
+ * Trusted channel patterns — channels known for educational/documentary content.
+ * Matching these adds significant protective weight.
+ */
+const TRUSTED_CHANNEL_PATTERNS = [
+  // Major educational YouTube channels
+  /\b(?:kurzgesagt|crash\s*course|veritasium|vsauce|minutephysics|3blue1brown|smarter\s*every\s*day)/i,
+  /\b(?:khan\s*academy|ted[\s-]*ed|ted\s*talks?|cgp\s*grey|real\s*engineering|wendover)/i,
+  /\b(?:mark\s*rober|tom\s*scott|numberphile|computerphile|linus\s*tech|science\s*channel)/i,
+  // Major media / documentary producers
+  /\b(?:national\s*geographic|nat\s*geo|bbc|pbs|discovery|smithsonian|history\s*channel)/i,
+  /\b(?:vice\s*news|al\s*jazeera|reuters|associated\s*press|cnn|nbc|abc\s*news|cbs)/i,
+  /\b(?:frontline|nova|60\s*minutes|dateline|hbo\s*documentary)/i,
+  // Universities & museums
+  /\b(?:harvard|stanford|mit|yale|oxford|cambridge|princeton|columbia|berkeley)/i,
+  /\b(?:museum|smithsonian|british\s*museum|metropolitan\s*museum|louvre)/i,
+];
+
+/**
  * Classify a single video's risk level based on its combined text content.
+ *
+ * SEMANTIC AI CLASSIFIER — Analyzes context, not just keywords.
+ * Uses weighted multi-signal analysis:
+ *   1. Lexicon topic scores (what words appear)
+ *   2. Intent classification (WHY the content exists)
+ *   3. Protective pattern detection (educational/documentary framing)
+ *   4. Harmful pattern detection (glorification, exploitation)
+ *   5. Channel reputation signals (trusted sources)
+ *   6. Safety Confidence Score — net balance of positive vs negative signals
+ *
+ * Example outcomes:
+ *   "History of World War II" → education intent + historical framing → ALLOW
+ *   "Brutal Street Fight Compilation" → violence intent + glorification → BLOCK
+ *   "Harvard lecture on addiction neuroscience" → education + university → ALLOW
+ *   "How to cheat at online gambling" → harmful how-to + gambling → BLOCK
  *
  * @param {string} contentText — Combined: title + description + channel + tags + transcript
  * @param {Object} [metadata] — Optional: { title, channel, tags, description }
@@ -148,24 +213,30 @@ export function classify_video_risk(contentText, metadata = {}) {
   }
 
   const lower = contentText.toLowerCase();
+  const title = (metadata.title || contentText.slice(0, 200)).toLowerCase();
+  const channel = (metadata.channel || '').toLowerCase();
   const reasoning = [];
 
-  // Step 1: Topic scoring via lexicons
+  // ── Signal Layer 1: Topic scoring via lexicons ──────────────────
   const topicScores = localScoreAllTopics(lower);
 
-  // Step 2: Check for protective patterns (financial literacy, education, etc.)
-  let protectiveScore = 0;
+  // ── Signal Layer 2: Protective pattern detection ────────────────
+  // Each match adds to protective score; multiple matches compound
+  let protectiveHits = 0;
   for (const pattern of PROTECTIVE_PATTERNS) {
     if (pattern.test(lower)) {
-      protectiveScore += 0.25;
+      protectiveHits++;
     }
   }
-  protectiveScore = Math.min(1.0, protectiveScore);
+  // Saturating curve: 1 hit = 0.30, 2 hits = 0.51, 3 hits = 0.66, 5+ = 0.85+
+  const protectiveScore = protectiveHits > 0
+    ? Math.min(1.0, 1 - Math.exp(-protectiveHits * 0.35))
+    : 0;
   if (protectiveScore > 0) {
-    reasoning.push(`Protective/educational signals detected (score: ${protectiveScore.toFixed(2)}).`);
+    reasoning.push(`Protective/educational signals detected (${protectiveHits} signals, score: ${protectiveScore.toFixed(2)}).`);
   }
 
-  // Step 3: Check for harmful patterns (gambling schemes, get-rich-quick, etc.)
+  // ── Signal Layer 3: Harmful pattern detection ───────────────────
   let harmfulPatternScore = 0;
   const harmfulMatches = [];
   for (const pattern of HARMFUL_VIDEO_PATTERNS) {
@@ -180,7 +251,7 @@ export function classify_video_risk(contentText, metadata = {}) {
     reasoning.push(`Harmful patterns: ${harmfulMatches.slice(0, 3).join(', ')}.`);
   }
 
-  // Step 4: Intent classification from content signals
+  // ── Signal Layer 4: Intent classification ───────────────────────
   const contentObj = {
     title: metadata.title || contentText.slice(0, 200),
     description: metadata.description || '',
@@ -192,12 +263,37 @@ export function classify_video_risk(contentText, metadata = {}) {
     platform: { name: 'youtube', channel_or_author: metadata.channel || '' },
   };
   const intent = classifyIntent(contentObj);
-  const intentMod = VIDEO_INTENT_MODIFIERS[intent?.label] || 1.0;
-  if (intent && intent.label !== 'unknown') {
-    reasoning.push(`Intent: ${intent.label} (confidence: ${intent.confidence.toFixed(2)}).`);
+  const intentLabel = intent?.label || 'unknown';
+  const intentConf = intent?.confidence || 0;
+  const intentMod = VIDEO_INTENT_MODIFIERS[intentLabel] || 1.0;
+  if (intentLabel !== 'unknown') {
+    reasoning.push(`Intent: ${intentLabel} (confidence: ${intentConf.toFixed(2)}).`);
   }
 
-  // Step 5: Evaluate each topic against modulated thresholds
+  // ── Signal Layer 5: Channel reputation ──────────────────────────
+  let channelReputationBoost = 0;
+  const channelText = channel + ' ' + title;
+  for (const pattern of TRUSTED_CHANNEL_PATTERNS) {
+    if (pattern.test(channelText)) {
+      channelReputationBoost = 0.3;
+      reasoning.push('Trusted educational/media channel detected.');
+      break;
+    }
+  }
+
+  // ── Signal Layer 6: Safety Confidence Score ─────────────────────
+  // Net balance: positive safety signals vs negative harm signals
+  // This is the KEY semantic decision layer
+  const positiveSignals = protectiveScore + channelReputationBoost
+    + (intentLabel === 'education' ? intentConf * 0.5 : 0)
+    + (intentLabel === 'news_reporting' ? intentConf * 0.4 : 0)
+    + (intentLabel === 'recovery_support' ? intentConf * 0.6 : 0);
+  const negativeSignals = harmfulPatternScore;
+
+  // safetyConfidence: >0 means more safe than harmful, <0 means more harmful
+  const safetyConfidence = positiveSignals - negativeSignals;
+
+  // ── Evaluate each topic against context-aware thresholds ────────
   let topTopic = 'none';
   let topScore = 0;
   let blocked = false;
@@ -205,14 +301,33 @@ export function classify_video_risk(contentText, metadata = {}) {
   for (const [topic, score] of Object.entries(topicScores)) {
     const baseThreshold = VIDEO_RISK_THRESHOLDS[topic] || 0.75;
 
-    // Apply protective context: educational content raises threshold
-    const protectiveMod = protectiveScore > 0.3 ? 1.35 : (protectiveScore > 0 ? 1.15 : 1.0);
+    // Apply protective context: scales with number of protective signals
+    // 1 signal → 1.15x, 2+ signals → 1.35x, 3+ with education intent → 1.55x
+    let protectiveMod = 1.0;
+    if (protectiveScore > 0.5) {
+      protectiveMod = 1.45;
+    } else if (protectiveScore > 0.3) {
+      protectiveMod = 1.35;
+    } else if (protectiveScore > 0) {
+      protectiveMod = 1.15;
+    }
+
+    // Education intent with high confidence gets extra protection
+    if (intentLabel === 'education' && intentConf >= 0.6) {
+      protectiveMod += 0.15;
+    }
+
+    // Channel reputation bonus
+    if (channelReputationBoost > 0) {
+      protectiveMod += 0.10;
+    }
 
     // Apply intent modifier
-    const effectiveThreshold = Math.min(0.95, baseThreshold * intentMod * protectiveMod);
+    const effectiveThreshold = Math.min(0.98, baseThreshold * intentMod * protectiveMod);
 
-    // Apply harmful pattern boost to score
-    const effectiveScore = Math.min(1.0, score + harmfulPatternScore * 0.3);
+    // Apply harmful pattern boost to score (only when no educational context)
+    const harmfulBoost = safetyConfidence < 0 ? harmfulPatternScore * 0.3 : harmfulPatternScore * 0.1;
+    const effectiveScore = Math.min(1.0, score + harmfulBoost);
 
     if (effectiveScore > topScore) {
       topScore = effectiveScore;
@@ -225,27 +340,45 @@ export function classify_video_risk(contentText, metadata = {}) {
     }
   }
 
-  // Step 6: Harmful patterns alone can trigger blocking (even without topic match)
-  if (!blocked && harmfulPatternScore >= 0.6) {
+  // ── Harmful patterns alone can trigger blocking ─────────────────
+  if (!blocked && harmfulPatternScore >= 0.6 && safetyConfidence < 0.2) {
     blocked = true;
     topTopic = 'scams';
     topScore = harmfulPatternScore;
     reasoning.push('Harmful pattern density alone triggers block.');
   }
 
-  // Step 7: Strong protective context can override weak topic matches
-  if (blocked && protectiveScore >= 0.5 && topScore < 0.85) {
+  // ── Semantic Safety Override ─────────────────────────────────────
+  // Strong educational/documentary context overrides topic matches
+  // This is the core "AI classification" — understanding CONTEXT not just words
+
+  // Tier 1: Very strong safety + zero harmful patterns → override even high topic scores
+  // e.g., "Drug abuse prevention for teens" mentions cocaine, heroin, fentanyl
+  //        but has zero harmful PATTERNS and strong educational framing
+  if (blocked && safetyConfidence > 0.6 && harmfulPatternScore === 0 && topScore < 1.0) {
     blocked = false;
-    reasoning.push(`Strong protective context (${protectiveScore.toFixed(2)}) overrides moderate topic match.`);
+    reasoning.push(`Strong semantic safety override: high safety confidence (${safetyConfidence.toFixed(2)}) with zero harmful patterns — educational/preventive content.`);
   }
 
-  // Step 8: Recovery/support intent override
+  // Tier 2: Moderate safety confidence overrides moderate topic scores
+  if (blocked && safetyConfidence > 0.3 && topScore < 0.90) {
+    blocked = false;
+    reasoning.push(`Semantic safety override: positive safety signals (${positiveSignals.toFixed(2)}) outweigh harm signals (${negativeSignals.toFixed(2)}).`);
+  }
+
+  // Tier 3: Protective score alone can override moderate matches
+  if (blocked && protectiveScore >= 0.40 && topScore < 0.85 && harmfulPatternScore < 0.3) {
+    blocked = false;
+    reasoning.push(`Strong protective context (${protectiveScore.toFixed(2)}) overrides moderate topic match — no harmful patterns present.`);
+  }
+
+  // ── Recovery/support intent override ────────────────────────────
   if (blocked && intent && isProtectiveIntent(intent)) {
     blocked = false;
     reasoning.push(`Recovery/support intent detected — allowing.`);
   }
 
-  // Build final decision
+  // ── Build final decision ────────────────────────────────────────
   const riskScore = Math.round(topScore * 100);
   const confidence = Math.min(1.0, 0.4 + topScore * 0.5 + (contentText.length > 200 ? 0.1 : 0));
 
@@ -254,7 +387,7 @@ export function classify_video_risk(contentText, metadata = {}) {
   }
 
   // Warn level: elevated but not blocked
-  if (riskScore >= 40) {
+  if (riskScore >= 40 && safetyConfidence < 0.2) {
     reasoning.push(`Elevated risk but below block threshold.`);
     return buildDecision('warn', riskScore, topTopic, reasoning, confidence * 0.8);
   }

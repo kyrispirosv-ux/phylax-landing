@@ -155,6 +155,23 @@
       if (co.chat && co.chat.contact_text) {
         co.main_text = co.chat.contact_text;
       }
+
+      // LAST RESORT: If chat extraction completely failed (no contact text),
+      // grab ALL visible text from the chat area and treat it as UNKNOWN sender.
+      // This ensures the grooming detector always receives text to analyze on DM pages.
+      // UNKNOWN messages are scored as CONTACT (safe default — better to over-detect).
+      if (!co.chat?.contact_text && host.includes('instagram.com')) {
+        const chatAreaText = extractInstagramVisibleChatText();
+        if (chatAreaText && chatAreaText.length > 15) {
+          co.main_text = chatAreaText;
+          co.chat = co.chat || { messages: [], contact_text: '', child_text: '', message_count: 0, contact_message_count: 0, child_message_count: 0, unknown_message_count: 0 };
+          co.chat.contact_text = chatAreaText;
+          co.chat.messages = [{ sender: 'UNKNOWN', text: chatAreaText }];
+          co.chat.message_count = 1;
+          co.chat.unknown_message_count = 1;
+          console.log(`[Phylax Observer] Instagram last-resort text extraction: ${chatAreaText.length} chars`);
+        }
+      }
     }
 
     return co;
@@ -607,6 +624,65 @@
       console.log(`[Phylax Observer] Instagram DM fallback extracted ${messages.length} messages (strategies: dir-auto, span, scroll-walk)`);
     }
     return messages;
+  }
+
+  /**
+   * LAST RESORT Instagram text extraction.
+   * When all structured message extraction fails, grab ALL visible text
+   * from the right portion of the page (where the conversation thread lives).
+   * This is brute-force but ensures the grooming detector always receives text.
+   * The text is treated as a single UNKNOWN-sender message (scored as CONTACT).
+   */
+  function extractInstagramVisibleChatText() {
+    try {
+      // Instagram DMs: conversation is typically in the right ~60% of the screen.
+      // The left side is the conversation list.
+      const viewportWidth = window.innerWidth;
+      const chatLeftBound = viewportWidth * 0.3; // Chat pane starts around 30%
+
+      // Strategy A: Get innerText from [role="main"] and filter
+      const main = document.querySelector('[role="main"]') || document.querySelector('main');
+      if (!main) return '';
+
+      // Get all text nodes in the main area
+      const textParts = [];
+      const seen = new Set();
+
+      // Walk all elements and collect text from elements in the chat pane area
+      const allElements = main.querySelectorAll('div, span, p');
+      for (const el of allElements) {
+        // Skip large containers — only want leaf text
+        if (el.childElementCount > 3) continue;
+
+        const text = el.innerText?.trim();
+        if (!text || text.length < 3 || text.length > 500) continue;
+        if (seen.has(text)) continue;
+
+        // Skip timestamps, UI chrome
+        if (/^\d{1,2}:\d{2}\s*(?:AM|PM|am|pm)?$/.test(text)) continue;
+        if (/^(?:Today|Yesterday|Active|Seen|Typing|Online|Offline|Send|Message|Delivered|Sent|Read)\b/i.test(text)) continue;
+        if (/^(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d/i.test(text)) continue;
+
+        // Check if element is in the chat area (right side of screen)
+        const rect = el.getBoundingClientRect();
+        if (rect.width < 10 || rect.height < 5) continue; // skip invisible
+        if (rect.left < chatLeftBound && rect.right < chatLeftBound) continue; // skip left sidebar
+
+        seen.add(text);
+        textParts.push(text);
+
+        if (textParts.join(' ').length > 5000) break; // cap text length
+      }
+
+      const result = textParts.join(' ').trim();
+      if (result.length > 15) {
+        console.log(`[Phylax Observer] Instagram visible chat text: ${result.length} chars from ${textParts.length} elements`);
+      }
+      return result;
+    } catch (err) {
+      console.warn('[Phylax Observer] extractInstagramVisibleChatText error:', err);
+      return '';
+    }
   }
 
   /**

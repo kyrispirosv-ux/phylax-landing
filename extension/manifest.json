@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Phylax Safety",
-  "version": "8.6",
+  "version": "8.9",
   "description": "Child safety with video blocking, grooming detection, risk scoring, and parent dashboard.",
   "permissions": [
     "storage",
