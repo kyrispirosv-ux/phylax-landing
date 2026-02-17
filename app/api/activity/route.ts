@@ -56,6 +56,7 @@ export async function GET(req: NextRequest) {
         severity: alert.severity === 'critical' ? 'high' : (alert.severity === 'warning' ? 'medium' : 'low'),
         category: getCategoryFromAlert(alert),
         timestamp: formatTimestamp(alert.created_at),
+        isoTimestamp: alert.created_at,
         actionTaken: alert.alert_type === 'BLOCK' ? 'blocked' : 'warned',
     }));
 

@@ -15,6 +15,7 @@ interface Alert {
     severity: 'high' | 'medium' | 'low';
     category: string;
     timestamp: string;
+    isoTimestamp?: string;
     actionTaken: 'blocked' | 'warned' | 'allowed';
 }
 
@@ -41,6 +42,7 @@ interface AppState {
     fetchAlerts: () => Promise<void>;
     addAlert: (alert: Alert) => void;
     clearAlerts: () => Promise<void>;
+    lastClearedTime: number;
 
     // Policy / Settings
     ageGroup: number;
@@ -82,10 +84,10 @@ function fetchAlertsFromExtension(): Promise<Alert[] | null> {
             window.removeEventListener('message', handler);
 
             if (event.data.success && event.data.alerts) {
-                // Format timestamps as relative time
                 const now = Date.now();
                 const formatted = event.data.alerts.map((alert: Alert & { timestamp: string }) => ({
                     ...alert,
+                    isoTimestamp: alert.timestamp, // Keep original
                     timestamp: formatRelativeTime(alert.timestamp, now),
                 }));
                 resolve(formatted);
@@ -179,13 +181,23 @@ export const useStore = create<AppState>((set) => ({
     removeDevice: (id) => set((state) => ({ devices: state.devices.filter(d => d.id !== id) })),
 
     alerts: [],
+    lastClearedTime: 0,
     fetchAlerts: async () => {
+        const { lastClearedTime } = useStore.getState();
+        const shouldKeep = (alert: Alert) => {
+            if (!alert.isoTimestamp) return true; // Keep if no timestamp (fallback)
+            return new Date(alert.isoTimestamp).getTime() > lastClearedTime;
+        };
+
         // Strategy 1: Try reading directly from the extension via bridge.js
         // This bypasses the server entirely and works in demo mode without Supabase
         const extensionAlerts = await fetchAlertsFromExtension();
         if (extensionAlerts && extensionAlerts.length > 0) {
-            console.log(`[Store] Got ${extensionAlerts.length} alerts from extension bridge`);
-            set({ alerts: extensionAlerts });
+            const filtered = extensionAlerts.filter(shouldKeep);
+            if (filtered.length !== extensionAlerts.length) {
+                console.log(`[Store] Filtered ${extensionAlerts.length - filtered.length} old alerts`);
+            }
+            set({ alerts: filtered });
             return;
         }
 
@@ -195,7 +207,8 @@ export const useStore = create<AppState>((set) => ({
             if (res.ok) {
                 const data = await res.json();
                 if (data.alerts && data.alerts.length > 0) {
-                    set({ alerts: data.alerts });
+                    const filtered = data.alerts.filter(shouldKeep);
+                    set({ alerts: filtered });
                     return;
                 }
             }
@@ -205,7 +218,7 @@ export const useStore = create<AppState>((set) => ({
     },
     addAlert: (alert: Alert) => set((state) => ({ alerts: [alert, ...state.alerts] })),
     clearAlerts: async () => {
-        set({ alerts: [] });
+        set({ alerts: [], lastClearedTime: Date.now() });
 
         // Clear extension storage if present
         if (typeof window !== 'undefined' && document.documentElement.hasAttribute('data-phylax-extension')) {
