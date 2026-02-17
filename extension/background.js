@@ -10,7 +10,7 @@ import { evaluate, compileToPolicyObject } from './engine/pipeline.js';
 import { createSessionState, updateSessionState } from './engine/behavior.js';
 import { cacheClear, cacheStats } from './engine/decision-cache.js';
 import { createConversationState } from './engine/grooming-detector.js';
-import { classify_video_risk, analyze_message_risk, predict_conversation_risk } from './engine/risk-classifier.js';
+import { classify_video_risk, analyze_message_risk, predict_conversation_risk, classify_search_risk } from './engine/risk-classifier.js';
 import { startSync } from './backend-sync.js';
 
 // ── State ───────────────────────────────────────────────────────
@@ -609,6 +609,58 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       }
     }
 
+    return true;
+  }
+
+  // ── TASK 3b: Search query risk classification ──────────────────
+  // Receives search queries from search-interceptor.js and returns
+  // a classification using classify_search_risk.
+  if (message.type === 'PHYLAX_CLASSIFY_SEARCH') {
+    const query = message.query;
+    if (!query || query.length < 3) {
+      sendResponse({ classification: { decision: 'allow', risk_score: 0, category: 'none' } });
+      return true;
+    }
+
+    const classification = classify_search_risk(query);
+    console.log(`[Phylax] Search classify: "${query.slice(0, 60)}" → ${classification.decision} (${classification.category}, risk: ${classification.risk_score})`);
+
+    sendResponse({ classification });
+    return true;
+  }
+
+  // Search blocked notification — log event and send parent alert
+  if (message.type === 'PHYLAX_SEARCH_BLOCKED') {
+    const classification = message.classification || {};
+    const logEvent = createEvent({
+      eventType: 'SEARCH_BLOCKED',
+      tabId: sender.tab?.id,
+      url: message.url || '',
+      domain: message.domain || '',
+      payload: {
+        query: message.query,
+        category: classification.category,
+        risk_score: classification.risk_score,
+        blocked_reason: classification.blocked_reason,
+      },
+      profileId: profileTier,
+    });
+    eventBuffer.push(logEvent);
+
+    // Send parent alert
+    handleParentAlert({
+      type: 'SEARCH_BLOCKED',
+      severity: classification.risk_score >= 90 ? 'high' : 'medium',
+      title: 'Blocked Search Query',
+      body: `A harmful search was blocked: ${classification.category}`,
+      url: message.url || '',
+      domain: message.domain || '',
+      reason_code: 'SEARCH_RISK',
+      confidence: classification.confidence || 0.9,
+      evidence: classification.reasoning || [],
+    });
+
+    sendResponse({ success: true });
     return true;
   }
 

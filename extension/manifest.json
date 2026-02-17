@@ -55,6 +55,23 @@
         "content/youtube-scanner.js"
       ],
       "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://www.google.com/*",
+        "https://google.com/*",
+        "https://www.bing.com/*",
+        "https://bing.com/*",
+        "https://duckduckgo.com/*",
+        "https://www.duckduckgo.com/*",
+        "https://search.yahoo.com/*",
+        "https://www.youtube.com/*",
+        "https://youtube.com/*"
+      ],
+      "js": [
+        "content/search-interceptor.js"
+      ],
+      "run_at": "document_idle"
     }
   ],
   "icons": {

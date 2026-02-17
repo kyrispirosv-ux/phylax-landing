@@ -452,6 +452,8 @@ const TACTIC_DETECTORS = {
         weight: 0.55,
         regexes: [
           /\b(?:you|u)(?:'re|r|\s+are)\s+(?:so\s+)?(?:mature|grown|advanced|smart|wise)\s+for\s+(?:\d+|your\s+age|a\s+\d+\s*(?:year|yr)\s*old)/,
+          /\b(?:you|u)(?:'re|r|\s+are)\s+(?:so\s+|more\s+)?(?:mature|grown|advanced|smart|wise)\s+than\s+(?:other\s+)?(?:people|kids?|girls?|boys?|others?)\s+(?:your|ur)\s+age/,
+          /\b(?:more\s+mature|more\s+grown\s+up|more\s+advanced)\s+than\s+(?:other\s+)?(?:people|kids?|girls?|boys?)\s+(?:your|ur)\s+age/,
           /\b(?:you|u)\s+(?:don'?t|do\s+not)\s+seem\s+(?:\d+|your\s+age|that\s+young)/,
           /\bi\s+(?:forget|keep\s+forgetting)\s+how\s+(?:young|old)\s+(?:you|u)\s+(?:are|r)/,
           /\b(?:you|u)(?:'re|r|\s+are)\s+not\s+like\s+(?:other|most)\s+(?:girls?|boys?|kids?|people)\s+(?:your|ur)\s+age/,

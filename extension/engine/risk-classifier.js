@@ -1,9 +1,10 @@
 // Phylax Engine — Unified Risk Classifier v1.0
 //
-// Three classification APIs for the demo:
+// Four classification APIs:
 //   1. classify_video_risk(content_text)  — YouTube semantic video blocking
 //   2. analyze_message_risk(message_text, conversation_history) — Grooming detection
 //   3. predict_conversation_risk(messages[]) — Predictive risk intelligence
+//   4. classify_search_risk(query)  — Predictive search interception
 //
 // Every function returns the global structured format:
 //   { decision, risk_score, category, reasoning, confidence }
@@ -124,6 +125,12 @@ const HARMFUL_VIDEO_PATTERNS = [
   /\b(?:get\s+rich\s+(?:quick|fast|overnight)|millionaire\s+(?:in|by)\s+\d+)/,
   /\b(?:money\s+(?:glitch|hack|exploit|cheat))/,
   /\b(?:free\s+money|infinite\s+money|unlimited\s+money)/,
+  // Violence glorification
+  /\b(?:real\s+fight(?:s|ing)?(?:\s+video(?:s)?|\s+compilation)?)/,
+  /\b(?:street\s+fight(?:s|ing)?(?:\s+compilation)?)/,
+  /\b(?:brutal\s+(?:knockout|fight|beating|brawl)(?:s)?)/,
+  /\b(?:(?:knockout|fight|violence|beating)\s+compilation)/,
+  /\b(?:caught\s+on\s+camera\s+(?:fight|violence|attack))/,
 ];
 
 /**
@@ -346,7 +353,15 @@ export function analyze_message_risk(messageText, conversationHistory = null) {
 
   // Map to simplified stage
   const detectedStage = groomingResult.stage;
-  const simplifiedStage = detectedStage ? (STAGE_MAP[detectedStage] || 'early') : 'none';
+  let simplifiedStage = detectedStage ? (STAGE_MAP[detectedStage] || 'early') : 'none';
+
+  // If context suppression is active and the suppressed risk score is low,
+  // downgrade the stage to 'none' to avoid false positives
+  // (e.g. "Don't tell dad about his birthday surprise" triggers secrecy
+  //  but family_context suppression should fully clear it)
+  if (groomingResult.suppressed && groomingResult.risk_score < 0.25) {
+    simplifiedStage = 'none';
+  }
 
   // Extract trigger labels
   const triggers = (groomingResult.signals || []).map(s =>
@@ -636,7 +651,7 @@ export function predict_conversation_risk(messages) {
 
   let decision = 'allow';
   if (riskLevel === 'critical' || riskLevel === 'high') decision = 'block';
-  else if (riskLevel === 'elevated') decision = 'warn';
+  else if (riskLevel === 'elevated') decision = riskScore >= 70 ? 'block' : 'warn';
 
   return {
     risk_level: riskLevel,
@@ -646,4 +661,185 @@ export function predict_conversation_risk(messages) {
     timeline: messageTimeline,
     ...buildDecision(decision, riskScore, primaryPattern || 'none', reasoning, confidence),
   };
+}
+
+
+// ═════════════════════════════════════════════════════════════════
+// TASK 3b — classify_search_risk(query)
+// ═════════════════════════════════════════════════════════════════
+//
+// Predictive search interception.
+// Classifies a search query BEFORE it executes.
+// Blocks harmful-intent queries, allows educational/research queries.
+//
+// Decision logic:
+//   - Educational queries about sensitive topics → ALLOW
+//     e.g. "effects of stress on teenage brain", "what is suicide prevention"
+//   - Direct harmful queries → BLOCK
+//     e.g. "how to kill yourself", "buy drugs online", "child porn"
+//   - Ambiguous queries → ALLOW (err on side of learning)
+
+/**
+ * Search query risk thresholds.
+ * Higher thresholds than video classification since search queries are short
+ * and we want to minimise false positives on legitimate research.
+ */
+const SEARCH_RISK_THRESHOLDS = {
+  pornography:      0.50,
+  self_harm:        0.55,
+  drugs:            0.65,
+  violence:         0.75,
+  weapons:          0.70,
+  hate:             0.70,
+  scams:            0.65,
+  extremism:        0.60,
+  gambling:         0.70,
+  eating_disorder:  0.65,
+  bullying:         0.70,
+};
+
+/**
+ * Educational/research search patterns that indicate safe intent.
+ * When detected, the query is allowed regardless of topic scores.
+ */
+const SAFE_SEARCH_PATTERNS = [
+  // Academic/research queries
+  /\b(?:effects?\s+of|impact\s+of|causes?\s+of|research\s+on|study\s+(?:of|on|about))/,
+  /\b(?:what\s+is|what\s+are|how\s+does|why\s+do|definition\s+of|meaning\s+of)/,
+  /\b(?:prevention|awareness|support|help\s+(?:for|with)|resources?\s+for)/,
+  /\b(?:statistics|facts?\s+about|history\s+of|science\s+(?:of|behind))/,
+  /\b(?:signs?\s+of|symptoms?\s+of|treatment\s+(?:for|of))/,
+  /\b(?:how\s+to\s+(?:prevent|avoid|recognize|stop|report|help))/,
+  /\b(?:documentary|educational|explained|for\s+(?:kids|students|beginners))/,
+  /\b(?:psychology|neuroscience|biology|health|mental\s+health)/,
+  /\b(?:coping|recovery|rehabilitation|therapy|counseling)/,
+  /\b(?:teenage|adolescent|child(?:ren)?)\s+(?:brain|development|psychology|health)/,
+  // Specific protective phrases for sensitive topics
+  /\b(?:suicide\s+(?:prevention|hotline|helpline|awareness|resources?|crisis\s+line))/,
+  /\b(?:(?:suicide|self.?harm)\s+(?:help|support|talk|counseling))/,
+  /\b(?:drug\s+(?:abuse\s+)?(?:prevention|education|awareness|effects?))/,
+  /\b(?:violence\s+(?:prevention|awareness|against))/,
+  /\b(?:(?:crisis|help)\s+(?:line|hotline|number|center|resources?))/,
+];
+
+/**
+ * High-risk search patterns that indicate harmful intent.
+ * These should be blocked regardless of educational modifiers.
+ */
+const HARMFUL_SEARCH_PATTERNS = [
+  // Self-harm method-seeking
+  /\b(?:how\s+to\s+(?:kill|hurt|harm)\s+(?:my|your)?self)/,
+  /\b(?:ways\s+to\s+(?:die|kill\s+yourself|commit\s+suicide))/,
+  /\b(?:suicide\s+(?:methods?|techniques?|ways?))/,
+  /\b(?:painless\s+(?:death|suicide|way\s+to\s+die))/,
+  // Drug purchasing
+  /\b(?:buy|order|get|purchase)\s+(?:cocaine|heroin|meth|fentanyl|drugs?|pills?)\s*(?:online)?/,
+  /\b(?:where\s+to\s+(?:buy|get|find)\s+(?:drugs?|cocaine|heroin|meth|weed))/,
+  // Explicit content seeking
+  /\b(?:child\s+(?:porn|pornography|abuse\s+(?:images?|videos?|material)))/,
+  /\b(?:underage|minor)\s+(?:nude|naked|porn|sex)/,
+  // Violence method-seeking
+  /\b(?:how\s+to\s+(?:make|build)\s+(?:a\s+)?(?:bomb|explosive|weapon))/,
+  /\b(?:how\s+to\s+(?:attack|kill|shoot)\s+(?:people|a\s+school|someone))/,
+  // Eating disorder encouragement
+  /\b(?:pro\s*[-\s]?ana|pro\s*[-\s]?mia|thinspo|how\s+to\s+(?:purge|starve))/,
+];
+
+/**
+ * Classify a search query's risk level BEFORE the search executes.
+ *
+ * @param {string} query — The raw search query text
+ * @returns {StructuredDecision & { blocked_reason?: string }}
+ */
+export function classify_search_risk(query) {
+  if (!query || query.length < 3) {
+    return buildDecision('allow', 0, 'none', ['Query too short to classify.'], 0.5);
+  }
+
+  const lower = query.toLowerCase().trim();
+  const reasoning = [];
+
+  // Step 1: Check for harmful patterns (highest priority — always block)
+  for (const pattern of HARMFUL_SEARCH_PATTERNS) {
+    const match = lower.match(pattern);
+    if (match) {
+      reasoning.push('Harmful-intent pattern detected: "' + match[0] + '".');
+
+      // Determine category from the match
+      let category = 'harmful_content';
+      if (/kill|hurt|harm|suicide|die/.test(match[0])) category = 'self_harm';
+      else if (/buy|order|drug|cocaine|heroin|meth|fentanyl/.test(match[0])) category = 'drugs';
+      else if (/porn|nude|naked|abuse/.test(match[0])) category = 'pornography';
+      else if (/bomb|explosive|weapon|attack|shoot/.test(match[0])) category = 'violence';
+      else if (/pro.?ana|pro.?mia|thinspo|purge|starve/.test(match[0])) category = 'eating_disorder';
+
+      return {
+        ...buildDecision('block', 95, category, reasoning, 0.9),
+        blocked_reason: 'harmful-intent query detected',
+      };
+    }
+  }
+
+  // Step 2: Check for safe/educational patterns
+  let safeScore = 0;
+  for (const pattern of SAFE_SEARCH_PATTERNS) {
+    if (pattern.test(lower)) {
+      safeScore += 0.3;
+    }
+  }
+  safeScore = Math.min(1.0, safeScore);
+  if (safeScore > 0) {
+    reasoning.push('Educational/research signals detected (score: ' + safeScore.toFixed(2) + ').');
+  }
+
+  // Step 3: Topic scoring via lexicons
+  const topicScores = localScoreAllTopics(lower);
+
+  // Step 4: Evaluate topics against thresholds
+  let topTopic = 'none';
+  let topScore = 0;
+  let blocked = false;
+
+  for (const [topic, score] of Object.entries(topicScores)) {
+    const baseThreshold = SEARCH_RISK_THRESHOLDS[topic] || 0.75;
+
+    // Safe queries raise threshold significantly
+    const safeMod = safeScore > 0.3 ? 1.5 : (safeScore > 0 ? 1.2 : 1.0);
+    const effectiveThreshold = Math.min(0.95, baseThreshold * safeMod);
+
+    if (score > topScore) {
+      topScore = score;
+      topTopic = topic;
+    }
+
+    if (score >= effectiveThreshold && safeScore < 0.5) {
+      blocked = true;
+      reasoning.push('Topic "' + topic + '" score ' + score.toFixed(2) + ' >= threshold ' + effectiveThreshold.toFixed(2) + '.');
+    }
+  }
+
+  // Step 5: Strong safe signals override moderate topic matches
+  if (blocked && safeScore >= 0.5) {
+    blocked = false;
+    reasoning.push('Strong educational context overrides topic match.');
+  }
+
+  // Build decision
+  const riskScore = Math.round(topScore * 100);
+  const confidence = Math.min(1.0, 0.5 + topScore * 0.4);
+
+  if (blocked) {
+    return {
+      ...buildDecision('block', riskScore, topTopic, reasoning, confidence),
+      blocked_reason: 'harmful-intent query detected',
+    };
+  }
+
+  if (riskScore >= 40 && safeScore < 0.3) {
+    reasoning.push('Elevated risk but below block threshold.');
+    return buildDecision('warn', riskScore, topTopic, reasoning, confidence * 0.8);
+  }
+
+  return buildDecision('allow', riskScore, topTopic || 'none',
+    reasoning.length > 0 ? reasoning : ['No harmful signals detected — safe educational content.'], confidence);
 }

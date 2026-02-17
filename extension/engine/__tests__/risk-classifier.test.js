@@ -1,7 +1,7 @@
 // Phylax Engine — Risk Classifier Tests
 // Tests all three demo tasks with the exact inputs from the spec.
 
-import { classify_video_risk, analyze_message_risk, predict_conversation_risk } from '../risk-classifier.js';
+import { classify_video_risk, analyze_message_risk, predict_conversation_risk, classify_search_risk } from '../risk-classifier.js';
 
 // ═════════════════════════════════════════════════════════════════
 // TASK 1 — YouTube Semantic Video Blocking
@@ -322,6 +322,99 @@ describe('predict_conversation_risk', () => {
     expect(result).toHaveProperty('category');
     expect(result).toHaveProperty('reasoning');
     expect(result).toHaveProperty('confidence');
+    expect(typeof result.risk_score).toBe('number');
+    expect(result.risk_score).toBeGreaterThanOrEqual(0);
+    expect(result.risk_score).toBeLessThanOrEqual(100);
+  });
+});
+
+
+// ═════════════════════════════════════════════════════════════════
+// TASK 3b — Search Query Risk Classification
+// ═════════════════════════════════════════════════════════════════
+
+describe('classify_search_risk', () => {
+  // ── ALLOWED searches (educational/research) ──────────────────
+
+  test('allows educational search about stress', () => {
+    const result = classify_search_risk('effects of stress on teenage brain');
+    expect(result.decision).toBe('allow');
+  });
+
+  test('allows history search', () => {
+    const result = classify_search_risk('history of world war 2');
+    expect(result.decision).toBe('allow');
+  });
+
+  test('allows math homework', () => {
+    const result = classify_search_risk('how to solve quadratic equations');
+    expect(result.decision).toBe('allow');
+  });
+
+  test('allows suicide prevention search', () => {
+    const result = classify_search_risk('suicide prevention resources for teens');
+    expect(result.decision).toBe('allow');
+  });
+
+  test('allows drug education search', () => {
+    const result = classify_search_risk('effects of drugs on the body');
+    expect(result.decision).toBe('allow');
+  });
+
+  // ── BLOCKED searches (harmful intent) ─────────────────────────
+
+  test('blocks suicide method search', () => {
+    const result = classify_search_risk('how to kill yourself');
+    expect(result.decision).toBe('block');
+    expect(result.category).toBe('self_harm');
+  });
+
+  test('blocks drug purchase search', () => {
+    const result = classify_search_risk('where to buy cocaine online');
+    expect(result.decision).toBe('block');
+    expect(result.category).toBe('drugs');
+  });
+
+  test('blocks child exploitation search', () => {
+    const result = classify_search_risk('child porn');
+    expect(result.decision).toBe('block');
+    expect(result.category).toBe('pornography');
+  });
+
+  test('blocks weapon-making search', () => {
+    const result = classify_search_risk('how to make a bomb at home');
+    expect(result.decision).toBe('block');
+    expect(result.category).toBe('violence');
+  });
+
+  test('blocks pro-ana search', () => {
+    const result = classify_search_risk('pro ana tips how to starve');
+    expect(result.decision).toBe('block');
+    expect(result.category).toBe('eating_disorder');
+  });
+
+  test('blocks pornography site search', () => {
+    const result = classify_search_risk('pornhub');
+    expect(result.decision).toBe('block');
+    expect(result.category).toBe('pornography');
+  });
+
+  test('blocks gambling search', () => {
+    const result = classify_search_risk('best online casino free spins');
+    expect(result.decision).toBe('block');
+    expect(result.category).toBe('gambling');
+  });
+
+  // ── Structured output ──────────────────────────────────────────
+
+  test('returns structured output format', () => {
+    const result = classify_search_risk('test search query');
+    expect(result).toHaveProperty('decision');
+    expect(result).toHaveProperty('risk_score');
+    expect(result).toHaveProperty('category');
+    expect(result).toHaveProperty('reasoning');
+    expect(result).toHaveProperty('confidence');
+    expect(['allow', 'warn', 'block']).toContain(result.decision);
     expect(typeof result.risk_score).toBe('number');
     expect(result.risk_score).toBeGreaterThanOrEqual(0);
     expect(result.risk_score).toBeLessThanOrEqual(100);
