@@ -185,6 +185,9 @@ export const useStore = create<AppState>((set) => ({
     fetchAlerts: async () => {
         const { lastClearedTime } = useStore.getState();
         const shouldKeep = (alert: Alert) => {
+            // Filter out generic "Content Blocked" noise
+            if (alert.title === 'Content Blocked' && alert.category === 'General') return false;
+
             if (!alert.isoTimestamp) return true; // Keep if no timestamp (fallback)
             return new Date(alert.isoTimestamp).getTime() > lastClearedTime;
         };
