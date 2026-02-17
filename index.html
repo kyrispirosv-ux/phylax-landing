@@ -1188,6 +1188,298 @@
       flex-direction: column;
     }
 
+    /* Age Policy Tab */
+    .age-policy-layout {
+      display: flex;
+      gap: 0;
+      width: 100%;
+      height: 100%;
+      border-radius: 20px;
+      overflow: hidden;
+      border: 1px solid var(--stroke);
+    }
+
+    .age-tier-sidebar {
+      width: 260px;
+      flex-shrink: 0;
+      background: rgba(10, 16, 34, 0.6);
+      border-right: 1px solid var(--stroke);
+      display: flex;
+      flex-direction: column;
+      padding: 20px 0;
+    }
+
+    .age-tier-sidebar h3 {
+      margin: 0 20px 16px;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .age-tier-btn {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 14px 20px;
+      cursor: pointer;
+      border: none;
+      background: none;
+      color: var(--muted);
+      font-size: 14px;
+      font-weight: 500;
+      text-align: left;
+      transition: all 0.2s;
+      border-left: 3px solid transparent;
+    }
+
+    .age-tier-btn:hover {
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--txt);
+    }
+
+    .age-tier-btn.active {
+      background: rgba(52, 211, 153, 0.08);
+      color: #fff;
+      border-left-color: var(--accent3);
+    }
+
+    .age-tier-btn .tier-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      flex-shrink: 0;
+    }
+
+    .age-tier-btn .tier-label {
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .age-tier-btn .tier-sub {
+      font-size: 11px;
+      color: var(--muted2);
+      margin-top: 2px;
+    }
+
+    .age-policy-detail {
+      flex: 1;
+      padding: 32px;
+      overflow-y: auto;
+      background: var(--bg0);
+    }
+
+    .policy-header {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 28px;
+    }
+
+    .policy-header .policy-badge {
+      width: 48px;
+      height: 48px;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+    }
+
+    .policy-header h2 {
+      margin: 0;
+      font-size: 22px;
+    }
+
+    .policy-header .policy-mode {
+      font-size: 13px;
+      font-weight: 600;
+      padding: 4px 12px;
+      border-radius: 20px;
+      margin-left: auto;
+    }
+
+    .policy-stats-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .policy-stat-card {
+      background: var(--card);
+      border: 1px solid var(--stroke);
+      border-radius: 14px;
+      padding: 16px;
+    }
+
+    .policy-stat-card .stat-label {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+
+    .policy-stat-card .stat-value {
+      font-size: 24px;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .policy-stat-card .stat-sub {
+      font-size: 12px;
+      color: var(--muted2);
+      margin-top: 4px;
+    }
+
+    .policy-section {
+      margin-bottom: 24px;
+    }
+
+    .policy-section h4 {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      margin: 0 0 12px;
+    }
+
+    .policy-tag-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .policy-tag {
+      padding: 6px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      border: 1px solid;
+    }
+
+    .policy-tag.blocked {
+      background: rgba(251, 113, 133, 0.1);
+      border-color: rgba(251, 113, 133, 0.25);
+      color: var(--bad);
+    }
+
+    .policy-tag.allowed {
+      background: rgba(52, 211, 153, 0.1);
+      border-color: rgba(52, 211, 153, 0.25);
+      color: var(--accent3);
+    }
+
+    .policy-tag.flagged {
+      background: rgba(251, 191, 36, 0.1);
+      border-color: rgba(251, 191, 36, 0.25);
+      color: var(--warn);
+    }
+
+    .policy-pipeline {
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid var(--stroke2);
+      border-radius: 12px;
+      padding: 16px 20px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 13px;
+      line-height: 1.8;
+      color: var(--muted2);
+    }
+
+    .policy-pipeline .pipe-fn {
+      color: var(--accent2);
+    }
+
+    .policy-pipeline .pipe-op {
+      color: var(--accent1);
+    }
+
+    .policy-pipeline .pipe-val {
+      color: var(--accent3);
+    }
+
+    .policy-pipeline .pipe-warn {
+      color: var(--warn);
+    }
+
+    .policy-pipeline .pipe-bad {
+      color: var(--bad);
+    }
+
+    .policy-intervention-box {
+      background: var(--card);
+      border: 1px solid var(--stroke);
+      border-radius: 14px;
+      padding: 16px 20px;
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+    }
+
+    .policy-intervention-box .interv-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      flex-shrink: 0;
+    }
+
+    .policy-intervention-box .interv-text {
+      font-size: 14px;
+      line-height: 1.6;
+      color: rgba(255, 255, 255, 0.85);
+    }
+
+    .policy-intervention-box .interv-label {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+    }
+
+    @media (max-width: 900px) {
+      .age-policy-layout {
+        flex-direction: column;
+      }
+      .age-tier-sidebar {
+        width: 100%;
+        flex-direction: row;
+        overflow-x: auto;
+        padding: 12px;
+        border-right: none;
+        border-bottom: 1px solid var(--stroke);
+      }
+      .age-tier-sidebar h3 {
+        display: none;
+      }
+      .age-tier-btn {
+        flex-shrink: 0;
+        border-left: none;
+        border-bottom: 3px solid transparent;
+        padding: 10px 16px;
+      }
+      .age-tier-btn.active {
+        border-left-color: transparent;
+        border-bottom-color: var(--accent3);
+      }
+      .policy-stats-row {
+        grid-template-columns: 1fr;
+      }
+    }
+
     .risk-meter {
       width: 140px;
       height: 140px;
@@ -2062,7 +2354,249 @@
       if (tabId === 'policy') {
         loadRules();
       }
+      if (tabId === 'agepolicy') {
+        selectAgeTier(currentAgeTier);
+      }
     }
+
+    // Age Policy Data & Logic
+    var currentAgeTier = 0;
+
+    var ageTierData = [
+      {
+        id: 0,
+        label: 'Under 5',
+        mode: 'MAX PROTECTION',
+        modeColor: 'var(--bad)',
+        modeBg: 'rgba(251, 113, 133, 0.12)',
+        icon: '👶',
+        iconBg: 'rgba(251, 113, 133, 0.15)',
+        philosophy: 'Zero-trust internet. All content is guilty until proven safe.',
+        sensitivity: '2.5×',
+        threshold: '0.15',
+        thresholdLabel: 'Ultra-Low',
+        thresholdColor: 'var(--bad)',
+        falseNegRate: '<0.5%',
+        blocked: ['Social Media', 'Chat / Messaging', 'YouTube (non-whitelist)', 'User-Generated Content', 'External Links', 'Search (non-safe index)', 'Live Streams', 'Comments'],
+        allowed: ['Whitelisted Educational Apps', 'Approved Video Channels', 'Pre-Loaded Safe Content'],
+        flagged: [],
+        intervention: {
+          tone: 'Friendly Educational Redirect',
+          icon: '🧸',
+          iconBg: 'rgba(251, 113, 133, 0.15)',
+          labelColor: 'var(--bad)',
+          example: '"This page isn\'t safe for kids. Let\'s find something fun to watch instead!"'
+        },
+        actions: ['Redirect to safe site', 'Close tab', 'Notify parent'],
+        notes: 'Never show child warning text about danger types. All interventions are gentle and playful.',
+        pipeline: '<span class="pipe-fn">AI_ANALYZE</span>(content) → risk_score <span class="pipe-op">×</span> <span class="pipe-val">2.5</span>\n<span class="pipe-fn">IF</span> risk_score <span class="pipe-op">≥</span> <span class="pipe-bad">0.15</span> → <span class="pipe-bad">BLOCK</span>\n<span class="pipe-fn">ACTION</span>: redirect_safe_site <span class="pipe-op">|</span> close_tab <span class="pipe-op">|</span> parent_notify\n<span class="pipe-fn">TONE</span>: friendly_educational_redirect\n<span class="pipe-fn">SHOW_DANGER_DETAILS</span>: <span class="pipe-bad">false</span>'
+      },
+      {
+        id: 1,
+        label: 'Ages 5–8',
+        mode: 'HIGH PROTECTION',
+        modeColor: 'var(--warn)',
+        modeBg: 'rgba(251, 191, 36, 0.12)',
+        icon: '🧒',
+        iconBg: 'rgba(251, 191, 36, 0.15)',
+        philosophy: 'Curated access only. Block first, verify later.',
+        sensitivity: '2.0×',
+        threshold: '0.25',
+        thresholdLabel: 'Very Low',
+        thresholdColor: 'var(--warn)',
+        falseNegRate: '<0.8%',
+        blocked: ['Direct Messages', 'Comments Sections', 'Video Comments', 'Live Streams', 'External Links from Videos', 'Suggested Videos'],
+        allowed: ['Educational Platforms', 'Pre-Approved Video Channels', 'Kids Platforms (PBS Kids, etc.)'],
+        flagged: [],
+        intervention: {
+          tone: 'Silent Block + Parent Alert',
+          icon: '🔇',
+          iconBg: 'rgba(251, 191, 36, 0.15)',
+          labelColor: 'var(--warn)',
+          example: 'No warning shown to child. Parent receives silent push notification with context.'
+        },
+        actions: ['Auto-block suspicious patterns', 'Silent parent alert', 'Log interaction'],
+        notes: 'No warnings shown to child. Suspicious pattern detection triggers immediate silent parent alert.',
+        pipeline: '<span class="pipe-fn">AI_ANALYZE</span>(content) → risk_score <span class="pipe-op">×</span> <span class="pipe-val">2.0</span>\n<span class="pipe-fn">IF</span> risk_score <span class="pipe-op">≥</span> <span class="pipe-warn">0.25</span> → <span class="pipe-bad">BLOCK</span>\n<span class="pipe-fn">IF</span> suspicious_pattern → <span class="pipe-bad">auto_block</span> <span class="pipe-op">+</span> <span class="pipe-warn">silent_parent_alert</span>\n<span class="pipe-fn">SHOW_WARNING_TO_CHILD</span>: <span class="pipe-bad">false</span>'
+      },
+      {
+        id: 2,
+        label: 'Ages 8–11',
+        mode: 'GUIDED INTERNET',
+        modeColor: 'var(--ok)',
+        modeBg: 'rgba(96, 165, 250, 0.12)',
+        icon: '📚',
+        iconBg: 'rgba(96, 165, 250, 0.15)',
+        philosophy: 'Teach judgment while protecting. Allow exploration with guardrails.',
+        sensitivity: '1.5×',
+        threshold: '0.40',
+        thresholdLabel: 'Moderate',
+        thresholdColor: 'var(--ok)',
+        falseNegRate: '<1%',
+        blocked: ['Harmful / Explicit Content', 'DMs from Unknown Users'],
+        allowed: ['General Browsing', 'Educational Content', 'Age-Appropriate Social Media'],
+        flagged: ['Borderline Content (parent approval)', 'Risky Images / Videos (blurred)', 'New Contact Requests'],
+        intervention: {
+          tone: 'Gentle Guidance',
+          icon: '💬',
+          iconBg: 'rgba(96, 165, 250, 0.15)',
+          labelColor: 'var(--ok)',
+          example: '"This content might not be appropriate. Ask your parent if unsure."'
+        },
+        actions: ['Block harmful content', 'Flag borderline for review', 'Blur risky media until approved', 'Send flagged logs + pattern analysis to parent'],
+        notes: 'Parent dashboard receives flagged logs and behavioral pattern analysis.',
+        pipeline: '<span class="pipe-fn">AI_ANALYZE</span>(content) → risk_score <span class="pipe-op">×</span> <span class="pipe-val">1.5</span>\n<span class="pipe-fn">IF</span> risk_score <span class="pipe-op">≥</span> <span class="pipe-val">0.40</span> → <span class="pipe-bad">BLOCK</span>\n<span class="pipe-fn">IF</span> risk_score <span class="pipe-op">≥</span> <span class="pipe-warn">0.25</span> → <span class="pipe-warn">FLAG</span> <span class="pipe-op">+</span> blur_media\n<span class="pipe-fn">PARENT_DASH</span>: flagged_logs <span class="pipe-op">+</span> pattern_analysis\n<span class="pipe-fn">CHILD_MSG</span>: <span class="pipe-val">"Ask your parent if unsure"</span>'
+      },
+      {
+        id: 3,
+        label: 'Ages 11–14',
+        mode: 'SUPERVISED INDEPENDENCE',
+        modeColor: 'var(--accent1)',
+        modeBg: 'rgba(124, 92, 255, 0.12)',
+        icon: '🎓',
+        iconBg: 'rgba(124, 92, 255, 0.15)',
+        philosophy: 'Monitor patterns rather than block everything. Trust, but verify.',
+        sensitivity: '1.2×',
+        threshold: '0.60',
+        thresholdLabel: 'High',
+        thresholdColor: 'var(--accent1)',
+        falseNegRate: '<1%',
+        blocked: ['Grooming Patterns', 'Sexual Solicitation', 'Predatory Language', 'Coercion Signals', 'Self-Harm Encouragement', 'Extremist Recruitment'],
+        allowed: ['Normal Social Media', 'Comments', 'General Browsing', 'Search'],
+        flagged: ['Suspicious Conversations', 'Repeated Risky Searches', 'High-Frequency Unknown User Interaction'],
+        intervention: {
+          tone: 'Pattern-Based Monitoring',
+          icon: '📊',
+          iconBg: 'rgba(124, 92, 255, 0.15)',
+          labelColor: 'var(--accent1)',
+          example: 'System logs behavioral patterns silently. Only intervenes on confirmed threats.'
+        },
+        actions: ['Block confirmed threats only', 'Log suspicious conversations', 'Track repeated risky searches', 'Monitor unknown user interaction frequency'],
+        notes: 'Focus on pattern-level detection, not individual message blocking.',
+        pipeline: '<span class="pipe-fn">AI_ANALYZE</span>(content) → risk_score <span class="pipe-op">×</span> <span class="pipe-val">1.2</span>\n<span class="pipe-fn">IF</span> risk_score <span class="pipe-op">≥</span> <span class="pipe-val">0.60</span> → <span class="pipe-bad">BLOCK</span>\n<span class="pipe-fn">PATTERN_ENGINE</span>: conversation_log <span class="pipe-op">+</span> search_history <span class="pipe-op">+</span> contact_freq\n<span class="pipe-fn">CATEGORIES</span>: grooming <span class="pipe-op">|</span> solicitation <span class="pipe-op">|</span> coercion <span class="pipe-op">|</span> self_harm <span class="pipe-op">|</span> extremism'
+      },
+      {
+        id: 4,
+        label: 'Ages 14+',
+        mode: 'INTELLIGENT GUARDIAN',
+        modeColor: 'var(--accent3)',
+        modeBg: 'rgba(52, 211, 153, 0.12)',
+        icon: '🧑‍💻',
+        iconBg: 'rgba(52, 211, 153, 0.15)',
+        philosophy: 'AI acts like a silent safety co-pilot. Minimal intervention, maximum awareness.',
+        sensitivity: '1.0×',
+        threshold: '0.80',
+        thresholdLabel: 'Very High',
+        thresholdColor: 'var(--accent3)',
+        falseNegRate: '<1%',
+        blocked: [],
+        allowed: ['Full Browsing', 'All Social Media', 'All Content Types'],
+        flagged: ['Credible Threats', 'Grooming Probability', 'Blackmail Patterns', 'Explicit Exploitation Signals'],
+        intervention: {
+          tone: 'Escalation Engine',
+          icon: '🛡️',
+          iconBg: 'rgba(52, 211, 153, 0.15)',
+          labelColor: 'var(--accent3)',
+          example: 'Instead of blocking: Flag → Monitor → Escalate if pattern persists. If same risk category repeats ≥3 times in 48h → Notify parent.'
+        },
+        actions: ['Flag + Monitor persistent patterns', 'Escalate on repeat (≥3 in 48h → parent notify)', 'Intervene only for credible exploitation'],
+        notes: 'Risk score unchanged (1.0×). System only surfaces credible, pattern-confirmed threats.',
+        pipeline: '<span class="pipe-fn">AI_ANALYZE</span>(content) → risk_score <span class="pipe-op">(unchanged)</span>\n<span class="pipe-fn">IF</span> risk_score <span class="pipe-op">≥</span> <span class="pipe-val">0.80</span> → <span class="pipe-warn">FLAG</span> <span class="pipe-op">+</span> MONITOR\n<span class="pipe-fn">ESCALATION</span>: same_category <span class="pipe-op">≥3</span> in 48h → <span class="pipe-bad">PARENT_NOTIFY</span>\n<span class="pipe-fn">INTERVENE_ONLY</span>: credible_threats <span class="pipe-op">|</span> exploitation <span class="pipe-op">|</span> blackmail'
+      }
+    ];
+
+    function selectAgeTier(tier) {
+      currentAgeTier = tier;
+      var d = ageTierData[tier];
+
+      // Update sidebar buttons
+      var btns = document.querySelectorAll('.age-tier-btn');
+      btns.forEach(function(btn) { btn.classList.remove('active'); });
+      var activeBtn = document.querySelector('.age-tier-btn[data-tier="' + tier + '"]');
+      if (activeBtn) activeBtn.classList.add('active');
+
+      // Build blocked tags
+      var blockedHtml = d.blocked.map(function(t) {
+        return '<span class="policy-tag blocked">' + t + '</span>';
+      }).join('');
+
+      // Build allowed tags
+      var allowedHtml = d.allowed.map(function(t) {
+        return '<span class="policy-tag allowed">' + t + '</span>';
+      }).join('');
+
+      // Build flagged tags
+      var flaggedHtml = d.flagged.map(function(t) {
+        return '<span class="policy-tag flagged">' + t + '</span>';
+      }).join('');
+
+      // Build actions
+      var actionsHtml = d.actions.map(function(a) {
+        return '<div style="display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--stroke2);"><div style="width: 6px; height: 6px; background: ' + d.modeColor + '; border-radius: 50%; flex-shrink: 0;"></div><span style="font-size: 14px; color: rgba(255,255,255,0.85);">' + a + '</span></div>';
+      }).join('');
+
+      var html = '' +
+        '<div class="policy-header">' +
+          '<div class="policy-badge" style="background: ' + d.iconBg + ';">' + d.icon + '</div>' +
+          '<div>' +
+            '<h2 style="margin: 0; font-size: 22px;">' + d.label + '</h2>' +
+            '<p style="margin: 4px 0 0; font-size: 14px; color: var(--muted2);">' + d.philosophy + '</p>' +
+          '</div>' +
+          '<span class="policy-mode" style="color: ' + d.modeColor + '; background: ' + d.modeBg + '; border: 1px solid ' + d.modeColor + ';">' + d.mode + '</span>' +
+        '</div>' +
+
+        '<div class="policy-stats-row">' +
+          '<div class="policy-stat-card">' +
+            '<div class="stat-label">AI Sensitivity</div>' +
+            '<div class="stat-value" style="color: ' + d.modeColor + ';">' + d.sensitivity + '</div>' +
+            '<div class="stat-sub">Risk score multiplier</div>' +
+          '</div>' +
+          '<div class="policy-stat-card">' +
+            '<div class="stat-label">Block Threshold</div>' +
+            '<div class="stat-value" style="color: ' + d.thresholdColor + ';">≥ ' + d.threshold + '</div>' +
+            '<div class="stat-sub">' + d.thresholdLabel + ' tolerance</div>' +
+          '</div>' +
+          '<div class="policy-stat-card">' +
+            '<div class="stat-label">False Negative</div>' +
+            '<div class="stat-value" style="color: var(--accent3);">' + d.falseNegRate + '</div>' +
+            '<div class="stat-sub">Target miss rate</div>' +
+          '</div>' +
+        '</div>' +
+
+        (d.blocked.length > 0 ? '<div class="policy-section"><h4>Auto-Blocked Categories</h4><div class="policy-tag-list">' + blockedHtml + '</div></div>' : '') +
+        (d.allowed.length > 0 ? '<div class="policy-section"><h4>Allowed Content</h4><div class="policy-tag-list">' + allowedHtml + '</div></div>' : '') +
+        (d.flagged.length > 0 ? '<div class="policy-section"><h4>Flagged for Review</h4><div class="policy-tag-list">' + flaggedHtml + '</div></div>' : '') +
+
+        '<div class="policy-section">' +
+          '<h4>Decision Pipeline</h4>' +
+          '<div class="policy-pipeline">' + d.pipeline.replace(/\n/g, '<br>') + '</div>' +
+        '</div>' +
+
+        '<div class="policy-section">' +
+          '<h4>Intervention Style</h4>' +
+          '<div class="policy-intervention-box">' +
+            '<div class="interv-icon" style="background: ' + d.intervention.iconBg + ';">' + d.intervention.icon + '</div>' +
+            '<div>' +
+              '<div class="interv-label" style="color: ' + d.intervention.labelColor + ';">' + d.intervention.tone + '</div>' +
+              '<div class="interv-text">' + d.intervention.example + '</div>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+
+        '<div class="policy-section">' +
+          '<h4>Response Actions</h4>' +
+          '<div style="background: var(--card); border: 1px solid var(--stroke); border-radius: 14px; padding: 12px 20px;">' + actionsHtml + '</div>' +
+        '</div>' +
+
+        '<div style="padding: 14px 18px; background: rgba(255,255,255,0.02); border: 1px dashed var(--stroke); border-radius: 12px; font-size: 13px; color: var(--muted2); line-height: 1.6;">' +
+          '<strong style="color: var(--muted);">Note:</strong> ' + d.notes +
+        '</div>';
+
+      document.getElementById('agePolicyDetail').innerHTML = html;
+    }
+
+    // Initialize age policy on load
+    selectAgeTier(0);
 
     // Interactive Toggles
     function toggleSwitch(el) {
@@ -2280,6 +2814,9 @@ User: ${userText}`
         </div>
         <div id="link-activity" class="demo-link" onclick="switchTab('activity')">
           <span>🛡️</span> Activity Log
+        </div>
+        <div id="link-agepolicy" class="demo-link" onclick="switchTab('agepolicy')" style="color: var(--accent3);">
+          <span style="filter: drop-shadow(0 0 8px rgba(52, 211, 153, 0.6));">🧒</span> Age Policies
         </div>
         <div id="link-policy" class="demo-link" onclick="switchTab('policy')" style="color: var(--accent2);">
           <span style="filter: drop-shadow(0 0 8px rgba(34, 211, 238, 0.6));">✨</span> AI Policy Creator
@@ -2518,6 +3055,71 @@ User: ${userText}`
                 </tr>
               </tbody>
             </table>
+          </div>
+        </div>
+
+        <!-- TAB: AGE POLICIES -->
+        <div id="tab-agepolicy" class="tab-content" style="flex-direction: column; padding: 0; gap: 0;">
+          <div class="age-policy-layout">
+            <!-- Left: Age Tier Selector -->
+            <div class="age-tier-sidebar">
+              <h3>Developmental Tiers</h3>
+
+              <button class="age-tier-btn active" onclick="selectAgeTier(0)" data-tier="0">
+                <div class="tier-icon" style="background: rgba(251, 113, 133, 0.15);">👶</div>
+                <div>
+                  <div class="tier-label">Under 5</div>
+                  <div class="tier-sub">Max Protection</div>
+                </div>
+              </button>
+
+              <button class="age-tier-btn" onclick="selectAgeTier(1)" data-tier="1">
+                <div class="tier-icon" style="background: rgba(251, 191, 36, 0.15);">🧒</div>
+                <div>
+                  <div class="tier-label">Ages 5–8</div>
+                  <div class="tier-sub">High Protection</div>
+                </div>
+              </button>
+
+              <button class="age-tier-btn" onclick="selectAgeTier(2)" data-tier="2">
+                <div class="tier-icon" style="background: rgba(96, 165, 250, 0.15);">📚</div>
+                <div>
+                  <div class="tier-label">Ages 8–11</div>
+                  <div class="tier-sub">Guided Internet</div>
+                </div>
+              </button>
+
+              <button class="age-tier-btn" onclick="selectAgeTier(3)" data-tier="3">
+                <div class="tier-icon" style="background: rgba(124, 92, 255, 0.15);">🎓</div>
+                <div>
+                  <div class="tier-label">Ages 11–14</div>
+                  <div class="tier-sub">Supervised Independence</div>
+                </div>
+              </button>
+
+              <button class="age-tier-btn" onclick="selectAgeTier(4)" data-tier="4">
+                <div class="tier-icon" style="background: rgba(52, 211, 153, 0.15);">🧑‍💻</div>
+                <div>
+                  <div class="tier-label">Ages 14+</div>
+                  <div class="tier-sub">Intelligent Guardian</div>
+                </div>
+              </button>
+
+              <!-- Failsafe rule box -->
+              <div style="margin: auto 16px 0; padding: 14px; background: rgba(251, 113, 133, 0.06); border: 1px solid rgba(251, 113, 133, 0.15); border-radius: 12px;">
+                <div style="font-size: 11px; color: var(--bad); font-weight: 700; letter-spacing: 0.5px; margin-bottom: 6px;">FAILSAFE RULE</div>
+                <div style="font-size: 12px; color: var(--muted2); line-height: 1.5;">
+                  Unclassifiable content:<br>
+                  Tier 0–2 → <span style="color: var(--bad);">Block</span><br>
+                  Tier 3–4 → <span style="color: var(--warn);">Allow + Log</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Right: Policy Detail Panel -->
+            <div class="age-policy-detail" id="agePolicyDetail">
+              <!-- Populated by JS -->
+            </div>
           </div>
         </div>
 
