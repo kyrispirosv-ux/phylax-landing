@@ -19,12 +19,12 @@ export async function GET(req: NextRequest) {
         .order('created_at', { ascending: false })
         .limit(50);
 
-    if (error) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error || !alerts) {
+        return NextResponse.json({ error: error?.message || 'No data' }, { status: 500 });
     }
 
     // Map to dashboard format
-    const formattedAlerts = alerts.map(alert => ({
+    const formattedAlerts = alerts.map((alert: any) => ({
         id: alert.id,
         title: alert.title,
         description: alert.body || alert.domain,
