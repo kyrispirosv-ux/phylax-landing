@@ -32,34 +32,63 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { short_code, device_name } = body;
 
-    // MOCK: simulate success for any code for demo purposes
-    // In real app, we would validate code against DB
-
-    // Simulate network delay
-    await new Promise(r => setTimeout(r, 1000));
-
-    if (short_code && short_code.length === 6) {
-        // Return dummy success data
-        return NextResponse.json({
-            device_id: "dev_" + Math.random().toString(36).substr(2, 9),
-            child_id: "child_123",
-            family_id: "fam_123",
-            auth_token: "mock_token_" + Date.now(),
-            policy_version: 1,
-            policy_pack: {
-                policy_version: 1,
-                generated_at: new Date().toISOString(),
-                tier: "tween_13",
-                rules: [
-                    { id: "r1", text: "Block gambling sites", scope: "global" },
-                    { id: "r2", text: "Detect bullying in DMs", scope: "global" }
-                ]
-            }
-        });
+    if (!short_code) {
+        return NextResponse.json({ error: "Code required" }, { status: 400 });
     }
 
-    return NextResponse.json(
-        { error: "Invalid code" },
-        { status: 400 }
-    );
+    const db = createServiceClient();
+    const shortCodeHash = sha256(short_code.toUpperCase());
+
+    // 1. Find the token
+    const { data: token } = await db
+        .from("pairing_tokens")
+        .select("*")
+        .eq("short_code_hash", shortCodeHash)
+        .is("used_at", null) // Must be unused
+        .gt("expires_at", new Date().toISOString()) // Must not be expired
+        .single();
+
+    if (!token) {
+        return NextResponse.json({ error: "Invalid or expired code" }, { status: 400 });
+    }
+
+    // 2. Generate new device ID
+    const deviceId = "dev_" + crypto.randomBytes(8).toString("hex");
+
+    // 3. Mark token as used
+    const { error: updateError } = await db
+        .from("pairing_tokens")
+        .update({
+            used_at: new Date().toISOString(),
+            used_by_device_id: deviceId
+        })
+        .eq("id", token.id);
+
+    if (updateError) {
+        return NextResponse.json({ error: "Failed to redeem code" }, { status: 500 });
+    }
+
+    // 4. Generate Auth Token for extension
+    const authToken = generateAuthToken(deviceId, token.family_id, token.child_id);
+
+    // 5. Get Initial Policy (Mock for now, or fetch from DB if available)
+    // In a real app, we'd fetch the child's assigned policy.
+    const policyPack = {
+        policy_version: 1,
+        generated_at: new Date().toISOString(),
+        tier: "standard",
+        rules: [
+            { id: "r1", text: "Block gambling sites", scope: "global" },
+            { id: "r2", text: "Detect bullying in DMs", scope: "global" }
+        ]
+    };
+
+    return NextResponse.json({
+        device_id: deviceId,
+        child_id: token.child_id,
+        family_id: token.family_id,
+        auth_token: authToken,
+        policy_version: 1,
+        policy_pack: policyPack
+    });
 }
