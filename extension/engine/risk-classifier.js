@@ -113,6 +113,8 @@ const PROTECTIVE_PATTERNS = [
   /\bhistorical\s+(?:account|event|context|footage|record|analysis|documentary|overview|perspective)/i,
   /\bdocumentary\b/i,
   /\bworld\s+war\s+(?:i{1,2}|1|2|one|two)\b/i,
+  /\bww[12i]\b/i,                          // WW1, WW2, WWI, WWII abbreviations
+  /\bwwii\b/i,
   /\bcivil\s+war\b/i,
   /\b(?:ancient|medieval|modern|colonial|industrial)\s+history\b/i,
   /\bthe\s+(?:rise|fall|story|origins?|causes?|impact|legacy|aftermath)\s+of\b/i,
@@ -131,6 +133,16 @@ const PROTECTIVE_PATTERNS = [
   /\blesson\s+\d+\b/i,
   /\blecture\s+(?:\d+|on|about|series)\b/i,
   /\b(?:educational|informational|instructional)\b/i,
+  // Named historical wars, conflicts, events — always educational context
+  /\b(?:d[\s-]?day|pearl\s*harbor|normandy|stalingrad|midway|dunkirk|hiroshima|nagasaki)\b/i,
+  /\b(?:holocaust|genocide|nuremberg|cold\s+war|vietnam\s+war|korean\s+war|gulf\s+war)\b/i,
+  /\b(?:gettysburg|waterloo|verdun|somme|kursk|iwo\s+jima|okinawa|bulge)\b/i,
+  /\b(?:blitz|blitzkrieg|luftwaffe|allied\s+forces|axis\s+powers|pacific\s+theater|eastern\s+front|western\s+front)\b/i,
+  /\b(?:nazi|third\s+reich|soviet\s+union|churchill|roosevelt|eisenhower|patton|rommel)\b/i,
+  /\b(?:in\s+colou?r|remastered|restored|rare\s+footage|archival|archive\s+footage)\b/i,
+  /\b(?:veterans?|memorial|remembrance|commemoration|anniversary)\b/i,
+  /\b(?:military\s+history|war\s+history|combat\s+footage|war\s+documentary)\b/i,
+  /\b(?:invasion\s+of|liberation\s+of|occupation\s+of|surrender\s+of|fall\s+of)\b/i,
   // Prevention / awareness / anti-drug / safety education
   /\b(?:prevention|awareness|effects?\s+(?:of|on))\b/i,
   /\b(?:what\s+(?:every|all)\s+(?:teen|parent|student|kid|child))\b/i,
@@ -174,6 +186,10 @@ const HARMFUL_VIDEO_PATTERNS = [
 const TRUSTED_CHANNEL_PATTERNS = [
   // Major educational YouTube channels
   /\b(?:kurzgesagt|crash\s*course|veritasium|vsauce|minutephysics|3blue1brown|smarter\s*every\s*day)/i,
+  // History / military history channels
+  /\b(?:history\s*channel|military\s*history|war\s*stories|world\s*war\s*two|timeline|imperial\s*war\s*museum)/i,
+  /\b(?:the\s*great\s*war|real\s*time\s*history|mark\s*felton|kings\s*and\s*generals|history\s*hit|feature\s*history)/i,
+  /\b(?:oversimplified|extra\s*credits|historia\s*civilis|epic\s*history|armchair\s*historian)/i,
   /\b(?:khan\s*academy|ted[\s-]*ed|ted\s*talks?|cgp\s*grey|real\s*engineering|wendover)/i,
   /\b(?:mark\s*rober|tom\s*scott|numberphile|computerphile|linus\s*tech|science\s*channel)/i,
   // Major media / documentary producers
@@ -352,6 +368,17 @@ export function classify_video_risk(contentText, metadata = {}) {
   // Strong educational/documentary context overrides topic matches
   // This is the core "AI classification" — understanding CONTEXT not just words
 
+  // Tier 0 (NEW): Historical/documentary violence override
+  // WWII documentaries, war history, etc. inherently contain "violence" keywords
+  // (battle, attack, kill, shooting, bombing, etc.) but are EDUCATIONAL content.
+  // When the violence topic is the block trigger AND strong historical context is
+  // present, override regardless of score — historical war content is not "violence".
+  if (blocked && (topTopic === 'violence' || topTopic === 'weapons') &&
+      protectiveScore >= 0.30 && harmfulPatternScore === 0) {
+    blocked = false;
+    reasoning.push(`Historical/documentary violence override: protective signals (${protectiveScore.toFixed(2)}) indicate educational war/history content, not violence glorification.`);
+  }
+
   // Tier 1: Very strong safety + zero harmful patterns → override even high topic scores
   // e.g., "Drug abuse prevention for teens" mentions cocaine, heroin, fentanyl
   //        but has zero harmful PATTERNS and strong educational framing
@@ -361,13 +388,13 @@ export function classify_video_risk(contentText, metadata = {}) {
   }
 
   // Tier 2: Moderate safety confidence overrides moderate topic scores
-  if (blocked && safetyConfidence > 0.3 && topScore < 0.90) {
+  if (blocked && safetyConfidence > 0.3 && topScore < 0.95) {
     blocked = false;
     reasoning.push(`Semantic safety override: positive safety signals (${positiveSignals.toFixed(2)}) outweigh harm signals (${negativeSignals.toFixed(2)}).`);
   }
 
   // Tier 3: Protective score alone can override moderate matches
-  if (blocked && protectiveScore >= 0.40 && topScore < 0.85 && harmfulPatternScore < 0.3) {
+  if (blocked && protectiveScore >= 0.35 && topScore < 0.90 && harmfulPatternScore < 0.3) {
     blocked = false;
     reasoning.push(`Strong protective context (${protectiveScore.toFixed(2)}) overrides moderate topic match — no harmful patterns present.`);
   }
