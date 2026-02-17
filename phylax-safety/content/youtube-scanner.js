@@ -560,25 +560,21 @@
   }
 
   /**
-   * BLOCK treatment: blur thumbnail, disable click, show overlay label.
+   * BLOCK treatment: blur thumbnail, show overlay label.
+   * Clicks are ALLOWED — navigating to the video triggers the watch-page
+   * block overlay which shows the full alert + notifies parent + logs activity.
    */
   function applyBlockTreatment(card, metadata, classification) {
     // 1. Blur the thumbnail
     const thumbnail = metadata.thumbnailElement || card.querySelector('ytd-thumbnail, #thumbnail');
     if (thumbnail) {
       thumbnail.style.filter = 'blur(20px) grayscale(1)';
-      thumbnail.style.pointerEvents = 'none';
       thumbnail.style.position = 'relative';
     }
 
-    // 2. Disable all links inside the card
-    const links = card.querySelectorAll('a');
-    for (const link of links) {
-      link.addEventListener('click', preventClick, true);
-      link.style.pointerEvents = 'none';
-    }
+    // 2. Links remain clickable — watch page will catch & block with full overlay
 
-    // 3. Add overlay label
+    // 3. Add overlay label (clicks pass through to the link underneath)
     const overlay = document.createElement('div');
     overlay.className = 'phylax-video-block-overlay';
     overlay.style.cssText = `
@@ -592,8 +588,8 @@
       justify-content: center;
       z-index: 10;
       border-radius: 12px;
-      pointer-events: auto;
-      cursor: default;
+      pointer-events: none;
+      cursor: pointer;
     `;
 
     // Phylax logo icon
@@ -658,11 +654,10 @@
       card.appendChild(overlay);
     }
 
-    // 4. Dim the metadata (title, channel, etc.)
+    // 4. Dim the metadata (title, channel, etc.) but keep clickable
     const metaArea = card.querySelector('#meta, #details, .text-wrapper');
     if (metaArea) {
       metaArea.style.opacity = '0.3';
-      metaArea.style.pointerEvents = 'none';
     }
 
     console.log(`[Phylax YT Scanner] BLOCKED: "${metadata.title}" (${classification.category}, risk: ${classification.risk_score})`);
@@ -735,15 +730,6 @@
     console.log(`[Phylax YT Scanner] WARN: "${metadata.title}" (${classification.category}, risk: ${classification.risk_score})`);
   }
 
-  /**
-   * Prevent click on blocked video links.
-   */
-  function preventClick(e) {
-    e.preventDefault();
-    e.stopPropagation();
-    e.stopImmediatePropagation();
-    return false;
-  }
 
   // ═════════════════════════════════════════════════════════════════
   // SCAN ORCHESTRATION

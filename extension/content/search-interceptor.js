@@ -27,8 +27,9 @@
     'duckduckgo.com':       { formSel: 'form#search_form',      inputSel: 'input[name="q"]',  param: 'q' },
     'www.duckduckgo.com':   { formSel: 'form#search_form',      inputSel: 'input[name="q"]',  param: 'q' },
     'search.yahoo.com':     { formSel: 'form',                  inputSel: 'input[name="p"]',  param: 'p' },
-    'www.youtube.com':      { formSel: 'form#search-form',      inputSel: 'input#search',     param: 'search_query' },
-    'youtube.com':          { formSel: 'form#search-form',      inputSel: 'input#search',     param: 'search_query' },
+    // YouTube is handled by youtube-scanner.js (per-video blocking, not search-level)
+    // 'www.youtube.com':   { formSel: 'form#search-form',      inputSel: 'input#search',     param: 'search_query' },
+    // 'youtube.com':       { formSel: 'form#search-form',      inputSel: 'input#search',     param: 'search_query' },
   };
 
   const config = SEARCH_ENGINES[host];
