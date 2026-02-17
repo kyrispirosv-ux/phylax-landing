@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "Phylax SafeGuard",
+  "name": "Phylax Safety",
   "version": "7.0",
   "description": "Child safety with video blocking, grooming detection, risk scoring, and parent dashboard.",
   "permissions": [
