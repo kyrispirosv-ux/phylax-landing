@@ -38,6 +38,7 @@ interface AppState {
     removeDevice: (id: string) => void;
 
     alerts: Alert[];
+    fetchAlerts: () => Promise<void>;
     addAlert: (alert: Alert) => void;
 
     // Policy / Settings
@@ -109,14 +110,18 @@ export const useStore = create<AppState>((set) => ({
     },
     removeDevice: (id) => set((state) => ({ devices: state.devices.filter(d => d.id !== id) })),
 
-    alerts: [
-        {
-            id: '1', title: 'Gambling Site Blocked', description: 'Attempted access to poker-online.com', severity: 'high', category: 'Gambling', timestamp: '10 mins ago', actionTaken: 'blocked'
-        },
-        {
-            id: '2', title: 'Suspicious DM Detected', description: 'Pattern matching "Let\'s keep this secret" in Instagram DM', severity: 'medium', category: 'Grooming', timestamp: '2 hours ago', actionTaken: 'warned'
+    alerts: [],
+    fetchAlerts: async () => {
+        try {
+            const res = await fetch('/api/activity');
+            if (res.ok) {
+                const data = await res.json();
+                set({ alerts: data.alerts });
+            }
+        } catch (e) {
+            console.error("Failed to fetch alerts", e);
         }
-    ],
+    },
     addAlert: (alert) => set((state) => ({ alerts: [alert, ...state.alerts] })),
 
     ageGroup: 2, // Default to 8-11 "Guided Internet"

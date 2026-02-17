@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Phylax — Pair Your Device</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background: #070A12;
+      color: white;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      text-align: center;
+      padding: 24px;
+    }
+
+    .container {
+      max-width: 420px;
+      width: 100%;
+    }
+
+    .logo {
+      width: 64px;
+      height: 64px;
+      background: linear-gradient(135deg, #7C5CFF, #22D3EE);
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 24px;
+      box-shadow: 0 10px 40px rgba(124, 92, 255, 0.3);
+    }
+
+    .logo svg {
+      width: 28px;
+      height: 28px;
+    }
+
+    h1 {
+      font-size: 24px;
+      margin-bottom: 8px;
+    }
+
+    .subtitle {
+      color: rgba(255, 255, 255, 0.5);
+      font-size: 14px;
+      margin-bottom: 32px;
+    }
+
+    .code-input-group {
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+      margin-bottom: 16px;
+    }
+
+    .code-digit {
+      width: 48px;
+      height: 56px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 2px solid rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      color: white;
+      font-size: 24px;
+      font-weight: 700;
+      text-align: center;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .code-digit:focus {
+      border-color: #7C5CFF;
+    }
+
+    .code-digit::placeholder {
+      color: rgba(255, 255, 255, 0.15);
+    }
+
+    .btn {
+      display: inline-block;
+      padding: 12px 32px;
+      background: #7C5CFF;
+      color: white;
+      font-size: 14px;
+      font-weight: 600;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: background 0.2s;
+      width: 100%;
+    }
+
+    .btn:hover {
+      background: #6B4FE0;
+    }
+
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .status {
+      margin-top: 16px;
+      font-size: 13px;
+      min-height: 20px;
+    }
+
+    .status.success {
+      color: #34D399;
+    }
+
+    .status.error {
+      color: #FF5050;
+    }
+
+    .status.loading {
+      color: rgba(255, 255, 255, 0.5);
+    }
+
+    .divider {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 24px 0;
+      color: rgba(255, 255, 255, 0.2);
+      font-size: 12px;
+    }
+
+    .divider::before,
+    .divider::after {
+      content: "";
+      flex: 1;
+      height: 1px;
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    .paired-card {
+      background: rgba(52, 211, 153, 0.1);
+      border: 1px solid rgba(52, 211, 153, 0.3);
+      border-radius: 16px;
+      padding: 24px;
+      display: none;
+    }
+
+    .paired-card.visible {
+      display: block;
+    }
+
+    .paired-card h2 {
+      color: #34D399;
+      font-size: 20px;
+      margin-bottom: 8px;
+    }
+
+    .paired-card p {
+      color: rgba(255, 255, 255, 0.5);
+      font-size: 13px;
+    }
+
+    .form-section {
+      display: block;
+    }
+
+    .form-section.hidden {
+      display: none;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <div class="logo" style="background: none; box-shadow: none;">
+      <svg viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg" style="width: 100%; height: 100%;">
+        <defs>
+          <linearGradient id="bg" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
+            <stop stop-color="#2B1766" />
+            <stop offset="1" stop-color="#0E2847" />
+          </linearGradient>
+          <linearGradient id="spiral" x1="146" y1="86" x2="366" y2="306" gradientUnits="userSpaceOnUse">
+            <stop stop-color="#FFFFFF" />
+            <stop offset="0.65" stop-color="#E8D5A0" />
+            <stop offset="1" stop-color="#C9A84C" />
+          </linearGradient>
+          <linearGradient id="textGrad" x1="120" y1="420" x2="392" y2="420" gradientUnits="userSpaceOnUse">
+            <stop stop-color="#E8D5A0" />
+            <stop offset="0.5" stop-color="#C9A84C" />
+            <stop offset="1" stop-color="#E8D5A0" />
+          </linearGradient>
+        </defs>
+        <rect width="512" height="512" rx="112" fill="url(#bg)" />
+        <rect x="6" y="6" width="500" height="500" rx="108" stroke="#C9A84C" stroke-width="2" fill="none"
+          opacity="0.35" />
+        <path
+          d="M146 86 H366 V306 H158 V98 H354 V294 H170 V110 H342 V282 H182 V122 H330 V270 H194 V134 H318 V258 H206 V146 H306 V246 H218 V158 H294 V234 H230 V170 H282 V222 H242 V182 H270 V210 H254 V194 H258 V198"
+          stroke="url(#spiral)" stroke-width="6" stroke-linecap="square" stroke-linejoin="miter" />
+        <text x="256" y="425" text-anchor="middle"
+          font-family="'Palatino Linotype', 'Book Antiqua', Palatino, Georgia, 'Times New Roman', serif"
+          font-weight="600" font-size="56" letter-spacing="18" fill="url(#textGrad)">PHYLAX</text>
+      </svg>
+    </div>
+    <h1>Pair Your Device</h1>
+    <p class="subtitle">Enter the 6-character code from your parent's dashboard.</p>
+
+    <div class="form-section" id="form-section">
+      <div class="code-input-group" id="code-inputs">
+        <input class="code-digit" type="text" maxlength="1" pattern="[A-Za-z0-9]" autocomplete="off">
+        <input class="code-digit" type="text" maxlength="1" pattern="[A-Za-z0-9]" autocomplete="off">
+        <input class="code-digit" type="text" maxlength="1" pattern="[A-Za-z0-9]" autocomplete="off">
+        <input class="code-digit" type="text" maxlength="1" pattern="[A-Za-z0-9]" autocomplete="off">
+        <input class="code-digit" type="text" maxlength="1" pattern="[A-Za-z0-9]" autocomplete="off">
+        <input class="code-digit" type="text" maxlength="1" pattern="[A-Za-z0-9]" autocomplete="off">
+      </div>
+      <button class="btn" id="pair-btn" disabled>Pair Device</button>
+      <div class="status" id="status"></div>
+    </div>
+
+    <div class="paired-card" id="paired-card">
+      <h2>Paired!</h2>
+      <p id="paired-message">Your device is now protected by Phylax.</p>
+      <p style="margin-top: 12px; color: rgba(255,255,255,0.3); font-size: 12px;">
+        You can close this tab. Protection is active.
+      </p>
+    </div>
+  </div>
+
+  <script src="pairing.js"></script>
+</body>
+
+</html>

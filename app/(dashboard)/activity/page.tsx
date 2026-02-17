@@ -1,10 +1,15 @@
 'use client';
 
+import { useEffect } from 'react';
 import { useStore } from '@/store/useStore';
 import { AlertTriangle, Clock, Filter, Search } from 'lucide-react';
 
 export default function ActivityPage() {
-    const { alerts } = useStore();
+    const { alerts, fetchAlerts } = useStore();
+
+    useEffect(() => {
+        fetchAlerts();
+    }, [fetchAlerts]);
 
     return (
         <div className="max-w-5xl mx-auto space-y-8">

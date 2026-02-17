@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Blocked by Phylax</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #070A12;
+      color: white;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      text-align: center;
+      padding: 24px;
+    }
+    .container { max-width: 480px; }
+    .shield {
+      width: 80px; height: 80px;
+      background: linear-gradient(135deg, #7C5CFF, #22D3EE);
+      border-radius: 20px;
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 24px;
+      font-size: 36px;
+      box-shadow: 0 10px 40px rgba(124, 92, 255, 0.3);
+    }
+    h1 { font-size: 28px; margin-bottom: 12px; }
+    p { color: rgba(255,255,255,0.6); font-size: 16px; line-height: 1.6; margin-bottom: 24px; }
+    .info {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 12px;
+      padding: 16px;
+      font-size: 14px;
+      color: rgba(255,255,255,0.5);
+      margin-bottom: 16px;
+    }
+    #rule-name {
+      color: rgba(255,255,255,0.7);
+      font-weight: 600;
+      font-size: 14px;
+      margin-bottom: 16px;
+    }
+    .btn-group {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    .btn {
+      padding: 10px 24px;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      transition: all 0.2s;
+    }
+    .btn-back {
+      background: rgba(255,255,255,0.08);
+      color: rgba(255,255,255,0.6);
+    }
+    .btn-back:hover { background: rgba(255,255,255,0.12); }
+    .btn-request {
+      background: rgba(124, 92, 255, 0.2);
+      color: #7C5CFF;
+      border: 1px solid rgba(124, 92, 255, 0.3);
+    }
+    .btn-request:hover { background: rgba(124, 92, 255, 0.3); }
+    .btn-request:disabled { opacity: 0.5; cursor: not-allowed; }
+    .request-sent {
+      color: #34D399;
+      font-size: 13px;
+      margin-top: 12px;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="shield">&#x1f6e1;</div>
+    <h1>Content Blocked</h1>
+    <p>This page has been blocked by your family's Phylax safety policy.</p>
+    <div id="rule-name"></div>
+    <div class="info">
+      If you believe this is a mistake, you can request access from your parent.
+    </div>
+    <div class="btn-group">
+      <button class="btn btn-back" onclick="history.back()">Go Back</button>
+      <button class="btn btn-request" id="request-access">Request Access</button>
+    </div>
+    <p class="request-sent" id="request-sent">Access request sent to your parent.</p>
+  </div>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const blockedUrl = params.get('url') || document.referrer || '';
+    const ruleName = params.get('rule') || '';
+
+    if (ruleName) {
+      document.getElementById('rule-name').textContent = 'Rule: ' + ruleName;
+    }
+
+    document.getElementById('request-access').addEventListener('click', async function() {
+      this.disabled = true;
+      this.textContent = 'Sending...';
+
+      try {
+        await chrome.runtime.sendMessage({
+          type: 'PHYLAX_REQUEST_ACCESS',
+          url: blockedUrl,
+          domain: blockedUrl ? new URL(blockedUrl).hostname : '',
+        });
+        document.getElementById('request-sent').style.display = 'block';
+        this.textContent = 'Requested';
+      } catch (err) {
+        this.textContent = 'Request Access';
+        this.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
