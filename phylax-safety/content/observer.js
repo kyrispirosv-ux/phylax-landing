@@ -11,7 +11,7 @@
 
   if (window.location.protocol === 'chrome-extension:') return;
   const host = window.location.hostname;
-  if (host === 'phylax2.vercel.app' || host === 'phylax-landing.vercel.app' || host === 'localhost' || host === '127.0.0.1') return;
+  if (host === 'phylax2.vercel.app' || host === 'phylax-landing.vercel.app' || host === 'phylaxsafety.com' || host === 'www.phylaxsafety.com' || host === 'localhost' || host === '127.0.0.1') return;
 
   // ── Exempt email / productivity domains ────────────────────────
   // Email is personal communication — scanning it produces rampant

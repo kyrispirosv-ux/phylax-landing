@@ -16,6 +16,8 @@
     "matches": [
       "https://phylax-landing.vercel.app/*",
       "https://phylax2.vercel.app/*",
+      "https://phylaxsafety.com/*",
+      "https://www.phylaxsafety.com/*",
       "https://app.phylax.ai/*",
       "http://localhost/*"
     ]
@@ -29,6 +31,8 @@
       "matches": [
         "https://phylax-landing.vercel.app/*",
         "https://phylax2.vercel.app/*",
+        "https://phylaxsafety.com/*",
+        "https://www.phylaxsafety.com/*",
         "https://app.phylax.ai/*",
         "http://localhost/*"
       ],

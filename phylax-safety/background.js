@@ -18,6 +18,8 @@ import { startSync, queueEvent, getDeviceId } from './backend-sync.js';
 const PHYLAX_ORIGINS = [
   'https://phylax2.vercel.app',
   'https://phylax-landing.vercel.app',
+  'https://phylaxsafety.com',
+  'https://www.phylaxsafety.com',
   'http://localhost',
   'http://127.0.0.1'
 ];
@@ -999,7 +1001,7 @@ chrome.webNavigation.onCommitted.addListener(async (details) => {
 
   try {
     const domain = new URL(url).hostname;
-    if (['phylax2.vercel.app', 'phylax-landing.vercel.app', 'localhost', '127.0.0.1'].includes(domain)) return;
+    if (['phylax2.vercel.app', 'phylax-landing.vercel.app', 'phylaxsafety.com', 'www.phylaxsafety.com', 'localhost', '127.0.0.1'].includes(domain)) return;
     if (isExemptDomain(domain)) return;
 
     // Quick domain gate check from the current policy
@@ -1041,7 +1043,7 @@ chrome.webNavigation.onCompleted.addListener(async (details) => {
   let domain;
   try {
     domain = new URL(url).hostname;
-    if (['phylax2.vercel.app', 'phylax-landing.vercel.app', 'localhost', '127.0.0.1'].includes(domain)) return;
+    if (['phylax2.vercel.app', 'phylax-landing.vercel.app', 'phylaxsafety.com', 'www.phylaxsafety.com', 'localhost', '127.0.0.1'].includes(domain)) return;
     if (isExemptDomain(domain)) return;
   } catch { return; }
 
