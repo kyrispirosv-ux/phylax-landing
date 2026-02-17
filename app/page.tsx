@@ -6,7 +6,7 @@ export default function Home() {
   return (
     <div className="min-h-screen flex flex-col">
       {/* Navigation */}
-      <nav className="sticky top-0 z-50 backdrop-blur-md bg-[#070A12]/80 border-b border-white/10">
+      <nav className="sticky top-0 z-50 backdrop-blur-md bg-[#0F172A]/80 border-b border-white/10">
         <div className="max-w-7xl mx-auto px-6 h-18 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <GreekKeyLogo className="w-16 h-16" />
@@ -124,7 +124,7 @@ export default function Home() {
         </section>
 
         {/* Privacy Section */}
-        <section className="py-24 px-6 bg-[#0A1022]">
+        <section className="py-24 px-6 bg-black/20">
           <div className="max-w-7xl mx-auto">
             <div className="grid md:grid-cols-2 gap-16 items-center">
               <div>

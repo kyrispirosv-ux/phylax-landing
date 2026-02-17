@@ -22,9 +22,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     ];
 
     return (
-        <div className="min-h-screen flex bg-[#070A12]">
+        <div className="min-h-screen flex bg-transparent">
             {/* Sidebar (Desktop) */}
-            <aside className="hidden md:flex w-64 flex-col border-r border-white/10 bg-[#0A1022]">
+            <aside className="hidden md:flex w-64 flex-col border-r border-white/10 bg-black/20 backdrop-blur-md">
                 <div className="h-18 flex items-center px-6 border-b border-white/10">
                     <div className="flex items-center gap-3">
                         <GreekKeyLogo className="w-10 h-10" />
@@ -65,7 +65,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             {/* Main Content */}
             <div className="flex-1 flex flex-col min-w-0">
                 {/* Mobile Header */}
-                <header className="md:hidden h-16 flex items-center justify-between px-4 border-b border-white/10 bg-[#0A1022]">
+                <header className="md:hidden h-16 flex items-center justify-between px-4 border-b border-white/10 bg-black/20 backdrop-blur-md">
                     <div className="flex items-center gap-2">
                         <GreekKeyLogo className="w-8 h-8" />
                         <span className="font-bold text-white">Phylax</span>
