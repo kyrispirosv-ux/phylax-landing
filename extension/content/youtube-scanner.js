@@ -140,6 +140,33 @@
   // lastCheckedWatchId is ONLY set on successful classification to allow retries.
   let watchPageClassifyAttempts = 0;
   const MAX_WATCH_CLASSIFY_ATTEMPTS = 5;
+  let watchPageBlockKillTimer = null;
+
+  /**
+   * Aggressively stop ALL media playback on the page.
+   * Pauses, mutes, removes src, and calls load() to abort buffering.
+   */
+  function killAllMedia() {
+    document.querySelectorAll('video, audio').forEach(el => {
+      try {
+        el.pause();
+        el.muted = true;
+        el.volume = 0;
+        el.currentTime = 0;
+        if (el.src) {
+          el.removeAttribute('src');
+          el.load(); // abort buffering
+        }
+        // Also clear any source elements inside
+        el.querySelectorAll('source').forEach(s => s.remove());
+      } catch { /* ignore */ }
+    });
+    // Also hide the YouTube player to prevent visual playback
+    const player = document.querySelector('#movie_player, .html5-video-player');
+    if (player) {
+      player.style.visibility = 'hidden';
+    }
+  }
 
   async function checkWatchPageVideo() {
     if (!isContextValid()) return;
@@ -289,9 +316,22 @@
     document.documentElement.appendChild(overlay);
     watchPageBlockOverlay = overlay;
 
-    // Pause the video
-    const video = document.querySelector('video');
-    if (video) video.pause();
+    // Aggressively kill ALL media playback
+    killAllMedia();
+
+    // Continuously prevent video from resuming (YouTube tries to auto-play)
+    watchPageBlockKillTimer = setInterval(() => {
+      if (!watchPageBlockOverlay) {
+        clearInterval(watchPageBlockKillTimer);
+        watchPageBlockKillTimer = null;
+        return;
+      }
+      killAllMedia();
+      // Re-attach overlay if YouTube's SPA removed it
+      if (!document.getElementById('phylax-watch-overlay') && watchPageBlockOverlay) {
+        document.documentElement.appendChild(watchPageBlockOverlay);
+      }
+    }, 500);
 
     // Go back button
     overlay.querySelector('#phylax-watch-back').addEventListener('click', () => {
@@ -318,9 +358,18 @@
   }
 
   function dismissWatchPageBlock() {
+    if (watchPageBlockKillTimer) {
+      clearInterval(watchPageBlockKillTimer);
+      watchPageBlockKillTimer = null;
+    }
     if (watchPageBlockOverlay) {
       watchPageBlockOverlay.remove();
       watchPageBlockOverlay = null;
+    }
+    // Restore player visibility
+    const player = document.querySelector('#movie_player, .html5-video-player');
+    if (player) {
+      player.style.visibility = '';
     }
   }
 
