@@ -10,7 +10,6 @@ export default function DashboardOverview() {
     const { devices, alerts, pairingCode, generatePairingCode, checkPairingStatus, addDevice } = useStore();
     const activeDeviceCount = devices.length;
     const [copied, setCopied] = useState(false);
-    const [manualCode, setManualCode] = useState('');
 
     // Initial code generation if needed
     useEffect(() => {
@@ -38,28 +37,6 @@ export default function DashboardOverview() {
         }
     };
 
-    const handleManualVerify = () => {
-        const cleanManual = manualCode.toUpperCase().trim();
-        const cleanPairing = pairingCode?.trim();
-
-        console.log(`Verifying: Input='${cleanManual}' vs Expected='${cleanPairing}'`);
-
-        if (cleanPairing && cleanManual === cleanPairing) {
-            console.log("Code match! Adding device...");
-            addDevice({
-                id: 'dev_' + Date.now(),
-                name: 'Chrome on Mac',
-                type: 'chrome',
-                lastSeen: 'Just now',
-                status: 'active'
-            });
-        } else {
-            console.error("Code mismatch");
-            // Optional: You could add a UI error state here
-            // alert("Invalid code"); 
-        }
-    };
-
     // Mock recent alerts
     const recentAlerts = alerts.slice(0, 3);
 
@@ -82,7 +59,7 @@ export default function DashboardOverview() {
                             </div>
                             <h2 className="text-2xl font-bold text-white mb-2">Connect your first device</h2>
                             <p className="text-white/60 mb-6">
-                                To start monitoring, install the Phylax extension on your child's browser and enter the code below.
+                                To start monitoring, install the Phylax extension on your child's browser and <strong>enter the code displayed here</strong> when prompted.
                             </p>
 
                             <div className="flex gap-3">
@@ -122,30 +99,9 @@ export default function DashboardOverview() {
                                 </button>
                             </div>
 
-                            <div className="mt-6 flex items-center justify-center gap-2 text-white/30 text-xs animate-pulse">
-                                <div className="w-1.5 h-1.5 rounded-full bg-[#22D3EE]" />
-                                Waiting for connection...
-                            </div>
-
-                            <div className="mt-6 pt-6 border-t border-white/10">
-                                <p className="text-center text-xs text-white/40 mb-3">Or confirm code manually</p>
-                                <div className="flex gap-2 max-w-[200px] mx-auto">
-                                    <input
-                                        type="text"
-                                        value={manualCode}
-                                        onChange={(e) => setManualCode(e.target.value.toUpperCase())}
-                                        placeholder="ENTER CODE"
-                                        className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-center text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-[#7C5CFF]"
-                                        maxLength={6}
-                                    />
-                                    <button
-                                        onClick={handleManualVerify}
-                                        disabled={!manualCode || manualCode.length < 6}
-                                        className="px-3 py-2 rounded-lg bg-[#7C5CFF] text-white text-xs font-bold hover:bg-[#7C5CFF]/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                    >
-                                        VERIFY
-                                    </button>
-                                </div>
+                            <div className="mt-8 flex items-center justify-center gap-3 text-white/50 text-sm animate-pulse bg-white/5 py-3 rounded-lg border border-white/5">
+                                <div className="w-2 h-2 rounded-full bg-[#22D3EE]" />
+                                Waiting for extension to connect...
                             </div>
                         </div>
                     </div>
