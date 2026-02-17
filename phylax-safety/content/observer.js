@@ -439,8 +439,8 @@
    * Determine if the current page is a DM/chat context.
    */
   function isChatContext(domain, path) {
-    // Instagram DMs
-    if (domain.includes('instagram.com') && path.startsWith('/direct')) return true;
+    // Instagram DMs — only actual threads (/direct/t/...), NOT the inbox listing (/direct/inbox/)
+    if (domain.includes('instagram.com') && path.startsWith('/direct/t/')) return true;
     // Discord channels (DMs are at /channels/@me/)
     if (domain.includes('discord.com') && path.includes('/channels/')) return true;
     // WhatsApp Web (always chat)
@@ -944,7 +944,7 @@
     const url = window.location.href;
     if (domain.includes('youtube.com') || domain.includes('youtu.be')) return extractYouTubePlatform(path, url);
     if (domain.includes('tiktok.com')) return { name: 'tiktok', object_kind: path.includes('/video') ? 'video' : path.startsWith('/@') ? 'profile' : 'post', channel_or_author: extractTikTokAuthor() };
-    if (domain.includes('instagram.com')) return { name: 'instagram', object_kind: path.startsWith('/direct') ? 'dm' : path.includes('/reel') ? 'short' : path.includes('/p/') ? 'post' : 'profile' };
+    if (domain.includes('instagram.com')) return { name: 'instagram', object_kind: path.startsWith('/direct/t/') ? 'dm' : path.startsWith('/direct') ? 'inbox' : path.includes('/reel') ? 'short' : path.includes('/p/') ? 'post' : 'profile' };
     if (domain.includes('reddit.com')) return { name: 'reddit', object_kind: path.includes('/comments/') ? 'comment_thread' : 'post' };
     if (domain.includes('twitter.com') || domain.includes('x.com')) return { name: 'x', object_kind: path.includes('/status/') ? 'post' : 'profile' };
     return { name: 'none' };
@@ -978,7 +978,7 @@
     if (['google.com', 'bing.com', 'duckduckgo.com', 'search.yahoo.com'].some(d => domain.includes(d)) && url.includes('q=')) return 'search';
     // Chat/DM detection MUST come before feed/article — DMs can look like feeds
     if (platform?.name === 'instagram' && platform?.object_kind === 'dm') return 'chat';
-    if (domain.includes('instagram.com') && path.startsWith('/direct')) return 'chat';
+    if (domain.includes('instagram.com') && path.startsWith('/direct/t/')) return 'chat';
     if (['discord.com', 'whatsapp.com', 'web.whatsapp.com', 'telegram.org', 'web.telegram.org', 'messenger.com'].some(d => domain.includes(d))) return 'chat';
     if ((domain.includes('twitter.com') || domain.includes('x.com')) && path.includes('/messages')) return 'chat';
     if (ui?.infinite_scroll && hasRepeatedCards(8)) return 'feed';
