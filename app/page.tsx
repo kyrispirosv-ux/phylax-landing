@@ -55,9 +55,14 @@ export default function Home() {
             >
               Start Free Trial <ArrowRight className="w-5 h-5" />
             </Link>
-            <button className="w-full sm:w-auto px-8 py-4 rounded-2xl bg-white/5 border border-white/10 text-white font-medium hover:bg-white/10 transition-all flex items-center justify-center gap-2">
+            <Link
+              href="https://www.youtube.com/watch?v=gf_uJ2VlB-w"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full sm:w-auto px-8 py-4 rounded-2xl bg-white/5 border border-white/10 text-white font-medium hover:bg-white/10 transition-all flex items-center justify-center gap-2"
+            >
               <PlayCircle className="w-5 h-5" /> Watch Demo
-            </button>
+            </Link>
           </div>
 
           <p className="mt-8 text-white/40 text-sm">Works on Chrome, Edge, and Brave. No credit card required.</p>
