@@ -8,7 +8,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const parent = await getParentInfo();
+  const parent = await getParentInfo(supabase);
   if (!parent) return NextResponse.json({ error: "Parent not found" }, { status: 404 });
 
   const db = createServiceClient();
