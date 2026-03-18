@@ -111,8 +111,10 @@ export type Database = {
           family_id: string;
           child_id: string | null;
           text: string;
-          scope: "site" | "content";
+          scope: "site" | "content" | "llm";
           target: string | null;
+          llm_platform: "all" | "chatgpt" | "claude" | "gemini" | null;
+          llm_category: "topic_block" | "capability_block" | "persona_block" | null;
           active: boolean;
           sort_order: number;
           created_by: string | null;
@@ -124,16 +126,20 @@ export type Database = {
           family_id: string;
           child_id?: string | null;
           text: string;
-          scope?: "site" | "content";
+          scope?: "site" | "content" | "llm";
           target?: string | null;
+          llm_platform?: "all" | "chatgpt" | "claude" | "gemini" | null;
+          llm_category?: "topic_block" | "capability_block" | "persona_block" | null;
           active?: boolean;
           sort_order?: number;
           created_by?: string | null;
         };
         Update: {
           text?: string;
-          scope?: "site" | "content";
+          scope?: "site" | "content" | "llm";
           target?: string | null;
+          llm_platform?: "all" | "chatgpt" | "claude" | "gemini" | null;
+          llm_category?: "topic_block" | "capability_block" | "persona_block" | null;
           active?: boolean;
           sort_order?: number;
           updated_at?: string;
@@ -331,6 +337,195 @@ export type Database = {
           reviewed_at?: string;
         };
       };
+      community_posts: {
+        Row: {
+          id: string;
+          author_id: string;
+          category: "social_media" | "gaming" | "content" | "grooming" | "general";
+          title: string;
+          body: string;
+          is_anonymous: boolean;
+          rule_snapshot: { text: string; scope: string; target: string | null }[] | null;
+          status: "active" | "hidden" | "removed";
+          upvotes: number;
+          downvotes: number;
+          comment_count: number;
+          pinned: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          author_id: string;
+          category?: "social_media" | "gaming" | "content" | "grooming" | "general";
+          title: string;
+          body: string;
+          is_anonymous?: boolean;
+          rule_snapshot?: { text: string; scope: string; target: string | null }[] | null;
+          status?: "active" | "hidden" | "removed";
+        };
+        Update: {
+          title?: string;
+          body?: string;
+          category?: "social_media" | "gaming" | "content" | "grooming" | "general";
+          is_anonymous?: boolean;
+          rule_snapshot?: { text: string; scope: string; target: string | null }[] | null;
+          status?: "active" | "hidden" | "removed";
+          updated_at?: string;
+        };
+      };
+      community_comments: {
+        Row: {
+          id: string;
+          post_id: string;
+          author_id: string;
+          parent_comment_id: string | null;
+          body: string;
+          is_anonymous: boolean;
+          status: "active" | "hidden" | "removed";
+          upvotes: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          post_id: string;
+          author_id: string;
+          parent_comment_id?: string | null;
+          body: string;
+          is_anonymous?: boolean;
+        };
+        Update: {
+          body?: string;
+          is_anonymous?: boolean;
+          status?: "active" | "hidden" | "removed";
+          updated_at?: string;
+        };
+      };
+      community_votes: {
+        Row: {
+          id: string;
+          user_id: string;
+          target_type: "post" | "comment";
+          target_id: string;
+          value: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          target_type: "post" | "comment";
+          target_id: string;
+          value: number;
+        };
+        Update: {
+          value?: number;
+        };
+      };
+      community_presets: {
+        Row: {
+          id: string;
+          author_id: string;
+          name: string;
+          description: string;
+          age_range: string;
+          tier: "kid_10" | "tween_13" | "teen_16";
+          rules: { text: string; scope: string; target: string | null }[];
+          adoption_count: number;
+          rating_avg: number;
+          rating_count: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          author_id: string;
+          name: string;
+          description?: string;
+          age_range?: string;
+          tier?: "kid_10" | "tween_13" | "teen_16";
+          rules: { text: string; scope: string; target: string | null }[];
+        };
+        Update: {
+          name?: string;
+          description?: string;
+          age_range?: string;
+          tier?: "kid_10" | "tween_13" | "teen_16";
+          rules?: { text: string; scope: string; target: string | null }[];
+          updated_at?: string;
+        };
+      };
+      community_preset_reviews: {
+        Row: {
+          id: string;
+          preset_id: string;
+          author_id: string;
+          rating: number;
+          body: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          preset_id: string;
+          author_id: string;
+          rating: number;
+          body?: string;
+        };
+        Update: {
+          rating?: number;
+          body?: string;
+        };
+      };
+      community_reports: {
+        Row: {
+          id: string;
+          reporter_id: string;
+          target_type: "post" | "comment" | "preset";
+          target_id: string;
+          reason: string;
+          status: "pending" | "reviewed" | "dismissed";
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          reporter_id: string;
+          target_type: "post" | "comment" | "preset";
+          target_id: string;
+          reason: string;
+        };
+        Update: {
+          status?: "pending" | "reviewed" | "dismissed";
+        };
+      };
+      community_rule_stats: {
+        Row: {
+          id: string;
+          rule_text_hash: string;
+          rule_text_normalized: string;
+          category: string;
+          adoption_count: number;
+          effectiveness_score: number;
+          blocked_count_30d: number;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          rule_text_hash: string;
+          rule_text_normalized: string;
+          category?: string;
+          adoption_count?: number;
+          effectiveness_score?: number;
+          blocked_count_30d?: number;
+        };
+        Update: {
+          rule_text_normalized?: string;
+          category?: string;
+          adoption_count?: number;
+          effectiveness_score?: number;
+          blocked_count_30d?: number;
+          updated_at?: string;
+        };
+      };
     };
     Enums: {
       parent_role: "owner" | "co_parent" | "viewer";
@@ -338,8 +533,13 @@ export type Database = {
       device_platform: "chrome" | "ios" | "android";
       device_status: "active" | "inactive" | "pending";
       alert_severity: "info" | "warning" | "critical";
-      rule_scope: "site" | "content";
+      rule_scope: "site" | "content" | "llm";
       report_period: "daily" | "weekly";
+      community_post_category: "social_media" | "gaming" | "content" | "grooming" | "general";
+      community_content_status: "active" | "hidden" | "removed";
+      community_vote_target: "post" | "comment";
+      community_report_target: "post" | "comment" | "preset";
+      community_report_status: "pending" | "reviewed" | "dismissed";
     };
   };
 };
