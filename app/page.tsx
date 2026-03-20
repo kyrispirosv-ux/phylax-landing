@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Shield, Lock, Check, ArrowRight, PlayCircle, Smartphone, Download, Globe, Monitor, Bell, Settings, Puzzle, KeyRound, ShieldCheck } from "lucide-react";
 import { GreekKeyLogo } from "@/components/GreekKeyLogo";
 
-const DASHBOARD_URL = "https://app.phylaxsafety.com";
+const DASHBOARD_URL = "https://phylax-app.vercel.app";
 const SIGNUP_URL = `${DASHBOARD_URL}/auth/signup`;
 const LOGIN_URL = `${DASHBOARD_URL}/auth/login`;
 

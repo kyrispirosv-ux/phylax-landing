@@ -8,42 +8,42 @@
     },
     {
       "source": "/dashboard/:path*",
-      "destination": "https://app.phylaxsafety.com/dashboard/:path*",
+      "destination": "https://phylax-app.vercel.app/dashboard/:path*",
       "permanent": false
     },
     {
       "source": "/activity",
-      "destination": "https://app.phylaxsafety.com/activity",
+      "destination": "https://phylax-app.vercel.app/activity",
       "permanent": false
     },
     {
       "source": "/devices",
-      "destination": "https://app.phylaxsafety.com/devices",
+      "destination": "https://phylax-app.vercel.app/devices",
       "permanent": false
     },
     {
       "source": "/rules",
-      "destination": "https://app.phylaxsafety.com/rules",
+      "destination": "https://phylax-app.vercel.app/rules",
       "permanent": false
     },
     {
       "source": "/settings",
-      "destination": "https://app.phylaxsafety.com/settings",
+      "destination": "https://phylax-app.vercel.app/settings",
       "permanent": false
     },
     {
       "source": "/onboarding",
-      "destination": "https://app.phylaxsafety.com/onboarding",
+      "destination": "https://phylax-app.vercel.app/onboarding",
       "permanent": false
     },
     {
       "source": "/login",
-      "destination": "https://app.phylaxsafety.com/auth/login",
+      "destination": "https://phylax-app.vercel.app/auth/login",
       "permanent": false
     },
     {
       "source": "/signup",
-      "destination": "https://app.phylaxsafety.com/auth/signup",
+      "destination": "https://phylax-app.vercel.app/auth/signup",
       "permanent": false
     }
   ],
