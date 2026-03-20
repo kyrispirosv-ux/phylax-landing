@@ -67,12 +67,17 @@ export function RuleAssistant({ context }: { context: "rules" | "llm" }) {
     return (
       <button
         onClick={() => setOpen(true)}
-        className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-3 bg-[#0F1320] border border-white/[0.06] text-purple-400 rounded-2xl shadow-2xl shadow-black/40 hover:border-white/10 transition-all group"
+        className="fixed bottom-6 right-6 z-50 flex items-center gap-3 px-5 py-3.5 bg-[#0A1628] border border-[#22D3EE]/30 text-[#22D3EE] rounded-2xl shadow-2xl shadow-[#22D3EE]/10 hover:border-[#22D3EE]/50 hover:shadow-[#22D3EE]/20 transition-all group animate-pulse hover:animate-none"
       >
-        <svg className="w-5 h-5 text-[#C9A84C]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456z" />
-        </svg>
-        <span className="text-sm font-medium">Ask Phylax AI</span>
+        <div className="w-8 h-8 rounded-xl bg-[#22D3EE]/15 flex items-center justify-center">
+          <svg className="w-5 h-5 text-[#22D3EE]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456z" />
+          </svg>
+        </div>
+        <div className="text-left">
+          <span className="text-sm font-semibold block">Ask Phylax AI</span>
+          <span className="text-[11px] text-[#22D3EE]/60">Get help with safety rules</span>
+        </div>
       </button>
     );
   }
@@ -80,9 +85,9 @@ export function RuleAssistant({ context }: { context: "rules" | "llm" }) {
   return (
     <div className="fixed bottom-6 right-6 z-50 w-[400px] max-h-[600px] flex flex-col bg-[#0F1320] border border-white/[0.06] rounded-2xl shadow-2xl shadow-black/50 overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06] bg-[#0A1628]">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-[#22D3EE]/10 bg-[#0A1628]">
         <div className="flex items-center gap-2">
-          <svg className="w-4 h-4 text-[#C9A84C]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+          <svg className="w-4 h-4 text-[#22D3EE]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
           </svg>
           <span className="text-sm font-semibold text-white">Phylax AI Assistant</span>
