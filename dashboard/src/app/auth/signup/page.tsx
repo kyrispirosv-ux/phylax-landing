@@ -76,7 +76,6 @@ export default function SignupPage() {
               priority
             />
           </div>
-          <h2 className="text-purple-400 font-semibold text-xl tracking-[0.15em] mt-3" style={{ fontFamily: "'Palatino Linotype', 'Book Antiqua', Palatino, Georgia, serif" }}>PHYLAX</h2>
         </div>
 
         <h1 className="text-white text-2xl font-bold text-center mb-2">Create your account</h1>

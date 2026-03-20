@@ -63,9 +63,9 @@ export function NotificationManager() {
       <div className="bg-[#0F1320] border border-white/[0.06] rounded-2xl p-5 shadow-2xl shadow-black/40">
         <div className="flex items-start gap-4">
           {/* Bell icon */}
-          <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center shrink-0">
+          <div className="w-10 h-10 rounded-xl bg-[#22D3EE]/10 flex items-center justify-center shrink-0">
             <svg
-              className="w-5 h-5 text-amber-400"
+              className="w-5 h-5 text-[#22D3EE]"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -92,7 +92,7 @@ export function NotificationManager() {
         <div className="flex items-center gap-3 mt-4">
           <button
             onClick={handleEnable}
-            className="flex-1 px-4 py-2.5 bg-amber-500 text-white text-sm font-semibold rounded-xl hover:bg-amber-600 active:scale-[0.98] transition-all"
+            className="flex-1 px-4 py-2.5 bg-[#22D3EE] text-black text-sm font-semibold rounded-xl hover:bg-[#22D3EE]/90 active:scale-[0.98] transition-all"
           >
             Enable Notifications
           </button>
