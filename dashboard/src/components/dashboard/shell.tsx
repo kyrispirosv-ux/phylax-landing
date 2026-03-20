@@ -107,7 +107,7 @@ export function DashboardShell({
   }
 
   return (
-    <div className="min-h-screen bg-[#F5F5F7]">
+    <div className="min-h-screen bg-[#070A12]">
       {/* ─── Side Navigation (desktop) + Top Bar (mobile) ─── */}
       <aside className="hidden lg:fixed lg:inset-y-0 lg:flex lg:w-64 lg:flex-col z-50">
         <div className="flex flex-col flex-1 bg-[#0B0F1A] border-r border-white/[0.05]">
