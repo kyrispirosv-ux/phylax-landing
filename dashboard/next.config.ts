@@ -1,12 +1,6 @@
 import type { NextConfig } from "next";
-import path from "path";
 
 const nextConfig: NextConfig = {
-  // Silence lockfile warning in monorepo
-  turbopack: {
-    root: path.resolve(__dirname),
-  },
-
   headers: async () => [
     {
       // Allow service worker to control the entire origin
