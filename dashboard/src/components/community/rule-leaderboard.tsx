@@ -25,7 +25,7 @@ export function RuleLeaderboard() {
   if (loading) {
     return (
       <div className="flex justify-center py-12">
-        <div className="w-6 h-6 border-2 border-white/20 border-t-emerald-400 rounded-full animate-spin" />
+        <div className="w-6 h-6 border-2 border-white/[0.06] border-t-emerald-400 rounded-full animate-spin" />
       </div>
     );
   }
@@ -46,7 +46,7 @@ export function RuleLeaderboard() {
         <div key={rule.id} className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-4">
           <div className="flex items-start gap-3">
             <span className={`text-lg font-bold min-w-[2ch] text-right ${
-              i < 3 ? "text-emerald-400" : "text-white/30"
+              i < 3 ? "text-emerald-400" : "text-white/40"
             }`}>
               {i + 1}
             </span>
@@ -55,11 +55,11 @@ export function RuleLeaderboard() {
               <div className="flex items-center gap-4 mt-1.5 text-xs text-white/40">
                 <span>{rule.adoption_count} families</span>
                 <span>{rule.blocked_count_30d.toLocaleString()} blocks (30d)</span>
-                <span className="px-1.5 py-0.5 rounded bg-white/[0.06] text-white/50 text-[10px]">
+                <span className="px-1.5 py-0.5 rounded bg-white/[0.08] text-white/50 text-[10px]">
                   {rule.category}
                 </span>
               </div>
-              <div className="mt-2 h-1.5 bg-white/[0.06] rounded-full overflow-hidden">
+              <div className="mt-2 h-1.5 bg-white/[0.08] rounded-full overflow-hidden">
                 <div
                   className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full transition-all"
                   style={{ width: `${Math.min((rule.adoption_count / maxAdoption) * 100, 100)}%` }}

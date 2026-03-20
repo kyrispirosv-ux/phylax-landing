@@ -27,7 +27,7 @@
     'calendar.google.com', 'contacts.google.com',
     'drive.google.com', 'docs.google.com',
     'sheets.google.com', 'slides.google.com',
-    // AI assistants
+    // AI assistants — handled by enforcement/llm-enforcer.js
     'chat.openai.com', 'chatgpt.com',
     'claude.ai',
     'gemini.google.com',

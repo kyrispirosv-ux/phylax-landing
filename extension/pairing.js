@@ -116,9 +116,10 @@ async function pair(payload) {
 
     // If we got a policy pack, store the rules
     if (result.policy_pack) {
-      const rules = result.policy_pack.rules.map(r => r.text);
+      // Store rules as objects with { text, active } so compileRules() can process them
+      const rules = result.policy_pack.rules.map(r => ({ text: r.text, active: true }));
       await chrome.storage.local.set({
-        phylaxRules: JSON.stringify(rules),
+        phylaxRules: rules, // Store as array directly, not JSON string
         phylaxProfile: result.policy_pack.tier,
         phylaxPolicyPack: JSON.stringify(result.policy_pack),
       });

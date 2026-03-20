@@ -68,9 +68,9 @@ export function CommentThread({ postId, comments, onCommentAdded }: Props) {
             <span className="text-white/40 text-xs font-medium">
               {comment.is_anonymous ? "A Phylax Parent" : comment.author_name}
             </span>
-            <span className="text-white/20 text-xs">{getTimeAgo(comment.created_at)}</span>
+            <span className="text-white/25 text-xs">{getTimeAgo(comment.created_at)}</span>
           </div>
-          <p className="text-white/70 text-sm leading-relaxed">{comment.body}</p>
+          <p className="text-white/60 text-sm leading-relaxed">{comment.body}</p>
           <div className="flex items-center gap-3 mt-1.5">
             <VoteButton
               targetType="comment"
@@ -81,7 +81,7 @@ export function CommentThread({ postId, comments, onCommentAdded }: Props) {
             {depth < 3 && (
               <button
                 onClick={() => setReplyTo(replyTo === comment.id ? null : comment.id)}
-                className="text-xs text-white/30 hover:text-white/60 transition-colors"
+                className="text-xs text-white/40 hover:text-white/50 transition-colors"
               >
                 Reply
               </button>
@@ -94,7 +94,7 @@ export function CommentThread({ postId, comments, onCommentAdded }: Props) {
                 value={replyBody}
                 onChange={(e) => setReplyBody(e.target.value)}
                 placeholder="Write a reply..."
-                className="flex-1 bg-white/[0.05] border border-white/[0.08] rounded-lg px-3 py-2 text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-emerald-500/50"
+                className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-emerald-500/50"
                 onKeyDown={(e) => e.key === "Enter" && submitComment(replyBody, comment.id)}
               />
               <button
@@ -121,7 +121,7 @@ export function CommentThread({ postId, comments, onCommentAdded }: Props) {
             value={newComment}
             onChange={(e) => setNewComment(e.target.value)}
             placeholder="Share your thoughts..."
-            className="flex-1 bg-white/[0.05] border border-white/[0.08] rounded-lg px-4 py-2.5 text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-emerald-500/50"
+            className="flex-1 bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-emerald-500/50"
             onKeyDown={(e) => e.key === "Enter" && submitComment(newComment, null)}
           />
           <button
@@ -137,7 +137,7 @@ export function CommentThread({ postId, comments, onCommentAdded }: Props) {
             type="checkbox"
             checked={isAnonymous}
             onChange={(e) => setIsAnonymous(e.target.checked)}
-            className="rounded border-white/20 bg-white/[0.05]"
+            className="rounded border-white/[0.06] bg-white/5"
           />
           <span className="text-xs text-white/40">Post anonymously</span>
         </label>
@@ -148,7 +148,7 @@ export function CommentThread({ postId, comments, onCommentAdded }: Props) {
       </div>
 
       {comments.length === 0 && (
-        <p className="text-center text-white/30 text-sm py-6">No comments yet.</p>
+        <p className="text-center text-white/40 text-sm py-6">No comments yet.</p>
       )}
     </div>
   );

@@ -120,7 +120,7 @@ export default function DevicesPage() {
     return `${Math.floor(diff / 86_400_000)}d ago`;
   }
 
-  if (loading) return <div className="text-white/30 text-sm">Loading...</div>;
+  if (loading) return <div className="text-white/40 text-sm">Loading...</div>;
 
   const childName = (id: string) => children.find(c => c.id === id)?.name ?? "Unknown";
 
@@ -153,7 +153,7 @@ export default function DevicesPage() {
           <button
             onClick={generateToken}
             disabled={generating || !selectedChild}
-            className="px-5 py-2.5 bg-[#7C5CFF] text-white text-sm font-medium rounded-xl hover:bg-[#7C5CFF]/90 transition disabled:opacity-50"
+            className="px-5 py-2.5 bg-gradient-to-r from-[#7C5CFF] to-[#7C5CFF]/80 text-white text-sm font-medium rounded-xl hover:opacity-90 transition disabled:opacity-50"
           >
             {generating ? "Generating..." : "Generate Pairing Code"}
           </button>
@@ -181,7 +181,7 @@ export default function DevicesPage() {
             <div>
               <p className="text-white/40 text-xs font-medium mb-1">Install Link (send to child or open on their device)</p>
               <div className="flex items-center gap-3">
-                <code className="text-xs text-white/60 bg-white/5 px-3 py-2 rounded-lg flex-1 truncate">
+                <code className="text-xs text-white/50 bg-white/[0.03] px-3 py-2 rounded-lg flex-1 truncate">
                   {pairingToken.install_link}
                 </code>
                 <button
@@ -199,7 +199,7 @@ export default function DevicesPage() {
               <div className="w-44 h-44 bg-white rounded-xl flex items-center justify-center p-2">
                 <QRCode value={pairingToken.install_link} size={160} />
               </div>
-              <p className="text-white/30 text-[10px] mt-1">Scan with phone camera to send link</p>
+              <p className="text-white/40 text-[10px] mt-1">Scan with phone camera to send link</p>
             </div>
 
             <p className="text-amber-400/70 text-xs">
@@ -215,7 +215,7 @@ export default function DevicesPage() {
         {devices.map((device) => (
           <div key={device.id} className="flex items-center gap-4 bg-white/[0.03] border border-white/[0.06] rounded-2xl px-6 py-5">
             <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-              device.status === "active" ? "bg-green-500/20" : "bg-white/10"
+              device.status === "active" ? "bg-green-500/20" : "bg-white/[0.08]"
             }`}>
               <svg className={`w-5 h-5 ${device.status === "active" ? "text-green-400" : "text-white/40"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 17.25v1.007a3 3 0 01-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0115 18.257V17.25m6-12V15a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 15V5.25A2.25 2.25 0 015.25 3h13.5A2.25 2.25 0 0121 5.25z" />
@@ -227,12 +227,12 @@ export default function DevicesPage() {
                 <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
                   device.status === "active" ? "bg-green-500/20 text-green-400" :
                   device.status === "pending" ? "bg-amber-500/20 text-amber-400" :
-                  "bg-white/10 text-white/40"
+                  "bg-white/[0.08] text-white/40"
                 }`}>
                   {device.status}
                 </span>
               </div>
-              <p className="text-white/30 text-xs">
+              <p className="text-white/40 text-xs">
                 {childName(device.child_id)} &middot; {device.extension_version ? `v${device.extension_version}` : "Unknown version"} &middot; Last seen {timeAgo(device.last_heartbeat)}
               </p>
             </div>
@@ -249,7 +249,7 @@ export default function DevicesPage() {
         ))}
         {devices.length === 0 && (
           <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-8 text-center">
-            <p className="text-white/30 text-sm">No devices paired yet. Generate a pairing code above to get started.</p>
+            <p className="text-white/40 text-sm">No devices paired yet. Generate a pairing code above to get started.</p>
           </div>
         )}
       </div>

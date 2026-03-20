@@ -13,6 +13,14 @@ import { createConversationState } from './engine/grooming-detector.js';
 import { classify_video_risk, analyze_message_risk, predict_conversation_risk, classify_search_risk } from './engine/risk-classifier.js';
 import { startSync, queueEvent, getDeviceId } from './backend-sync.js';
 
+// ── LLM Semantic Safety Pipeline imports ─────────────────────────
+import { interpret, needsCloudEvaluation } from './engine/semantic-interpreter.js';
+import { trackSignal, initPatternTracker } from './engine/pattern-tracker.js';
+import { makeDecision } from './engine/safety-decision.js';
+import { startSignalAggregator, queueSignal } from './engine/signal-aggregator.js';
+import { startFeedbackListener } from './engine/feedback-capture.js';
+import { startCommunityIntelListener } from './engine/community-intel.js';
+
 // ── State ───────────────────────────────────────────────────────
 
 const PHYLAX_ORIGINS = [
@@ -829,6 +837,188 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
+  // ═══════════════════════════════════════════════════════════════
+  // LLM SEMANTIC SAFETY PIPELINE — handles signals from llm-observer.js
+  // ═══════════════════════════════════════════════════════════════
+
+  if (message.type === 'PHYLAX_CONTENT_SIGNAL') {
+    const signal = message.signal;
+    if (!signal || !signal.content) {
+      sendResponse({ decision: 'allow', action_reason: 'empty_signal' });
+      return true;
+    }
+
+    (async () => {
+      try {
+        // Step 1: Semantic interpretation (local, fast <50ms)
+        const semanticResult = interpret({
+          text: signal.content,
+          signal_id: signal.signal_id,
+          url: signal.context?.url,
+          domain: signal.platform,
+        });
+
+        // Step 2: Pattern tracking (multi-message context)
+        const patternResult = trackSignal({
+          platform: signal.platform,
+          thread_id: signal.context?.thread_id,
+          text: signal.content,
+          sender: signal.metadata?.author_role === 'user' ? 'CHILD' : 'CONTACT',
+          risk_score: semanticResult.risk_level,
+        }, {
+          content: {
+            topic_labels: semanticResult.topic !== 'none'
+              ? [{ label: semanticResult.topic, p: semanticResult.risk_level }]
+              : [],
+            intent: semanticResult.intent,
+          },
+        });
+
+        // Step 3: Get parent rules and child profile
+        const rules = await getRules();
+        const childProfile = { age_tier: profileTier };
+        const platformContext = {
+          site: signal.context?.url || signal.platform,
+          modality: signal.modality || 'text',
+          direction: signal.direction || 'incoming',
+        };
+
+        // Step 4: Safety decision
+        const topPattern = patternResult.has_pattern
+          ? patternResult.patterns.reduce((a, b) => b.confidence > a.confidence ? b : a)
+          : null;
+
+        // Attach raw text for jailbreak detection inside safety-decision
+        const semanticWithText = { ...semanticResult, _raw_text: signal.content };
+
+        const decision = makeDecision(
+          semanticWithText,
+          topPattern,
+          rules,
+          childProfile,
+          platformContext,
+        );
+
+        // Step 5: Cloud escalation if needed
+        if (decision.escalate_to_cloud) {
+          // Fire-and-forget cloud evaluation
+          escalateToCloud(signal, semanticResult, decision).catch(() => {});
+        }
+
+        // Step 6: Send decision back to content script (llm-enforcer.js)
+        const tabId = sender.tab?.id;
+        if (tabId && decision.decision !== 'allow') {
+          chrome.tabs.sendMessage(tabId, {
+            type: 'PHYLAX_LLM_DECISION',
+            decision: {
+              action: decision.decision,
+              decision: decision.decision,
+              confidence: decision.confidence,
+              explanation: decision.explanation,
+              reason_code: decision.action_reason,
+              category: semanticResult.topic,
+              triggered_rules: decision.triggered_rules,
+            },
+          }).catch(() => {});
+        }
+
+        // Step 7: Log via signal aggregator (anonymous, opt-in)
+        queueSignal(
+          {
+            action: decision.decision,
+            top_topic: semanticResult.topic,
+            risk_score: semanticResult.risk_level,
+            confidence: decision.confidence,
+            intent: semanticResult.intent,
+            stance: semanticResult.stance,
+            pattern_type: topPattern?.pattern_type || null,
+            escalation_stage: topPattern?.escalation_stage || null,
+            triggered_rules: decision.triggered_rules,
+          },
+          {
+            platform: signal.platform,
+            source_type: signal.source_type,
+            direction: signal.direction,
+            child_tier: profileTier,
+          }
+        );
+
+        // Step 8: Queue event to backend sync
+        queueEvent({
+          event_type: decision.decision === 'allow' ? 'LLM_ALLOWED' : 'LLM_BLOCKED',
+          domain: signal.platform,
+          url: signal.context?.url || '',
+          category: semanticResult.topic,
+          reason_code: decision.action_reason,
+          confidence: decision.confidence,
+          metadata: {
+            decision: decision.decision,
+            platform: signal.platform,
+            direction: signal.direction,
+            intent: semanticResult.intent,
+            stance: semanticResult.stance,
+            flags: semanticResult.flags,
+          },
+        });
+
+        // Step 9: Log via decision logger
+        if (decision.decision !== 'allow') {
+          console.log(`[Phylax LLM] ${signal.platform}: ${decision.decision} (${decision.action_reason}) conf=${decision.confidence}`);
+        }
+
+        sendResponse({ decision: decision.decision, action_reason: decision.action_reason });
+      } catch (err) {
+        console.error('[Phylax LLM Pipeline] Error:', err);
+        sendResponse({ decision: 'allow', action_reason: 'pipeline_error' });
+      }
+    })();
+    return true; // async response
+  }
+
+  // Selector failure telemetry from llm-observer.js
+  if (message.type === 'PHYLAX_SELECTOR_FAILURE') {
+    console.warn('[Phylax] Selector failure:', message.failure);
+    // Store for diagnostics
+    chrome.storage.local.get(['phylaxSelectorFailures']).then(({ phylaxSelectorFailures }) => {
+      const failures = phylaxSelectorFailures || [];
+      failures.push({ ...message.failure, received_at: Date.now() });
+      if (failures.length > 100) failures.splice(0, failures.length - 100);
+      chrome.storage.local.set({ phylaxSelectorFailures: failures });
+    });
+    sendResponse({ received: true });
+    return true;
+  }
+
+  // Event logging from llm-enforcer.js
+  if (message.type === 'PHYLAX_LOG_EVENT') {
+    const evt = message.event;
+    if (evt) {
+      queueEvent({
+        event_type: evt.event_type || 'LLM_EVENT',
+        domain: evt.domain || '',
+        url: evt.url || '',
+        category: evt.category || 'LLM',
+        reason_code: evt.reason_code || '',
+        confidence: evt.confidence || 0,
+        metadata: evt.metadata || {},
+      });
+
+      // Also store to activity log for dashboard
+      chrome.storage.local.get(['phylaxActivityLog']).then(({ phylaxActivityLog }) => {
+        const log = phylaxActivityLog || [];
+        log.unshift({
+          ...evt,
+          id: `evt_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+          timestamp: Date.now(),
+        });
+        if (log.length > 500) log.splice(500);
+        chrome.storage.local.set({ phylaxActivityLog: log });
+      });
+    }
+    sendResponse({ received: true });
+    return true;
+  }
+
   // Dashboard bridge messages — catch-all for PHYLAX_ prefixed
   if (message.type && message.type.startsWith('PHYLAX_')) {
     handleDashboardMessage(message, sendResponse);
@@ -999,6 +1189,59 @@ async function handleStatusRequest(sendResponse) {
   });
 }
 
+// ═════════════════════════════════════════════════════════════════
+// LLM CLOUD ESCALATION — sends ambiguous signals to cloud LLM
+// ═════════════════════════════════════════════════════════════════
+
+async function escalateToCloud(signal, semanticResult, localDecision) {
+  try {
+    const stored = await chrome.storage.local.get(['phylaxDashboardUrl', 'phylaxAuthToken', 'phylaxDeviceId']);
+    const apiBase = stored.phylaxDashboardUrl || 'https://app.phylax.ai';
+    const authToken = stored.phylaxAuthToken;
+    const deviceId = stored.phylaxDeviceId;
+
+    if (!deviceId) return;
+
+    const headers = { 'Content-Type': 'application/json' };
+    if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
+
+    const res = await fetch(`${apiBase}/api/extension/llm-evaluate`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        device_id: deviceId,
+        signal_id: signal.signal_id,
+        content: signal.content,
+        platform: signal.platform,
+        local_result: {
+          topic: semanticResult.topic,
+          intent: semanticResult.intent,
+          stance: semanticResult.stance,
+          risk_level: semanticResult.risk_level,
+          confidence: semanticResult.confidence,
+          flags: semanticResult.flags,
+        },
+        local_decision: localDecision.decision,
+      }),
+      signal: AbortSignal.timeout(15000),
+    });
+
+    if (!res.ok) {
+      console.warn(`[Phylax LLM Cloud] Escalation failed: ${res.status}`);
+      return;
+    }
+
+    const cloudResult = await res.json();
+    console.log(`[Phylax LLM Cloud] Cloud evaluation: ${cloudResult.decision} (confidence: ${cloudResult.confidence})`);
+
+    // If cloud disagrees with local decision and has higher confidence, override
+    // (This is a post-hoc correction — the local decision was already sent)
+    // Future: implement real-time cloud-first for high-risk cases
+  } catch (err) {
+    console.warn('[Phylax LLM Cloud] Escalation error:', err.message);
+  }
+}
+
 function isPhylaxOrigin(origin) {
   if (!origin) return false;
   return PHYLAX_ORIGINS.some(a => origin.startsWith(a));
@@ -1139,10 +1382,18 @@ chrome.runtime.onInstalled.addListener(async (details) => {
     const rules = await getRules();
     await rebuildPolicy(rules);
     markPolicyReady();
+
+    // Initialize LLM pipeline subsystems
+    await initPatternTracker();
+    await startSignalAggregator();
+    startFeedbackListener();
+    startCommunityIntelListener();
+
     console.log('[Phylax] Service worker ready. Profile:', profileTier,
       '| Policy:', currentPolicy?.policy_version || 'none',
       '| Topic rules:', currentPolicy?.topic_rules?.length || 0,
-      '| Domain blocks:', currentPolicy?.domain_rules?.block_domains?.length || 0);
+      '| Domain blocks:', currentPolicy?.domain_rules?.block_domains?.length || 0,
+      '| LLM pipeline: active');
   } catch (e) {
     console.error('[Phylax] Service worker init error:', e);
     // Build a minimal default policy so the extension still functions

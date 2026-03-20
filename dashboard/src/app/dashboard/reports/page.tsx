@@ -104,7 +104,7 @@ export default function ReportsPage() {
       </div>
 
       {loading ? (
-        <div className="text-white/30 text-sm">Loading...</div>
+        <div className="text-white/40 text-sm">Loading...</div>
       ) : (
         <>
           {/* Stats cards */}
@@ -126,7 +126,7 @@ export default function ReportsPage() {
           <h2 className="text-lg font-semibold mb-4">Daily Activity</h2>
           <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-5 mb-8">
             {summaries.length === 0 ? (
-              <p className="text-white/30 text-sm text-center py-4">No activity data for this period.</p>
+              <p className="text-white/40 text-sm text-center py-4">No activity data for this period.</p>
             ) : (
               <div className="space-y-3">
                 {summaries.map(s => {
@@ -142,7 +142,7 @@ export default function ReportsPage() {
                         <div className="bg-red-500/60 rounded-l" style={{ width: `${blockedPct}%` }} />
                         <div className="bg-green-500/40 rounded-r" style={{ width: `${allowedPct}%` }} />
                       </div>
-                      <span className="text-xs text-white/30 w-12 text-right">{s.total_events}</span>
+                      <span className="text-xs text-white/40 w-12 text-right">{s.total_events}</span>
                     </div>
                   );
                 })}
@@ -164,13 +164,13 @@ export default function ReportsPage() {
               <h2 className="text-lg font-semibold mb-4">Top Blocked Domains</h2>
               <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-5">
                 {topDomains.length === 0 ? (
-                  <p className="text-white/30 text-sm text-center py-4">No blocked domains yet.</p>
+                  <p className="text-white/40 text-sm text-center py-4">No blocked domains yet.</p>
                 ) : (
                   <div className="space-y-2">
                     {topDomains.map(([domain, count]) => (
                       <div key={domain} className="flex items-center justify-between">
-                        <span className="text-sm text-white/70 truncate">{domain}</span>
-                        <span className="text-xs text-white/30 ml-2 shrink-0">{count}</span>
+                        <span className="text-sm text-white/60 truncate">{domain}</span>
+                        <span className="text-xs text-white/40 ml-2 shrink-0">{count}</span>
                       </div>
                     ))}
                   </div>
@@ -181,13 +181,13 @@ export default function ReportsPage() {
               <h2 className="text-lg font-semibold mb-4">Top Categories</h2>
               <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-5">
                 {topCategories.length === 0 ? (
-                  <p className="text-white/30 text-sm text-center py-4">No category data yet.</p>
+                  <p className="text-white/40 text-sm text-center py-4">No category data yet.</p>
                 ) : (
                   <div className="space-y-2">
                     {topCategories.map(([cat, count]) => (
                       <div key={cat} className="flex items-center justify-between">
-                        <span className="text-sm text-white/70 capitalize">{cat.replace(/_/g, " ")}</span>
-                        <span className="text-xs text-white/30 ml-2 shrink-0">{count}</span>
+                        <span className="text-sm text-white/60 capitalize">{cat.replace(/_/g, " ")}</span>
+                        <span className="text-xs text-white/40 ml-2 shrink-0">{count}</span>
                       </div>
                     ))}
                   </div>

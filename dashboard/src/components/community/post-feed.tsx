@@ -82,7 +82,7 @@ export function PostFeed() {
               className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
                 category === c.value
                   ? "bg-white/[0.08] text-white"
-                  : "text-white/40 hover:text-white/60"
+                  : "text-white/40 hover:text-white/50"
               }`}
             >
               {c.label}
@@ -97,7 +97,7 @@ export function PostFeed() {
               className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
                 sort === s.value
                   ? "bg-white/[0.08] text-white"
-                  : "text-white/40 hover:text-white/60"
+                  : "text-white/40 hover:text-white/50"
               }`}
             >
               {s.label}
@@ -114,7 +114,7 @@ export function PostFeed() {
 
       {loading && (
         <div className="flex justify-center py-8">
-          <div className="w-6 h-6 border-2 border-white/20 border-t-emerald-400 rounded-full animate-spin" />
+          <div className="w-6 h-6 border-2 border-white/[0.06] border-t-emerald-400 rounded-full animate-spin" />
         </div>
       )}
 
@@ -127,7 +127,7 @@ export function PostFeed() {
       {!loading && hasMore && posts.length > 0 && (
         <button
           onClick={() => fetchPosts(false)}
-          className="w-full py-3 mt-4 text-sm text-white/40 hover:text-white/60 hover:bg-white/[0.03] rounded-lg transition-colors"
+          className="w-full py-3 mt-4 text-sm text-white/40 hover:text-white/50 hover:bg-white/[0.03] rounded-lg transition-colors"
         >
           Load more
         </button>

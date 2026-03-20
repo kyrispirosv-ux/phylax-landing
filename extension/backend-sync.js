@@ -93,12 +93,13 @@ export async function syncPolicy() {
 
     if (data.policy_pack) {
       const pack = data.policy_pack;
-      const rules = pack.rules.map(r => r.text);
+      // Store rules as objects with { text, active } so compileRules() can process them
+      const rules = pack.rules.map(r => ({ text: r.text, active: true }));
 
       await chrome.storage.local.set({
         phylaxPolicyVersion: data.policy_version,
         phylaxPolicyPack: JSON.stringify(pack),
-        phylaxRules: JSON.stringify(rules),
+        phylaxRules: rules, // Store as array directly, not JSON string
         phylaxProfile: pack.tier,
       });
 
@@ -273,6 +274,42 @@ export async function flushEvents() {
   } catch (err) {
     console.error(`[Phylax Sync] Network error sending events to ${base}:`, err);
     eventBuffer.unshift(...batch);
+  }
+}
+
+// ── Send Alert to Backend ──
+
+export async function sendAlert(alert) {
+  const deviceId = await getDeviceId();
+  if (!deviceId) return { error: 'Not paired' };
+  const base = await getApiBase();
+
+  try {
+    const headers = await getAuthHeaders();
+    const res = await fetch(`${base}/api/extension/alerts`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        device_id: deviceId,
+        alert_type: alert.alert_type || alert.type || 'UNKNOWN',
+        severity: alert.severity || 'warning',
+        title: alert.title || 'Safety Alert',
+        body: alert.body || null,
+        url: alert.url || null,
+        domain: alert.domain || null,
+        reason_code: alert.reason_code || null,
+        confidence: alert.confidence || null,
+        evidence: alert.evidence || null,
+      }),
+    });
+    if (!res.ok) {
+      console.warn('[Phylax Sync] Failed to send alert to backend:', res.status);
+      return { error: `HTTP ${res.status}` };
+    }
+    return await res.json();
+  } catch (err) {
+    console.warn('[Phylax Sync] Error sending alert to backend:', err.message);
+    return { error: err.message };
   }
 }
 

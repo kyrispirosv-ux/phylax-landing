@@ -11,7 +11,7 @@ import { createSessionState, updateSessionState } from './engine/behavior.js';
 import { cacheClear, cacheStats } from './engine/decision-cache.js';
 import { createConversationState } from './engine/grooming-detector.js';
 import { classify_video_risk, analyze_message_risk, predict_conversation_risk, classify_search_risk } from './engine/risk-classifier.js';
-import { startSync, queueEvent, getDeviceId } from './backend-sync.js';
+import { startSync, queueEvent, getDeviceId, sendAlert } from './backend-sync.js';
 
 // ── State ───────────────────────────────────────────────────────
 
@@ -124,7 +124,23 @@ const TAB_DECISION_THROTTLE_MS = 3000;
 
 async function getRules() {
   const { phylaxRules } = await chrome.storage.local.get('phylaxRules');
-  return phylaxRules || [];
+  if (!phylaxRules) return [];
+  // Handle legacy format: JSON string of text strings
+  if (typeof phylaxRules === 'string') {
+    try {
+      const parsed = JSON.parse(phylaxRules);
+      // If it's an array of strings, convert to { text, active } objects
+      if (Array.isArray(parsed) && parsed.length > 0 && typeof parsed[0] === 'string') {
+        return parsed.map(text => ({ text, active: true }));
+      }
+      return parsed;
+    } catch { return []; }
+  }
+  // Handle array of strings (legacy from bridge/popup)
+  if (Array.isArray(phylaxRules) && phylaxRules.length > 0 && typeof phylaxRules[0] === 'string') {
+    return phylaxRules.map(text => ({ text, active: true }));
+  }
+  return phylaxRules;
 }
 
 async function getProfileTier() {
@@ -133,12 +149,17 @@ async function getProfileTier() {
 }
 
 async function setRules(rules) {
-  await chrome.storage.local.set({ phylaxRules: rules });
-  await rebuildPolicy(rules);
+  // Normalize: ensure all rules are { text, active } objects
+  const normalized = (rules || []).map(r => {
+    if (typeof r === 'string') return { text: r, active: true };
+    return { text: r.text, active: r.active !== false };
+  });
+  await chrome.storage.local.set({ phylaxRules: normalized });
+  await rebuildPolicy(normalized);
   // Notify all tabs
   const tabs = await chrome.tabs.query({});
   for (const tab of tabs) {
-    chrome.tabs.sendMessage(tab.id, { type: 'PHYLAX_RULES_UPDATED', rules }).catch(() => { });
+    chrome.tabs.sendMessage(tab.id, { type: 'PHYLAX_RULES_UPDATED', rules: normalized }).catch(() => { });
   }
 }
 
@@ -427,6 +448,11 @@ async function handleParentAlert(alert) {
   // Keep last 200 alerts
   if (alerts.length > 200) alerts.splice(0, alerts.length - 200);
   await chrome.storage.local.set({ phylaxAlerts: alerts });
+
+  // Send alert to backend API for server-side storage + parent notifications
+  sendAlert(alert).catch(err => {
+    console.warn('[Phylax] Failed to send alert to backend:', err);
+  });
 
   // Log to decision logger as high-priority event
   const logEvent = createEvent({

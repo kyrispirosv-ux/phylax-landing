@@ -1,0 +1,38 @@
+{
+  "id": "/dashboard",
+  "name": "Phylax — Child Safety Dashboard",
+  "short_name": "Phylax",
+  "description": "AI-powered parental controls. Monitor, protect, and educate — from any device.",
+  "start_url": "/dashboard",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#070A12",
+  "theme_color": "#7C5CFF",
+  "orientation": "any",
+  "categories": ["parental-controls", "safety", "education"],
+  "icons": [
+    {
+      "src": "/icons/icon-192x192.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512x512.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/maskable-512x512.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ],
+  "screenshots": [],
+  "prefer_related_applications": false,
+  "launch_handler": {
+    "client_mode": "navigate-existing"
+  }
+}

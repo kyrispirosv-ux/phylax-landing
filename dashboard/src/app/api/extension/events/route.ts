@@ -1,30 +1,24 @@
 import { NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
+import { authenticateExtension } from "@/lib/extension-auth";
 
 /**
  * POST /api/extension/events
  * Extension sends events (blocked, allowed, request_access, heartbeat, policy_applied)
+ *
+ * Auth: Bearer token (preferred) or device_id fallback.
  */
 export async function POST(request: Request) {
   const body = await request.json();
   const { device_id, events } = body;
 
-  if (!device_id) {
-    return NextResponse.json({ error: "device_id required" }, { status: 400 });
+  // Authenticate the extension
+  const auth = await authenticateExtension(request, device_id);
+  if (!auth) {
+    return NextResponse.json({ error: "Unauthorized or device not found" }, { status: 401 });
   }
 
   const db = createServiceClient();
-
-  // Look up device
-  const { data: device } = await db
-    .from("devices")
-    .select("id, child_id, family_id")
-    .eq("id", device_id)
-    .single();
-
-  if (!device) {
-    return NextResponse.json({ error: "Device not found" }, { status: 404 });
-  }
 
   // Accept single event or batch
   const eventList = Array.isArray(events) ? events : [body];
@@ -40,9 +34,9 @@ export async function POST(request: Request) {
     metadata?: unknown;
     timestamp?: string;
   }) => ({
-    family_id: device.family_id,
-    child_id: device.child_id,
-    device_id: device.id,
+    family_id: auth.family_id,
+    child_id: auth.child_id,
+    device_id: auth.device_id,
     event_type: evt.event_type,
     domain: evt.domain ?? null,
     url: evt.url ?? null,
@@ -63,7 +57,7 @@ export async function POST(request: Request) {
   await db
     .from("devices")
     .update({ last_heartbeat: new Date().toISOString() })
-    .eq("id", device.id);
+    .eq("id", auth.device_id);
 
   return NextResponse.json({ status: "ok", count: rows.length });
 }

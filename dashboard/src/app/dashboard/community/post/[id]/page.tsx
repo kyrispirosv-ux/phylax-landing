@@ -32,7 +32,7 @@ export default function PostDetailPage() {
   if (loading) {
     return (
       <div className="flex justify-center py-12">
-        <div className="w-6 h-6 border-2 border-white/20 border-t-emerald-400 rounded-full animate-spin" />
+        <div className="w-6 h-6 border-2 border-white/25 border-t-emerald-400 rounded-full animate-spin" />
       </div>
     );
   }
@@ -46,12 +46,12 @@ export default function PostDetailPage() {
     gaming: "bg-purple-500/20 text-purple-300",
     content: "bg-amber-500/20 text-amber-300",
     grooming: "bg-rose-500/20 text-rose-300",
-    general: "bg-white/[0.08] text-white/60",
+    general: "bg-white/[0.08] text-white/50",
   };
 
   return (
     <div className="max-w-3xl mx-auto">
-      <Link href="/dashboard/community" className="text-white/40 hover:text-white/60 text-sm mb-4 inline-block transition-colors">
+      <Link href="/dashboard/community" className="text-white/40 hover:text-white/50 text-sm mb-4 inline-block transition-colors">
         &larr; Back to feed
       </Link>
 
@@ -61,19 +61,19 @@ export default function PostDetailPage() {
             {post.category.replace("_", " ")}
           </span>
           <span className="text-white/40 text-xs">{post.author_name}</span>
-          <span className="text-white/20 text-xs">{new Date(post.created_at).toLocaleDateString()}</span>
+          <span className="text-white/25 text-xs">{new Date(post.created_at).toLocaleDateString()}</span>
         </div>
 
         <h1 className="text-xl font-bold text-white mb-3">{post.title}</h1>
-        <p className="text-white/70 text-sm leading-relaxed whitespace-pre-wrap">{post.body}</p>
+        <p className="text-white/60 text-sm leading-relaxed whitespace-pre-wrap">{post.body}</p>
 
         {post.rule_snapshot && post.rule_snapshot.length > 0 && (
           <div className="mt-4 p-3 bg-emerald-500/5 border border-emerald-500/10 rounded-lg">
             <p className="text-emerald-300 text-xs font-medium mb-2">Attached Rules</p>
             <div className="space-y-1">
               {post.rule_snapshot.map((r: any, i: number) => (
-                <div key={i} className="text-sm text-white/60">
-                  {r.text} <span className="text-white/30">({r.scope}{r.target ? ` — ${r.target}` : ""})</span>
+                <div key={i} className="text-sm text-white/50">
+                  {r.text} <span className="text-white/40">({r.scope}{r.target ? ` — ${r.target}` : ""})</span>
                 </div>
               ))}
             </div>
@@ -88,11 +88,11 @@ export default function PostDetailPage() {
             downvotes={post.downvotes}
             userVote={post.user_vote || 0}
           />
-          <span className="text-white/30 text-xs">{post.comment_count} comments</span>
+          <span className="text-white/40 text-xs">{post.comment_count} comments</span>
           <div className="flex-1" />
           <button
             onClick={() => setShowReport(true)}
-            className="text-xs text-white/30 hover:text-rose-400 transition-colors"
+            className="text-xs text-white/40 hover:text-rose-400 transition-colors"
           >
             Report
           </button>
@@ -104,7 +104,7 @@ export default function PostDetailPage() {
                   router.push("/dashboard/community");
                 }
               }}
-              className="text-xs text-white/30 hover:text-rose-400 transition-colors"
+              className="text-xs text-white/40 hover:text-rose-400 transition-colors"
             >
               Delete
             </button>

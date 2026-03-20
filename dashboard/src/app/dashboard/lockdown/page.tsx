@@ -30,7 +30,7 @@ export default function LockdownPage() {
       <div className="bg-white/[0.03] border border-[#7C5CFF]/20 rounded-2xl p-6 mb-6">
         <div className="flex items-center gap-3 mb-4">
           <div className="w-8 h-8 rounded-lg bg-[#7C5CFF]/20 flex items-center justify-center">
-            <span className="text-[#7C5CFF] text-sm">2</span>
+            <span className="text-[#C9A84C] text-sm">2</span>
           </div>
           <h2 className="text-lg font-semibold">Mode 2: Managed Install (Recommended)</h2>
         </div>
@@ -40,7 +40,7 @@ export default function LockdownPage() {
         </p>
 
         {/* Chromebook / Family Link */}
-        <div className="bg-white/[0.02] border border-white/[0.06] rounded-xl p-4 mb-4">
+        <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-4 mb-4">
           <h3 className="text-white/80 text-sm font-medium mb-2">Option A: Chromebook with Family Link</h3>
           <ol className="text-white/40 text-sm space-y-1.5 list-decimal list-inside">
             <li>Open Family Link on your phone or families.google.com</li>
@@ -53,7 +53,7 @@ export default function LockdownPage() {
         </div>
 
         {/* Google Workspace */}
-        <div className="bg-white/[0.02] border border-white/[0.06] rounded-xl p-4 mb-4">
+        <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-4 mb-4">
           <h3 className="text-white/80 text-sm font-medium mb-2">Option B: Google Workspace Admin</h3>
           <ol className="text-white/40 text-sm space-y-1.5 list-decimal list-inside">
             <li>Open admin.google.com</li>
@@ -65,9 +65,9 @@ export default function LockdownPage() {
         </div>
 
         {/* Extension ID */}
-        <div className="bg-white/5 rounded-xl p-4">
+        <div className="bg-white/[0.03] rounded-xl p-4">
           <p className="text-white/40 text-xs font-medium mb-1">Phylax Extension ID</p>
-          <p className="text-white/70 text-sm font-mono">
+          <p className="text-white/60 text-sm font-mono">
             Will be available after Chrome Web Store publication
           </p>
         </div>

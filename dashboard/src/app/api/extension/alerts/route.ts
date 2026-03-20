@@ -1,9 +1,12 @@
 import { NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
+import { authenticateExtension } from "@/lib/extension-auth";
 
 /**
  * POST /api/extension/alerts
  * Extension sends parent alerts (grooming detection, content blocks, etc.)
+ *
+ * Auth: Bearer token (preferred) or device_id fallback.
  */
 export async function POST(request: Request) {
   const body = await request.json();
@@ -20,32 +23,27 @@ export async function POST(request: Request) {
     evidence,
   } = body;
 
-  if (!device_id || !alert_type || !title) {
+  if (!alert_type || !title) {
     return NextResponse.json(
-      { error: "device_id, alert_type, and title required" },
+      { error: "alert_type and title required" },
       { status: 400 },
     );
   }
 
-  const supabase = createServiceClient();
-
-  // Look up the device to get family_id and child_id
-  const { data: device } = await supabase
-    .from("devices")
-    .select("id, child_id, family_id")
-    .eq("id", device_id)
-    .single();
-
-  if (!device) {
-    return NextResponse.json({ error: "Device not found" }, { status: 404 });
+  // Authenticate the extension
+  const auth = await authenticateExtension(request, device_id);
+  if (!auth) {
+    return NextResponse.json({ error: "Unauthorized or device not found" }, { status: 401 });
   }
+
+  const supabase = createServiceClient();
 
   const { data: alert, error } = await supabase
     .from("alerts")
     .insert({
-      family_id: device.family_id,
-      child_id: device.child_id,
-      device_id: device.id,
+      family_id: auth.family_id,
+      child_id: auth.child_id,
+      device_id: auth.device_id,
       alert_type,
       severity: severity ?? "warning",
       title,

@@ -172,10 +172,10 @@ async function consumeToken(db: any, token: any, deviceName?: string, platform?:
     .eq("id", token.child_id)
     .single();
 
-  // Get active rules (policy pack)
+  // Get active rules (policy pack) — include child_id for applies_to field
   const { data: rules } = await db
     .from("rules")
-    .select("id, text, scope, target, active, sort_order")
+    .select("id, text, scope, target, active, sort_order, child_id")
     .eq("family_id", token.family_id)
     .eq("active", true)
     .or(`child_id.is.null,child_id.eq.${token.child_id}`)
@@ -187,12 +187,13 @@ async function consumeToken(db: any, token: any, deviceName?: string, platform?:
     child_id: token.child_id,
     child_name: child?.name ?? "Unknown",
     tier: child?.tier ?? "tween_13",
-    rules: (rules ?? []).map((r: { id: string; text: string; scope: string; target: string | null; sort_order: number }) => ({
+    rules: (rules ?? []).map((r: { id: string; text: string; scope: string; target: string | null; sort_order: number; child_id: string | null }) => ({
       id: r.id,
       text: r.text,
       scope: r.scope,
       target: r.target,
       sort_order: r.sort_order,
+      applies_to: r.child_id ? "child" : "all",
     })),
   };
 

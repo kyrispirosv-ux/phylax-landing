@@ -1,8 +1,10 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useEffect, useCallback, useRef } from "react";
+import { CommunityInsights } from "@/components/dashboard/community-insights";
 
 type Child = { id: string; name: string; tier: string };
 type Device = { id: string; child_id: string; device_name: string; status: string; last_heartbeat: string | null; extension_version: string | null };
@@ -146,11 +148,11 @@ export function LiveDashboard(props: Props) {
 
       {/* ─── Child Selector ─── */}
       {kids.length > 0 && (
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-none">
           <button
             onClick={() => setSelectedChild("")}
-            className={`px-3.5 py-1.5 rounded-full text-[13px] font-medium transition-all ${
-              !selectedChild ? "bg-white/10 text-white" : "text-white/40 hover:text-white/60"
+            className={`px-4 py-2 min-h-[44px] rounded-full text-[13px] font-medium transition-all shrink-0 active:scale-95 ${
+              !selectedChild ? "bg-white/[0.08] text-white" : "text-white/40 hover:text-white/50"
             }`}
           >
             All
@@ -159,8 +161,8 @@ export function LiveDashboard(props: Props) {
             <button
               key={child.id}
               onClick={() => setSelectedChild(child.id)}
-              className={`px-3.5 py-1.5 rounded-full text-[13px] font-medium transition-all ${
-                selectedChild === child.id ? "bg-white/10 text-white" : "text-white/40 hover:text-white/60"
+              className={`px-4 py-2 min-h-[44px] rounded-full text-[13px] font-medium transition-all shrink-0 active:scale-95 ${
+                selectedChild === child.id ? "bg-white/[0.08] text-white" : "text-white/40 hover:text-white/50"
               }`}
             >
               {child.name}
@@ -172,14 +174,10 @@ export function LiveDashboard(props: Props) {
       {/* ═══ ONBOARDING: Pairing Code Card (shown when no devices) ═══ */}
       {devices.length === 0 && (
         <div className="relative overflow-hidden rounded-2xl border border-[#7C5CFF]/30 ring-1 ring-[#7C5CFF]/20 bg-gradient-to-br from-[#7C5CFF]/10 to-[#22D3EE]/5 p-6 sm:p-8">
-          <div className="absolute -top-20 -right-20 w-60 h-60 rounded-full bg-[#7C5CFF] opacity-[0.06] blur-3xl" />
+          <div className="absolute -top-20 -right-20 w-60 h-60 rounded-full bg-[#C9A84C] opacity-[0.06] blur-3xl" />
           <div className="relative">
             <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#7C5CFF] to-[#22D3EE] flex items-center justify-center shadow-lg shadow-purple-500/30">
-                <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m9.07-9.07l4.5-4.5a4.5 4.5 0 016.364 6.364l-1.757 1.757" />
-                </svg>
-              </div>
+              <Image src="/phylax-shield.jpg" alt="Phylax" width={40} height={40} className="rounded-xl shadow-lg shadow-black/40 shrink-0" />
               <div>
                 <h2 className="text-lg font-bold text-white">Connect Your First Device</h2>
                 <p className="text-white/40 text-sm">Enter this code in the Phylax extension to connect this device.</p>
@@ -188,7 +186,7 @@ export function LiveDashboard(props: Props) {
 
             {onboardLoading && (
               <div className="flex items-center gap-2 mt-4">
-                <div className="w-4 h-4 border-2 border-[#7C5CFF]/30 border-t-[#7C5CFF] rounded-full animate-spin" />
+                <div className="w-4 h-4 border-2 border-[#C9A84C]/30 border-t-[#C9A84C] rounded-full animate-spin" />
                 <span className="text-white/40 text-sm">Generating pairing code...</span>
               </div>
             )}
@@ -198,7 +196,7 @@ export function LiveDashboard(props: Props) {
                 <div>
                   <p className="text-white/40 text-xs font-medium mb-2">Your 6-character pairing code:</p>
                   <div className="flex items-center gap-4">
-                    <span className="text-4xl font-mono font-bold tracking-[0.4em] text-white bg-white/5 px-6 py-3 rounded-xl border border-white/10">
+                    <span className="text-4xl font-mono font-bold tracking-[0.4em] text-white bg-white/[0.03] px-6 py-3 rounded-xl border border-white/[0.06]">
                       {onboardCode.short_code}
                     </span>
                     <button
@@ -207,14 +205,14 @@ export function LiveDashboard(props: Props) {
                         setOnboardCopied("code");
                         setTimeout(() => setOnboardCopied(""), 2000);
                       }}
-                      className="px-4 py-2 bg-[#7C5CFF] text-white text-sm font-medium rounded-lg hover:bg-[#7C5CFF]/80 transition"
+                      className="px-4 py-2 bg-[#0A1628] text-white text-sm font-medium rounded-lg hover:bg-[#0A1628]/80 transition"
                     >
                       {onboardCopied === "code" ? "Copied!" : "Copy Code"}
                     </button>
                   </div>
                 </div>
 
-                <div className="flex items-start gap-2 text-white/30 text-xs">
+                <div className="flex items-start gap-2 text-white/40 text-xs">
                   <svg className="w-4 h-4 text-amber-400/70 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
@@ -227,7 +225,7 @@ export function LiveDashboard(props: Props) {
       )}
 
       {/* ═══ 1. HERO STATUS CARD ═══ */}
-      <div className={`relative overflow-hidden rounded-2xl border ${risk.ring} ring-1 bg-gradient-to-br from-white/[0.04] to-white/[0.01] p-6 sm:p-8`}>
+      <div className={`relative overflow-hidden rounded-2xl border ${risk.ring} ring-1 bg-gradient-to-br from-white/[0.03] to-[#0F1320] p-6 sm:p-8`}>
         {/* Ambient glow */}
         <div className={`absolute -top-20 -right-20 w-60 h-60 rounded-full ${risk.bg} opacity-[0.04] blur-3xl`} />
 
@@ -256,7 +254,7 @@ export function LiveDashboard(props: Props) {
           </div>
 
           {/* AI confidence badge */}
-          <div className="flex items-center gap-2 bg-white/[0.05] rounded-xl px-4 py-3 self-start">
+          <div className="flex items-center gap-2 bg-white/[0.03] rounded-xl px-4 py-3 self-start">
             <div className="w-8 h-8 rounded-lg bg-violet-500/20 flex items-center justify-center">
               <svg className="w-4 h-4 text-violet-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456z" />
@@ -281,16 +279,16 @@ export function LiveDashboard(props: Props) {
               <h2 className="text-base font-semibold text-white/80">Live Activity</h2>
               <span className="text-[11px] text-white/25 uppercase tracking-wider">Real-time</span>
             </div>
-            <div className="bg-white/[0.02] rounded-2xl border border-white/[0.05] divide-y divide-white/[0.04]">
+            <div className="bg-white/[0.03] rounded-2xl border border-white/[0.06] divide-y divide-white/[0.04]">
               {filteredEvents.length === 0 ? (
-                <div className="p-8 text-center text-white/30 text-sm">No activity yet. Events appear here in real-time.</div>
+                <div className="p-8 text-center text-white/40 text-sm">No activity yet. Events appear here in real-time.</div>
               ) : (
                 filteredEvents.slice(0, 8).map((evt, i) => {
                   const cfg = EVENT_ICONS[evt.event_type] || EVENT_ICONS.allowed;
                   return (
                     <div
                       key={evt.id}
-                      className="flex items-center gap-3 px-4 py-3.5 hover:bg-white/[0.02] transition-colors group"
+                      className="flex items-center gap-3 px-4 py-3.5 hover:bg-white/[0.03] transition-colors group"
                       style={{ animationDelay: `${i * 50}ms` }}
                     >
                       <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${cfg.color}`}>
@@ -299,7 +297,7 @@ export function LiveDashboard(props: Props) {
                         </svg>
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm text-white/70 truncate">
+                        <p className="text-sm text-white/60 truncate">
                           {evt.event_type === "blocked" ? "Blocked" :
                            evt.event_type === "allowed" ? "Safe browsing" :
                            evt.event_type === "request_access" ? "Access requested" :
@@ -312,14 +310,14 @@ export function LiveDashboard(props: Props) {
                           <p className="text-xs text-white/25 capitalize">{evt.category.replace(/_/g, " ")}</p>
                         )}
                       </div>
-                      <span className="text-[11px] text-white/20 shrink-0">{timeAgo(evt.created_at)}</span>
+                      <span className="text-[11px] text-white/25 shrink-0">{timeAgo(evt.created_at)}</span>
                     </div>
                   );
                 })
               )}
             </div>
             {filteredEvents.length > 8 && (
-              <Link href="/dashboard/reports" className="block mt-2 text-center text-xs text-white/30 hover:text-white/50 transition">
+              <Link href="/dashboard/reports" className="block mt-2 text-center text-xs text-white/40 hover:text-white/50 transition">
                 View all activity
               </Link>
             )}
@@ -328,7 +326,7 @@ export function LiveDashboard(props: Props) {
           {/* ═══ 3. AI INSIGHTS PANEL ═══ */}
           <div>
             <div className="flex items-center gap-2 mb-3">
-              <svg className="w-4 h-4 text-violet-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <svg className="w-4 h-4 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
               </svg>
               <h2 className="text-base font-semibold text-white/80">AI Insights</h2>
@@ -340,13 +338,13 @@ export function LiveDashboard(props: Props) {
                   className={`flex items-start gap-3 rounded-xl px-4 py-3 border ${
                     insight.type === "safe" ? "bg-emerald-500/[0.04] border-emerald-500/10" :
                     insight.type === "warn" ? "bg-amber-500/[0.04] border-amber-500/10" :
-                    "bg-white/[0.02] border-white/[0.05]"
+                    "bg-white/[0.03] border-white/[0.06]"
                   }`}
                 >
                   <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${
                     insight.type === "safe" ? "bg-emerald-400/20 text-emerald-400" :
                     insight.type === "warn" ? "bg-amber-400/20 text-amber-400" :
-                    "bg-white/10 text-white/50"
+                    "bg-white/[0.08] text-white/50"
                   }`}>
                     <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                       {insight.type === "safe" ? (
@@ -358,7 +356,7 @@ export function LiveDashboard(props: Props) {
                       )}
                     </svg>
                   </div>
-                  <p className="text-sm text-white/60 leading-relaxed">{insight.text}</p>
+                  <p className="text-sm text-white/50 leading-relaxed">{insight.text}</p>
                 </div>
               ))}
             </div>
@@ -381,12 +379,12 @@ export function LiveDashboard(props: Props) {
                 <Link
                   key={action.label}
                   href={action.href}
-                  className={`flex flex-col items-center gap-2 rounded-xl p-4 border border-white/[0.05] transition-all ${action.color}`}
+                  className={`flex flex-col items-center justify-center gap-2 rounded-xl p-4 min-h-[80px] border border-white/[0.06] transition-all active:scale-95 ${action.color}`}
                 >
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d={action.icon} />
                   </svg>
-                  <span className="text-xs font-medium text-white/60">{action.label}</span>
+                  <span className="text-xs font-medium text-white/50">{action.label}</span>
                 </Link>
               ))}
             </div>
@@ -395,7 +393,7 @@ export function LiveDashboard(props: Props) {
           {/* ═══ 5. PROTECTION COVERAGE ═══ */}
           <div>
             <h2 className="text-base font-semibold text-white/80 mb-3">Protection Status</h2>
-            <div className="bg-white/[0.02] rounded-2xl border border-white/[0.05] divide-y divide-white/[0.04]">
+            <div className="bg-white/[0.03] rounded-2xl border border-white/[0.06] divide-y divide-white/[0.04]">
               {[
                 { label: "Browser Protected", ok: activeDeviceCount > 0 },
                 { label: "Extension Active", ok: onlineDeviceCount > 0 },
@@ -427,7 +425,7 @@ export function LiveDashboard(props: Props) {
           {/* ═══ 6. WEEKLY SUMMARY ═══ */}
           <div>
             <h2 className="text-base font-semibold text-white/80 mb-3">This Week</h2>
-            <div className="bg-white/[0.02] rounded-2xl border border-white/[0.05] p-5 space-y-4">
+            <div className="bg-white/[0.03] rounded-2xl border border-white/[0.06] p-5 space-y-4">
               {[
                 { label: "Blocked risks", value: weeklyBlocked, color: "text-rose-400" },
                 { label: "Serious alerts", value: alerts.filter(a => a.severity === "critical").length, color: alerts.filter(a => a.severity === "critical").length > 0 ? "text-rose-400" : "text-emerald-400" },
@@ -440,6 +438,9 @@ export function LiveDashboard(props: Props) {
               ))}
             </div>
           </div>
+
+          {/* ═══ 7. COMMUNITY SAFETY INSIGHTS ═══ */}
+          <CommunityInsights />
 
         </div>
       </div>

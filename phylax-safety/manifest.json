@@ -76,6 +76,23 @@
         "content/search-interceptor.js"
       ],
       "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://chat.openai.com/*",
+        "https://chatgpt.com/*",
+        "https://claude.ai/*",
+        "https://gemini.google.com/*",
+        "https://copilot.microsoft.com/*",
+        "https://poe.com/*",
+        "https://perplexity.ai/*"
+      ],
+      "js": [
+        "content/signal-capture.js",
+        "content/llm-observer.js",
+        "enforcement/llm-enforcer.js"
+      ],
+      "run_at": "document_idle"
     }
   ],
   "icons": {

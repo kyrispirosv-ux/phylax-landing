@@ -61,7 +61,7 @@ export function VoteButton({ targetType, targetId, upvotes, downvotes = 0, userV
       <button
         onClick={() => handleVote(1)}
         className={`p-1.5 rounded transition-colors ${
-          vote === 1 ? "text-emerald-400 bg-emerald-400/10" : "text-white/30 hover:text-white/60 hover:bg-white/[0.04]"
+          vote === 1 ? "text-emerald-400 bg-emerald-400/10" : "text-white/40 hover:text-white/50 hover:bg-white/[0.03]"
         }`}
         aria-label="Upvote"
       >
@@ -77,7 +77,7 @@ export function VoteButton({ targetType, targetId, upvotes, downvotes = 0, userV
       <button
         onClick={() => handleVote(-1)}
         className={`p-1.5 rounded transition-colors ${
-          vote === -1 ? "text-rose-400 bg-rose-400/10" : "text-white/30 hover:text-white/60 hover:bg-white/[0.04]"
+          vote === -1 ? "text-rose-400 bg-rose-400/10" : "text-white/40 hover:text-white/50 hover:bg-white/[0.03]"
         }`}
         aria-label="Downvote"
       >

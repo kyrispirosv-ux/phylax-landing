@@ -11,6 +11,6 @@ export default async function Home() {
     redirect("/dashboard");
   }
 
-  // Serve the static landing page for unauthenticated visitors
-  redirect("/landing.html");
+  // Unauthenticated users go to login
+  redirect("/auth/login");
 }

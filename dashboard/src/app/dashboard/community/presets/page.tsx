@@ -35,7 +35,7 @@ export default function PresetsPage() {
             key={t.v}
             onClick={() => setTier(t.v)}
             className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-              tier === t.v ? "bg-white/[0.08] text-white" : "text-white/40 hover:text-white/60"
+              tier === t.v ? "bg-white/[0.08] text-white" : "text-white/40 hover:text-white/50"
             }`}
           >
             {t.l}
@@ -45,7 +45,7 @@ export default function PresetsPage() {
 
       {loading ? (
         <div className="flex justify-center py-12">
-          <div className="w-6 h-6 border-2 border-white/20 border-t-emerald-400 rounded-full animate-spin" />
+          <div className="w-6 h-6 border-2 border-white/25 border-t-emerald-400 rounded-full animate-spin" />
         </div>
       ) : presets.length === 0 ? (
         <p className="text-center text-white/40 text-sm py-12">No presets yet.</p>

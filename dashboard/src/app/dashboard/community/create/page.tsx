@@ -52,7 +52,7 @@ export default function CreatePostPage() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm text-white/60 mb-1.5">Category</label>
+            <label className="block text-sm text-white/50 mb-1.5">Category</label>
             <div className="flex flex-wrap gap-2">
               {CATEGORIES.map((c) => (
                 <button
@@ -62,7 +62,7 @@ export default function CreatePostPage() {
                   className={`px-3 py-1.5 rounded-lg text-sm transition-all ${
                     category === c.value
                       ? "bg-white/[0.08] text-white"
-                      : "bg-white/[0.03] text-white/40 hover:text-white/60"
+                      : "bg-white/[0.03] text-white/40 hover:text-white/50"
                   }`}
                 >
                   {c.label}
@@ -72,23 +72,23 @@ export default function CreatePostPage() {
           </div>
 
           <div>
-            <label className="block text-sm text-white/60 mb-1.5">Title</label>
+            <label className="block text-sm text-white/50 mb-1.5">Title</label>
             <input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="What's on your mind?"
-              className="w-full bg-white/[0.05] border border-white/[0.08] rounded-lg px-4 py-2.5 text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-emerald-500/50"
+              className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-emerald-500/50"
               maxLength={200}
             />
           </div>
 
           <div>
-            <label className="block text-sm text-white/60 mb-1.5">Body</label>
+            <label className="block text-sm text-white/50 mb-1.5">Body</label>
             <textarea
               value={body}
               onChange={(e) => setBody(e.target.value)}
               placeholder="Share your experience, question, or advice..."
-              className="w-full bg-white/[0.05] border border-white/[0.08] rounded-lg px-4 py-3 text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-emerald-500/50 resize-none h-40"
+              className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-emerald-500/50 resize-none h-40"
             />
           </div>
 
@@ -97,10 +97,10 @@ export default function CreatePostPage() {
               type="checkbox"
               checked={isAnonymous}
               onChange={(e) => setIsAnonymous(e.target.checked)}
-              className="rounded border-white/20 bg-white/[0.05]"
+              className="rounded border-white/10 bg-white/[0.03]"
             />
             <span className="text-sm text-white/50">Post anonymously</span>
-            <span className="text-xs text-white/30">(your name won&apos;t be shown)</span>
+            <span className="text-xs text-white/40">(your name won&apos;t be shown)</span>
           </label>
 
           {error && <p className="text-rose-400 text-sm">{error}</p>}
@@ -109,7 +109,7 @@ export default function CreatePostPage() {
             <button
               type="button"
               onClick={() => router.back()}
-              className="px-4 py-2.5 text-sm text-white/40 hover:text-white/60 transition-colors"
+              className="px-4 py-2.5 text-sm text-white/40 hover:text-white/50 transition-colors"
             >
               Cancel
             </button>

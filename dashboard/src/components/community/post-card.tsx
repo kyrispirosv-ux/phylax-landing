@@ -6,7 +6,7 @@ const CATEGORY_COLORS: Record<string, string> = {
   gaming: "bg-purple-500/20 text-purple-300",
   content: "bg-amber-500/20 text-amber-300",
   grooming: "bg-rose-500/20 text-rose-300",
-  general: "bg-white/[0.08] text-white/60",
+  general: "bg-white/[0.08] text-white/50",
 };
 
 type PostCardProps = {
@@ -32,7 +32,7 @@ export function PostCard({
   const categoryColor = CATEGORY_COLORS[category] || CATEGORY_COLORS.general;
 
   return (
-    <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-4 hover:bg-white/[0.05] transition-colors">
+    <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-4 hover:bg-white/[0.03] transition-colors">
       <div className="flex gap-3">
         <VoteButton
           targetType="post"
@@ -46,10 +46,10 @@ export function PostCard({
             <span className={`px-2 py-0.5 rounded text-[11px] font-medium ${categoryColor}`}>
               {category.replace("_", " ")}
             </span>
-            <span className="text-white/30 text-xs">
+            <span className="text-white/40 text-xs">
               {is_anonymous ? "A Phylax Parent" : author_name}
             </span>
-            <span className="text-white/20 text-xs">{timeAgo}</span>
+            <span className="text-white/25 text-xs">{timeAgo}</span>
           </div>
 
           <Link href={`/dashboard/community/post/${id}`} className="block group">
@@ -67,7 +67,7 @@ export function PostCard({
                 </span>
               ))}
               {rule_snapshot.length > 3 && (
-                <span className="text-white/30 text-[11px]">+{rule_snapshot.length - 3} more</span>
+                <span className="text-white/40 text-[11px]">+{rule_snapshot.length - 3} more</span>
               )}
             </div>
           )}
@@ -75,7 +75,7 @@ export function PostCard({
           <div className="flex items-center gap-3 mt-2.5">
             <Link
               href={`/dashboard/community/post/${id}`}
-              className="flex items-center gap-1.5 text-white/30 hover:text-white/60 text-xs transition-colors"
+              className="flex items-center gap-1.5 text-white/40 hover:text-white/50 text-xs transition-colors"
             >
               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 20.25c4.97 0 9-3.694 9-8.25s-4.03-8.25-9-8.25S3 7.444 3 12c0 2.104.859 4.023 2.273 5.48.432.447.74 1.04.586 1.641a4.483 4.483 0 01-.923 1.785A5.969 5.969 0 006 21c1.282 0 2.47-.402 3.445-1.087.81.22 1.668.337 2.555.337z" />

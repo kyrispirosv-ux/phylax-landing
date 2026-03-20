@@ -113,7 +113,7 @@ export type Database = {
           text: string;
           scope: "site" | "content" | "llm";
           target: string | null;
-          llm_platform: "all" | "chatgpt" | "claude" | "gemini" | null;
+          llm_platform: "all" | "chatgpt" | "claude" | "gemini" | "grok" | null;
           llm_category: "topic_block" | "capability_block" | "persona_block" | null;
           active: boolean;
           sort_order: number;
@@ -128,7 +128,7 @@ export type Database = {
           text: string;
           scope?: "site" | "content" | "llm";
           target?: string | null;
-          llm_platform?: "all" | "chatgpt" | "claude" | "gemini" | null;
+          llm_platform?: "all" | "chatgpt" | "claude" | "gemini" | "grok" | null;
           llm_category?: "topic_block" | "capability_block" | "persona_block" | null;
           active?: boolean;
           sort_order?: number;
@@ -138,7 +138,7 @@ export type Database = {
           text?: string;
           scope?: "site" | "content" | "llm";
           target?: string | null;
-          llm_platform?: "all" | "chatgpt" | "claude" | "gemini" | null;
+          llm_platform?: "all" | "chatgpt" | "claude" | "gemini" | "grok" | null;
           llm_category?: "topic_block" | "capability_block" | "persona_block" | null;
           active?: boolean;
           sort_order?: number;

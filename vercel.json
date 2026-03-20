@@ -5,6 +5,65 @@
       "source": "/landing.html",
       "destination": "/",
       "permanent": true
+    },
+    {
+      "source": "/dashboard/:path*",
+      "destination": "https://app.phylax.ai/dashboard/:path*",
+      "permanent": false
+    },
+    {
+      "source": "/activity",
+      "destination": "https://app.phylax.ai/activity",
+      "permanent": false
+    },
+    {
+      "source": "/devices",
+      "destination": "https://app.phylax.ai/devices",
+      "permanent": false
+    },
+    {
+      "source": "/rules",
+      "destination": "https://app.phylax.ai/rules",
+      "permanent": false
+    },
+    {
+      "source": "/settings",
+      "destination": "https://app.phylax.ai/settings",
+      "permanent": false
+    },
+    {
+      "source": "/onboarding",
+      "destination": "https://app.phylax.ai/onboarding",
+      "permanent": false
+    },
+    {
+      "source": "/login",
+      "destination": "https://app.phylax.ai/auth/login",
+      "permanent": false
+    },
+    {
+      "source": "/signup",
+      "destination": "https://app.phylax.ai/auth/signup",
+      "permanent": false
+    }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        }
+      ]
     }
   ]
 }

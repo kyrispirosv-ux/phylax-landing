@@ -39,7 +39,7 @@ export function ReportModal({ targetType, targetId, onClose }: Props) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
-      <div className="bg-[#0F1320] border border-white/[0.08] rounded-2xl p-6 w-full max-w-md mx-4" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-[#0F1320] border border-white/[0.06] rounded-2xl p-6 w-full max-w-md mx-4" onClick={(e) => e.stopPropagation()}>
         {done ? (
           <div className="text-center py-4">
             <p className="text-white font-medium">Report submitted</p>
@@ -57,7 +57,7 @@ export function ReportModal({ targetType, targetId, onClose }: Props) {
                   key={r}
                   onClick={() => setReason(r)}
                   className={`w-full text-left px-4 py-2.5 rounded-lg text-sm transition-colors ${
-                    reason === r ? "bg-white/[0.08] text-white" : "text-white/50 hover:bg-white/[0.04]"
+                    reason === r ? "bg-white/[0.08] text-white" : "text-white/50 hover:bg-white/[0.03]"
                   }`}
                 >
                   {r}
@@ -69,11 +69,11 @@ export function ReportModal({ targetType, targetId, onClose }: Props) {
                 value={custom}
                 onChange={(e) => setCustom(e.target.value)}
                 placeholder="Describe the issue..."
-                className="w-full bg-white/[0.05] border border-white/[0.08] rounded-lg px-4 py-2.5 text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-emerald-500/50 mb-4 resize-none h-20"
+                className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-emerald-500/50 mb-4 resize-none h-20"
               />
             )}
             <div className="flex gap-2 justify-end">
-              <button onClick={onClose} className="px-4 py-2 text-sm text-white/40 hover:text-white/60 transition-colors">Cancel</button>
+              <button onClick={onClose} className="px-4 py-2 text-sm text-white/40 hover:text-white/50 transition-colors">Cancel</button>
               <button
                 onClick={handleSubmit}
                 disabled={!reason || (reason === "Other" && !custom.trim()) || submitting}

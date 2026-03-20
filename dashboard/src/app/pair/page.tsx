@@ -39,7 +39,7 @@ export default function PairPage() {
 
         <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-5 mb-4">
           <div className="flex items-center gap-3 mb-3">
-            <div className="w-7 h-7 rounded-full bg-[#7C5CFF] flex items-center justify-center text-xs font-bold">1</div>
+            <div className="w-7 h-7 rounded-full bg-gradient-to-r from-[#7C5CFF] to-[#7C5CFF]/80 flex items-center justify-center text-xs font-bold text-white">1</div>
             <h2 className="font-semibold">Install the Phylax Extension</h2>
           </div>
           <p className="text-white/40 text-sm mb-3">Click below to install from the Chrome Web Store.</p>
@@ -47,7 +47,7 @@ export default function PairPage() {
             href="https://chromewebstore.google.com"
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-block px-5 py-2.5 bg-[#7C5CFF] text-white text-sm font-medium rounded-xl hover:bg-[#7C5CFF]/90 transition"
+            className="inline-block px-5 py-2.5 bg-gradient-to-r from-[#7C5CFF] to-[#7C5CFF]/80 text-white text-sm font-medium rounded-xl hover:opacity-90 transition"
           >
             Install Phylax Extension
           </a>
@@ -55,7 +55,7 @@ export default function PairPage() {
 
         <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-5 mb-4">
           <div className="flex items-center gap-3 mb-3">
-            <div className="w-7 h-7 rounded-full bg-[#7C5CFF]/50 flex items-center justify-center text-xs font-bold">2</div>
+            <div className="w-7 h-7 rounded-full bg-[#7C5CFF]/50 flex items-center justify-center text-xs font-bold text-white">2</div>
             <h2 className="font-semibold">Automatic Pairing</h2>
           </div>
           <p className="text-white/40 text-sm">
@@ -68,7 +68,7 @@ export default function PairPage() {
 
         <button
           onClick={() => setShowManual(!showManual)}
-          className="text-white/30 text-xs hover:text-white/50 transition mb-4"
+          className="text-white/40 text-xs hover:text-white/50 transition mb-4"
         >
           {showManual ? "Hide manual pairing" : "Having trouble? Try manual pairing"}
         </button>

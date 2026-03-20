@@ -26,14 +26,14 @@ export function PresetCard({
   return (
     <Link
       href={`/dashboard/community/presets/${id}`}
-      className="block bg-white/[0.03] border border-white/[0.06] rounded-xl p-4 hover:bg-white/[0.05] transition-colors"
+      className="block bg-white/[0.03] border border-white/[0.06] rounded-xl p-4 hover:bg-white/[0.03] transition-colors"
     >
       <div className="flex items-start justify-between mb-2">
         <div>
           <h3 className="text-white font-medium text-[15px]">{name}</h3>
           <p className="text-white/40 text-xs mt-0.5">by {author_name}</p>
         </div>
-        <span className="px-2 py-0.5 rounded bg-white/[0.06] text-white/50 text-[11px] font-medium">
+        <span className="px-2 py-0.5 rounded bg-white/[0.08] text-white/50 text-[11px] font-medium">
           {TIER_LABELS[tier] || age_range || tier}
         </span>
       </div>
@@ -49,7 +49,7 @@ export function PresetCard({
           </span>
         ))}
         {rules.length > 4 && (
-          <span className="text-white/30 text-[11px] self-center">+{rules.length - 4} more</span>
+          <span className="text-white/40 text-[11px] self-center">+{rules.length - 4} more</span>
         )}
       </div>
 
