@@ -2,9 +2,9 @@ import Link from "next/link";
 import { Shield, Lock, Check, ArrowRight, PlayCircle, Smartphone, Download, Globe, Monitor, Bell, Settings, Puzzle, KeyRound, ShieldCheck } from "lucide-react";
 import { GreekKeyLogo } from "@/components/GreekKeyLogo";
 
-const DASHBOARD_URL = "https://app.phylax.ai";
-const SIGNUP_URL = `${DASHBOARD_URL}/signup`;
-const LOGIN_URL = `${DASHBOARD_URL}/login`;
+const DASHBOARD_URL = "https://app.phylaxsafety.com";
+const SIGNUP_URL = `${DASHBOARD_URL}/auth/signup`;
+const LOGIN_URL = `${DASHBOARD_URL}/auth/login`;
 
 export default function Home() {
   return (
