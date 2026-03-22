@@ -1,4 +1,6 @@
 import { getApiBase, getAuthToken, getDeviceId, updateConfig, getProfileTier } from './auth';
+import { updatePolicy } from '../safety/pipeline-runner';
+import { updateBlockedDomains } from '../safety/request-interceptor';
 
 const SYNC_INTERVAL_MS = 5 * 60 * 1000;
 const HEARTBEAT_INTERVAL_MS = 60 * 1000;
@@ -32,8 +34,10 @@ export async function syncPolicy() {
     const data = await apiFetch(`/api/extension/sync?device_id=${deviceId}`);
 
     if (data.rules) {
-      // Will be wired to updatePolicy when pipeline-runner is integrated
-      console.log('[Phylax Sync] Rules received:', data.rules.length);
+      updatePolicy(data.rules, getProfileTier());
+      if (data.rules.blockedDomains) {
+        updateBlockedDomains(data.rules.blockedDomains);
+      }
     }
     if (data.profile_tier) {
       updateConfig({ profileTier: data.profile_tier });

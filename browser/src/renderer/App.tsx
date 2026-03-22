@@ -35,17 +35,17 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    const handler = (_event: any, config: LockdownConfig) => setLockdownConfig(config);
+    const handler = (config: LockdownConfig) => setLockdownConfig(config);
     window.electronAPI?.onLockdownConfig?.(handler);
   }, []);
 
   useEffect(() => {
-    const handler = (_event: any, action: string) => setPasswordAction(action);
+    const handler = (action: string) => setPasswordAction(action);
     window.electronAPI?.onRequestPassword?.(handler);
   }, []);
 
   useEffect(() => {
-    const handler = (_event: any, status: 'safe' | 'blocked' | 'monitoring') => setShieldStatus(status);
+    const handler = (status: 'safe' | 'blocked' | 'monitoring') => setShieldStatus(status);
     window.electronAPI?.onShieldStatus?.(handler);
   }, []);
 

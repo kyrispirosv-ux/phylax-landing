@@ -7,11 +7,12 @@ import { buildMenu } from './menu';
 import { initSafetyEngine, registerSafetyIpc } from './safety/pipeline-runner';
 import { setupRequestInterception } from './safety/request-interceptor';
 import { loadContentScripts, injectContentScripts } from './safety/content-injector';
-import { startSync } from './sync/backend-sync';
+import { startSync, stopSync } from './sync/backend-sync';
 import { loadConfig, isPaired } from './sync/auth';
 import { checkEmbeddedPairing, registerPairingIpc } from './sync/pairing';
 import { applyLockdown, registerLockdownIpc } from './lockdown/parental-lock';
-import { startBrowserDetection } from './lockdown/browser-detector';
+import { startBrowserDetection, stopBrowserDetection } from './lockdown/browser-detector';
+import { chromeStorageShim, chromeRuntimeShim } from './safety/bridge';
 import { AgeTier, getLockdownConfig } from './lockdown/age-modes';
 
 let mainWindow: BrowserWindow | null = null;
@@ -39,6 +40,16 @@ async function createWindow() {
   registerPairingIpc();
   registerLockdownIpc(mainWindow);
   buildMenu();
+
+  // Wire chrome.* shims so engine JS files can use chrome.storage/runtime
+  (globalThis as any).chrome = {
+    storage: {
+      local: chromeStorageShim.local,
+      session: chromeStorageShim.local, // engine uses session too
+      onChanged: { addListener: () => {}, removeListener: () => {} },
+    },
+    runtime: chromeRuntimeShim,
+  };
 
   // Initialize safety engine
   await initSafetyEngine();
@@ -91,6 +102,11 @@ async function createWindow() {
 }
 
 app.whenReady().then(createWindow);
+
+app.on('before-quit', () => {
+  stopSync();
+  stopBrowserDetection();
+});
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();

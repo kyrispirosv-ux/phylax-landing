@@ -1,4 +1,5 @@
 import { ipcMain, WebContents } from 'electron';
+import { isPaired, loadConfig, getProfileTier } from '../sync/auth';
 
 let evaluate: any;
 let compileToPolicyObject: any;
@@ -71,8 +72,7 @@ export function registerSafetyIpc() {
   });
 
   ipcMain.handle('safety:check-paired', async () => {
-    // Will be properly wired when auth module is created
-    return { paired: false };
+    return { paired: isPaired(), tier: getProfileTier() };
   });
 
   ipcMain.on('safety:confirmed-close', () => {

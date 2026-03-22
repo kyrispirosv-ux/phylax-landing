@@ -49,5 +49,12 @@ export function useTabs() {
     return () => window.electronAPI?.offTabUpdate();
   }, [updateTab]);
 
+  useEffect(() => {
+    window.electronAPI?.onTabCreated?.((tabId: string, url: string) => {
+      setTabs(prev => [...prev, { id: tabId, title: 'Loading...', url, isLoading: true, canGoBack: false, canGoForward: false, loading: true }]);
+      setActiveTab(tabId);
+    });
+  }, []);
+
   return { tabs, activeTabId, addTab, closeTab, setActiveTab, updateTab };
 }

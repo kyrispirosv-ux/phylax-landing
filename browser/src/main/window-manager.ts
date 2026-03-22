@@ -57,6 +57,24 @@ export class WindowManager {
       }
     });
 
+    // Block protocol bypass via navigation
+    wc.on('will-navigate', (event, url) => {
+      const blocked = ['chrome:', 'about:', 'file:', 'javascript:'];
+      if (blocked.some(p => url.toLowerCase().startsWith(p))) {
+        event.preventDefault();
+      }
+    });
+
+    // Block DevTools
+    wc.on('devtools-opened', () => {
+      wc.closeDevTools();
+    });
+
+    // Block context menu
+    wc.on('context-menu', (event) => {
+      event.preventDefault();
+    });
+
     // Register content injection listeners BEFORE loadURL to avoid race condition
     if (this.onTabCreated) {
       this.onTabCreated(tabId, wc);
