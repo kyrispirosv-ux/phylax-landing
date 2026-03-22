@@ -157,6 +157,29 @@ The backend doesn't know or care whether the client is a Chrome extension or an 
 - No extension installation
 - `will-navigate` prevents navigating to `chrome://`, `about:`, etc.
 
+### Auto-restrict other browsers (installer sets up automatically)
+
+During installation (parent enters admin password once), Phylax automatically:
+
+**Mac:**
+- Installs a macOS configuration profile (`.mobileconfig`) that restricts app launches to a whitelist (Phylax Browser + parent-approved apps)
+- Uses `profiles` CLI tool to install the profile with admin elevation
+- Parent can manage the whitelist from the dashboard
+
+**Windows:**
+- Configures AppLocker / Software Restriction Policies via PowerShell to block known browser executables (chrome.exe, firefox.exe, msedge.exe, brave.exe, opera.exe)
+- Registers policies during install with admin elevation
+- Parent can manage exceptions from the dashboard
+
+### Auto-detect other browsers
+
+The Electron main process continuously monitors for bypass attempts:
+
+- **File system watch**: Monitors `/Applications` (Mac) and `Program Files` (Windows) for new browser installations using `fs.watch`
+- **Process scanning**: Periodically checks running processes for known browser executables
+- **Instant alerts**: If another browser is detected (installed or running), immediately alerts the parent via POST `/api/extension/alerts`
+- **Dashboard notification**: Parent sees "Chrome was installed on [child]'s device" with option to remotely block it
+
 ## Platforms
 
 - **Mac**: `.dmg` installer, Apple Silicon + Intel universal binary
@@ -186,6 +209,8 @@ phylax-landing/
         lockdown/
           parental-lock.ts    # Close prevention, password gate
           age-modes.ts        # Lockdown mode per age tier
+          app-restrictor.ts   # OS-level app restriction (mobileconfig / AppLocker)
+          browser-detector.ts # Monitor for other browser installs/processes
       preload/
         preload.ts            # IPC bridge for content scripts
       renderer/
@@ -218,6 +243,8 @@ phylax-landing/
 - Parent-configurable lockdown modes (Full, Monitored, Light)
 - Can't uninstall without admin password
 - Can't disable protections
+- Auto-restrict other browsers via OS-level policies (set up during install)
+- Auto-detect other browser installations and alert parent
 - Mac + Windows builds
 
 ### Out of scope (future)
