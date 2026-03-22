@@ -1,0 +1,36 @@
+appId: com.phylax.browser
+productName: Phylax Browser
+directories:
+  output: release
+  buildResources: assets
+files:
+  - dist/**/*
+  - src/content/**/*
+  - src/engine/**/*
+  - src/enforcement/**/*
+  - assets/**/*
+mac:
+  category: public.app-category.utilities
+  icon: assets/icons/icon.icns
+  target:
+    - dmg
+    - zip
+  hardenedRuntime: true
+  arch:
+    - universal
+win:
+  icon: assets/icons/icon.ico
+  target:
+    - nsis
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: false
+  perMachine: true
+dmg:
+  contents:
+    - x: 130
+      y: 220
+    - x: 410
+      y: 220
+      type: link
+      path: /Applications
